@@ -14,5 +14,9 @@
     "pagelets"
   ],
   "author": "Arnout Kazemier <info@3rd-Eden.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "engine.io": "0.2.x",
+    "extendable": "0.0.x"
+  }
 }
