@@ -1,7 +1,10 @@
 'use strict';
 
-var Page, Pagelet, Instance, Store;
+var Page, Pagelet, Instance, Store, PageLets;
 
+/**
+ * Creating a page that hosts different pagelets
+ */
 var x = Page.extend({
     path: /safsdfa/
   , method: 'GET'
@@ -37,3 +40,21 @@ var p = Pagelet.extend({
 
     }
 });
+
+/**
+ * Attaching it to a server, for example express:
+ */
+var express = require('express')
+  , app = express()
+  , server = require('http').createServer(app);
+
+var middleware = require('pagelets').attach(server, {
+  pages: '/path'
+, pages: [
+    x, x, x, x
+  ]
+});
+
+app.use(express.bodyParser());
+app.use(express.csrf());
+app.use(middleware);

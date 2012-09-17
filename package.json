@@ -17,6 +17,10 @@
   "license": "MIT",
   "dependencies": {
     "engine.io": "0.2.x",
-    "extendable": "0.0.x"
+    "extendable": "0.0.x",
+    "expirable": "0.0.x",
+    "routable": "0.0.x",
+    "eventemitter2": "0.4.x",
+    "async": "0.1.x"
   }
 }
