@@ -16,12 +16,14 @@
   "author": "Arnout Kazemier <info@3rd-Eden.com>",
   "license": "MIT",
   "dependencies": {
-    "engine.io": "0.2.x",
-    "extendable": "0.0.x",
-    "expirable": "0.0.x",
-    "routable": "0.0.x",
-    "eventemitter2": "0.4.x",
     "async": "0.1.x",
-    "square": "git://github.com/observing/square.git#development"
+    "engine.io": "0.2.x",
+    "eventemitter2": "0.4.x",
+    "expirable": "0.0.x",
+    "extendable": "0.0.x",
+    "lodash": "0.7.x",
+    "routable": "0.0.x",
+    "square": "git://github.com/observing/square.git#development",
+    "xregexp": "2.0.x"
   }
 }
