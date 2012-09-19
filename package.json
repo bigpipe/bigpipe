@@ -21,6 +21,7 @@
     "expirable": "0.0.x",
     "routable": "0.0.x",
     "eventemitter2": "0.4.x",
-    "async": "0.1.x"
+    "async": "0.1.x",
+    "square": "git://github.com/observing/square.git#development"
   }
 }
