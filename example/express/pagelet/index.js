@@ -13,10 +13,10 @@ module.exports = Pagelet.extend({
 
     // client side assets
   , assets: {
-        './pagelet.styl': {
+        './pagelet/pagelet.styl': {
             'description': 'The default location of the CSS for this pagelet'
         }
-      , './pagelet.js': {
+      , './pagelet/pagelet.js': {
             'description': 'The default location of the JavaScript'
         }
     }

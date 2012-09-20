@@ -3,7 +3,7 @@
 var Page = require('../../../').Page;
 
 module.exports = Page.extend({
-    path: '/'
+    path: '/foo'
   , method: 'GET'
 
     // The pagelets of the page
@@ -18,7 +18,7 @@ module.exports = Page.extend({
 });
 
 /**
- * API resource
+ * API resource.
  */
 function api(data, callback) {
   setTimeout(function () {
