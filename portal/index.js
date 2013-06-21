@@ -63,12 +63,13 @@ Portal.prototype.parsers = function parsers(type) {
 /**
  * Generate a front-end library.
  *
- * @param {Function} fn Completion callback.
+ * @returns {String} The client side library.
  * @api public
  */
-Portal.prototype.library = function library(fn) {
+Portal.prototype.library = function compile() {
   var encoder = this.encoder.client || this.encoder
     , decoder = this.decoder.client || this.decoder
+    , library = this.transporter.library || ''
     , transport = this.transporter.client
     , client = this.client;
 
@@ -76,10 +77,12 @@ Portal.prototype.library = function library(fn) {
   // Replace some basic content.
   //
   client = client
+    .replace('= null; // @import {portal::version}', '"'+ this.version +'"')
     .replace('= null; // @import {portal::transport}', transport.toString())
     .replace('= null; // @import {portal::encoder}', encoder.toString())
     .replace('= null; // @import {portal::decoder}', decoder.toString())
-    .replace('= null; // @import {portal::version}', '"'+ this.version +'"');
+    .replace('= null; // @import {portal::pathname}', this.pathname)
+    .replace('/* {portal::library} */', library);
 
-  fn(undefined, client);
+  return client;
 };
