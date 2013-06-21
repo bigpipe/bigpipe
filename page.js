@@ -10,10 +10,11 @@ var Pagelet = require('./pagelet');
 function Page(pipe, options) {
   options = options || {};
 
-  this.pipe = pipe;                         // Pipe wrapper
+  this.pipe = pipe;                         // Pipe wrapper.
   this.connections = Object.create(null);   // Stores active real-time connections.
   this.conditional = [];                    // Pagelets that are conditional.
-  this.configure(options);
+  this.disabled = {};                       // Disabled pagelets.
+  this.enabled = {};                        // Enabled pagelets.
 
   //
   // Don't allow any further extensions of the object. This improves performance
@@ -69,6 +70,8 @@ Page.prototype.pagelets = {};
  * List of resources that can be used by the pagelets.
  *
  * @type {object}
+ */
+Page.prototype.resources = {};
 
 /**
  * Expose our async flow control library.
@@ -79,32 +82,16 @@ Page.prototype.pagelets = {};
 Page.prototype.async = require('async');
 
 /**
- * Configure the page.
+ * Load all the pagelets.
  *
  * @api private
  */
-Page.prototype.configure = function initialise() {
-  //
-  // Parse the methods to an array of accepted HTTP methods. We'll only accept
-  // there requests and should deny every other possible method.
-  //
-  if (!Array.isArray(this.method)) this.method = this.method.split(/[\s,]+?/);
-  this.method = this.method.filter(Boolean).map(function transformation(method) {
-    return method.toUpperCase();
-  });
-
-  //
-  // Transform the path in to a proper route.
-  //
-  this.path = new Route(this.path);
-};
-
 Page.prototype.require = function loading(pagelets) {
 
 };
 
 //
-// Make's the Page extendable
+// Make's the Page extendable.
 //
 Page.extend = require('extendable');
 
