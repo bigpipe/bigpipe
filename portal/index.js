@@ -1,5 +1,7 @@
 'use strict';
 
+var Stream = require('./stream');
+
 /**
  * Portal is a unversal wrapper for real-time frameworks that provides a common
  * interface for server and client interaction.
@@ -19,8 +21,13 @@ function Portal(server, options) {
   this.server = server;
   this.parsers(options.parser);
   this.pathname = options.pathname || '/portal';
+  this.Stream = Stream.bind(Stream, this);
+  this.connections = Object.create(null);
+
   this.initialiase(options.transport);
 }
+
+Portal.prototype.__proto__ = require('events').EventEmitter;
 
 //
 // Lazy read the Portal.js JavaScript client.
@@ -43,8 +50,24 @@ Portal.prototype.version = require('./package.json');
  * @api private
  */
 Portal.prototype.initialise = function initialise(transport) {
-  this.transporter = require('./transporters/'+ (transport || 'ws').toLowerCase());
+  var Transporter = require('./transporters/'+ (transport || 'ws').toLowerCase());
+
+  this.transporter = new Transporter();
   this.transporter.using(this);
+};
+
+/**
+ * Iterate over the connections.
+ *
+ * @param {Function} fn
+ * @api public
+ */
+Portal.prototype.forEach = function forEach(fn) {
+  for (var stream in this.connections) {
+    fn(this.connections[stream], stream);
+  }
+
+  return this;
 };
 
 /**

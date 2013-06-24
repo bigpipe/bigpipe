@@ -10,11 +10,35 @@
    * @param {String} url The url of your server.
    */
   function Portal(url) {
+    if (!(this instanceof Portal)) return new Portal(url);
+
     this.events = {};
     this.url = this.parse(url);
-    this.initialise();
-    this.connect();
+
+    this.initialise().connect();
   }
+
+  /**
+   * Initialise the portal and setup all parsers and internal listeners.
+   *
+   * @api private
+   */
+  Portal.prototype.initialise = function initalise() {
+    var portal = this;
+
+    this.on('portal::data', function message(data) {
+      portal.decoder(data, function decoding(err, packet) {
+        //
+        // Do a "save" emit('error') when we fail to parse a message. We don't
+        // want to throw here as listening to errors should be optional.
+        //
+        if (err) return portal.listeners('error').length && socket.emit('error', err);
+        portal.emit('data', packet);
+      });
+    });
+
+    return this;
+  };
 
   /**
    * Establish a connection with the server.
@@ -113,7 +137,7 @@
       // mobile devices.
       //
       setTimeout(function timeout() {
-        portal.emit(event, data);
+        portal.emit('portal::'+ event, data);
       }, 0);
     };
   };
@@ -122,7 +146,7 @@
   // These libraries are automatically are automatically inserted at the
   // serverside using the Portal#library method.
   //
-  Portal.prototype.initialise = null; // @import {portal::transport};
+  Portal.prototype.client = null; // @import {portal::transport};
   Portal.prototype.pathname = null; // @import {portal::pathname};
   Portal.prototype.encoder = null; // @import {portal::encoder};
   Portal.prototype.decoder = null; // @import {portal::decoder};
