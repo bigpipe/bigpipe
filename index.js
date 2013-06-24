@@ -14,14 +14,21 @@ function Pipe(server, pages, options) {
   this.stream = options.stream || process.stdout;   // Our log stream.
   this.pages = this.require(pages);                 // Our Page constructors.
   this.discover(this.pages);                        // Find error pages.
+  this.cache = options.cache || null;               // Enable URL lookup caching.
 
   //
   // Now that everything is procesed, we can setup our server.
   //
   this.server = server;
   this.portal = new Portal(this.server, {
-    using: options.transport || 'engine.io'
+    using: options.transport || 'engine.io',
+    parser: options.parser || 'json'
   });
+
+  //
+  // Start listening for incoming requests.
+  //
+  this.server.on('request', this.incoming.bind(this));
 }
 
 Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
@@ -134,3 +141,43 @@ Pipe.prototype.transform = function transform(page) {
 
   return page;
 };
+
+/**
+ * Find the correct Page constructor based on the given url.
+ *
+ * @param {String} url The url we need to find.
+ * @returns {Mixed} either a Page constructor or undefined;
+ * @api public
+ */
+Pipe.prototype.find = function find(url) {
+  if (this.cache && url in this.cache) return this.cache[url];
+
+  for (var i = 0, found, length = this.pages.length; i < length; i++) {
+    if (this.pages[i].router.test(url)) {
+
+      if (this.cache) this.cache[url] = this.pages[i];
+      return this.pages[i];
+    }
+  }
+
+  return undefined;
+};
+
+/**
+ * Handle incoming requests.
+ *
+ * @param {Request} req HTTP request.
+ * @param {Resposne} res HTTP response.
+ * @api private
+ */
+Pipe.prototype.incoming = function incoming(req, res) {
+  var page = this.find(page);
+
+  // example api:
+  // this.post(req)(this.create(page))(this.querystring(req, page))
+};
+
+//
+// Expose the constructor.
+//
+module.exports = Pipe;
