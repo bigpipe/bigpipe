@@ -12,7 +12,8 @@
   function Portal(url) {
     if (!(this instanceof Portal)) return new Portal(url);
 
-    this.events = {};
+    this.events = {};             // Stores the events.
+    this.backoff = {};            // Stores the backoff configuration.
     this.url = this.parse(url);
 
     this.initialise().connect();
@@ -37,6 +38,16 @@
       });
     });
 
+    this.on('portal::end', function end() {
+      this.reconnect(function (fail, backoff) {
+        portal.backoff = backoff; // Save the opts again of this backoff.
+        if (fail) return self.emit('end', fail);
+
+        // Try to re-open the connection again.
+        portal.emit('portal::reconnect');
+      }, portal.backoff);
+    });
+
     return this;
   };
 
@@ -47,6 +58,60 @@
    */
   Portal.prototype.connect = function connect() {
     this.emit('portal::connect', this.uri());
+  };
+
+  /**
+   * Close the connection.
+   *
+   * @api public
+   */
+  Portal.prototype.end = function end() {
+
+  };
+
+  /**
+   * Exponential backoff algorithm for retry aperations. It uses an randomized
+   * retry so we don't DDOS our server when it goes down under presure.
+   *
+   * @param {Function} callback Callback to be called after the timeout.
+   * @param {Object} opts Options for configuring the timeout.
+   * @api private
+   */
+  Portal.prototype.backoff = function backoff(callback, opts) {
+    opts = opts || {};
+
+    opts.maxDelay = opts.maxDelay || Infinity;  // Maximum delay
+    opts.minDelay = opts.minDelay || 500;       // Minimum delay
+    opts.retries = opts.retries || 25;          // Amount of allowed retries
+    opts.attempt = (+opts.attempt || 0) + 1;    // Current attempt
+    opts.factor = opts.factor || 2;             // Backoff factor
+
+    // Bailout if we are about to make to much attempts. Please note that we use
+    // `>` because we already incremented the value above.
+    if (opts.attempt > opts.retries || opts.backoff) {
+      return callback(new Error('Unable to retry'), opts);
+    }
+
+    // Prevent duplicate backoff attempts.
+    opts.backoff = true;
+
+    // Calculate the timeout, but make it randomly so we don't retry connections
+    // at the same interval and defeat the purpose. This exponential backoff is
+    // based on the work of:
+    //
+    // http://dthain.blogspot.nl/2009/02/exponential-backoff-in-distributed.html
+    opts.timeout = opts.attempt !== 1
+      ? Math.min(Math.round(
+          (Math.random() * 1) * opts.minDelay * Math.pow(opts.factor, opts.attempt)
+        ), opts.maxDelay)
+      : opts.minDelay;
+
+    setTimeout(function delay() {
+      opts.backoff = false;
+      callback(undefined, opts);
+    }, opts.timeout);
+
+    return this;
   };
 
   /**
