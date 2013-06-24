@@ -8,28 +8,32 @@
  * @api private
  */
 function server() {
-  var WebSocketServer = require('ws').Server
+  var Engine = require('engine.io').Server
     , Stream = this.Stream
     , portal = this.portal;
 
-  this.service = new WebSocketServer({ noServer: true });
+  this.service = new Engine();
+
+  this.engine.on('connection', function connection(socket) {
+    var stream = new Stream(socket.request.headers, socket.request.address());
+
+    stream.on('end', function end() {
+      socket.end();
+    }).on('data', function write(data) {
+      socket.write(data);
+    });
+
+    socket.on('end', stream.emits('end'));
+    socket.on('data', stream.emits('data'));
+  });
 
   //
   // Listen to upgrade requests
   //
   this.on('upgrade', function upgrade(req, socket, head) {
-    this.service.handleUpgrade(req, socket, head, function create(socket) {
-      var stream = new Stream(socket.upgradeReq.headers, socket.upgradeReq.address());
-
-      stream.on('end', function end() {
-        socket.close();
-      }).on('data', function write(data) {
-        socket.send(data);
-      });
-
-      socket.on('close', stream.emits('end'));
-      socket.on('message', stream.emits('data'));
-    });
+    this.service.handleUpgrade(req, socket, head);
+  }).on('request', function request(req, res) {
+    this.service.handleRequest(req, res);
   });
 }
 
@@ -44,23 +48,12 @@ function client() {
   var portal = this
     , socket;
 
-  //
-  // Selects an available WebSocket constructor.
-  //
-  var Socket = (function ws() {
-    if ('undefined' !== typeof WebSocket) return WebSocket;
-    if ('undefined' !== typeof MozWebSocket) return MozWebSocket;
-    if ('function' === typeof require) return require('ws');
-
-    return undefined;
-  })();
-
   if (!Socket) return this.emit('connection failed');
 
   portal.on('portal::connect', function connect(url) {
     if (socket) socket.close();
 
-    socket = new Socket(url);
+    socket = eio(url);
 
     //
     // Setup the Event handlers.
@@ -74,12 +67,12 @@ function client() {
   }).on('portal::write', function write(message) {
     if (socket) socket.send(message);
   }).on('portal::reconnect', function reconnect() {
-    if (socket) socket.close();
-  }).on('portal::close', function close() {
     if (socket) {
       socket.close();
-      socket = null;
+      socket.open();
     }
+  }).on('portal::close', function close() {
+    if (socket) socket.close();
   });
 }
 

@@ -54,6 +54,14 @@ Portal.prototype.initialise = function initialise(transport) {
 
   this.transporter = new Transporter();
   this.transporter.using(this);
+
+  this.on('connection', function connection(stream) {
+    this.connections[stream.id] = stream;
+  });
+
+  this.on('disconnected', function disconnected(stream) {
+    delete this.connections[stream.id];
+  });
 };
 
 /**
