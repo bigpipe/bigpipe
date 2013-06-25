@@ -1,12 +1,20 @@
 'use strict';
 
-var Portal = require('./portal')
-  , Route = require('routable')
+var Route = require('routable')
+  , Primus = require('primus')
   , Page = require('./page')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
 
+/**
+ *
+ * @constructor
+ * @param {Server} server HTTP/S based server instance.
+ * @param {Mixed} pages String or array of pages we serve.
+ * @param {Object} options Configuration.
+ * @api public
+ */
 function Pipe(server, pages, options) {
   options = options || {};
 
@@ -20,8 +28,8 @@ function Pipe(server, pages, options) {
   // Now that everything is procesed, we can setup our server.
   //
   this.server = server;
-  this.portal = new Portal(this.server, {
-    using: options.transport || 'engine.io',
+  this.primus = new Primus(this.server, {
+    transformer: options.transport || 'engine.io',
     parser: options.parser || 'json'
   });
 
