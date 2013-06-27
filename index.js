@@ -1,6 +1,7 @@
 'use strict';
 
-var Route = require('routable')
+var Librarian = require('./librarian')
+  , Route = require('routable')
   , Primus = require('primus')
   , Page = require('./page')
   , path = require('path')
@@ -18,20 +19,22 @@ var Route = require('routable')
 function Pipe(server, pages, options) {
   options = options || {};
 
-  this.statusCodes = Object.create(null);           // Stores error pages.
-  this.stream = options.stream || process.stdout;   // Our log stream.
-  this.pages = this.require(pages);                 // Our Page constructors.
-  this.discover(this.pages);                        // Find error pages.
-  this.cache = options.cache || null;               // Enable URL lookup caching.
+  this.statusCodes = Object.create(null);               // Stores error pages.
+  this.stream = options.stream || process.stdout;       // Our log stream.
+  this.pages = this.resolve(pages, this.transform);     // Our Page constructors.
+  this.discover(this.pages);                            // Find error pages.
+  this.cache = options.cache || null;                   // Enable URL lookup caching.
 
   //
-  // Now that everything is procesed, we can setup our server.
+  // Now that everything is procesed, we can setup our internals.
   //
   this.server = server;
   this.primus = new Primus(this.server, {
     transformer: options.transport || 'engine.io',
     parser: options.parser || 'json'
   });
+
+  this.library = new Librarian(this);
 
   //
   // Start listening for incoming requests.
@@ -58,41 +61,54 @@ Pipe.prototype.log = function log(type) {
 };
 
 /**
- * Load the are enabled.
+ * Transform strings, array of strings, objects, things in to the actual
+ * constructors.
  *
- * @param {String|Array} pages The pages.
+ * @param {String|Array|Object} files The files.
+ * @param {Function} transform Transformation function
+ * @returns {Array}
  * @api private
  */
-Pipe.prototype.require = function loading(pages) {
-  if (!Array.isArray(pages)) {
-    pages = fs.readdirSync(pages).map(function locate(file) {
-      return path.resolve(pages, file);
+Pipe.prototype.resolve = function resolve(files, transform) {
+  if ('string' === typeof files) {
+    files = fs.readdirSync(files).map(function locate(file) {
+      return path.resolve(files, file);
+    });
+  } else if (!Array.isArray(files)) {
+    files = Object.keys(files).map(function merge(name) {
+      var constructor = files[name];
+      constructor.prototype.name = constructor.prototype.name || name;
+
+      return constructor;
     });
   }
 
-  return pages.map(function map(page) {
+  files = files.map(function map(constructor) {
     //
-    // It's not required to supply us with Page instances, we can just
+    // It's not required to supply us with instances, we can just
     // automatically require them if they are using the:
     //
-    //   module.exports = Page.extend();
+    //   module.exports = base.extend();
     //
-    // pattern for defining the Pages.
+    // pattern for defining the pages/pagelets.
     //
-    if ('string' === typeof page) {
-      page = require(page);
+    if ('string' === typeof constructor) {
+      constructor = require(constructor);
     }
 
     //
     // We didn't receive a proper page instance.
     //
-    if ('function' !== typeof page) {
-      this.log('𝓦'.red, 'Ignorning invalid page: '+ (JSON.stringify(page) || page.toString()));
+    if ('function' !== typeof constructor) {
+      var invalid = (JSON.stringify(constructor) || constructor.toString());
+      this.log('𝓦'.red, 'Ignorning invalid constructor: '+ invalid);
       return undefined;
     }
-
-    return this.transform(page);
   }, this).filter(Boolean);
+
+  return transform
+    ? files.map(transform.bind(this))
+    : files;
 };
 
 /**
@@ -142,8 +158,22 @@ Pipe.prototype.transform = function transform(page) {
   });
 
   //
+  // Update the pagelets
+  //
+  var pagelets = this.resovle(page.prototype.pagelets, function map(pagelet) {
+    // 1. Update the paths of the assets, so they are absolute.
+    // 2. Check if the assets exist.
+
+    pagelet.properties = Object.keys(pagelet.prototype);
+  });
+
+  // Update the pagelets again.
+  page.prototype.pagelets = pagelets;
+
+  //
   // Add the properties to the page.
   //
+  page.properties = Object.keys(page.prototype);
   page.router = new Route(router);
   page.method = method;
 
@@ -179,10 +209,51 @@ Pipe.prototype.find = function find(url) {
  * @api private
  */
 Pipe.prototype.incoming = function incoming(req, res) {
-  var page = this.find(page);
+  var page = this.find(page) || this.statusCodes[404];
 
   // example api:
   // this.post(req)(this.create(page))(this.querystring(req, page))
+};
+
+/**
+ * Create a new Pagelet/Pipe server.
+ *
+ * @param {Number} port Port number we should listen on.
+ * @param {Array} pages List with pages.
+ * @param {Object} options Configuration.
+ * @returns {Pipe}
+ * @api public
+ */
+Pipe.createServer = function createServer(port, pages, options) {
+  options = options || {};
+
+  var certs = 'key' in options && 'cert' in options
+    , secure = certs || 443 === port
+    , spdy = 'spdy' in options
+    , server;
+
+  //
+  // We need to have SSL certs for SPDY and secure servers.
+  //
+  if (secure || spdy && !certs) {
+    throw new Error('Missing the SSL key or certificate files in the options.');
+  }
+
+  if (spdy) {
+    server = require('spdy').createServer(options);
+  } else if (secure) {
+    server = require('https').createServer(options);
+  } else {
+    server = require('http').createServer();
+  }
+
+  //
+  // Now that we've got a server, we can setup the pipe and start listening.
+  //
+  var pipe = new Pipe(server, pages || options.pages, options);
+  server.listen(port);
+
+  return pipe;
 };
 
 //

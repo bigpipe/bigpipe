@@ -81,15 +81,6 @@ Page.prototype.resources = {};
  */
 Page.prototype.async = require('async');
 
-/**
- * Load all the pagelets.
- *
- * @api private
- */
-Page.prototype.require = function loading(pagelets) {
-
-};
-
 //
 // Make's the Page extendable.
 //
