@@ -1,6 +1,7 @@
 'use strict';
 
-var Librarian = require('./librarian')
+var FreeList = require('freelist').FreeList
+  , Librarian = require('./librarian')
   , Route = require('routable')
   , Primus = require('primus')
   , Page = require('./page')
@@ -9,6 +10,7 @@ var Librarian = require('./librarian')
   , fs = require('fs');
 
 /**
+ * Our pagelet managment.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -40,6 +42,7 @@ function Pipe(server, pages, options) {
   // Start listening for incoming requests.
   //
   this.server.on('request', this.incoming.bind(this));
+  this.primus.on('connection', this.connection.bind(this));
 }
 
 Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
@@ -124,11 +127,16 @@ Pipe.prototype.discover = function discover(pages) {
 
   pages.forEach(function each(page) {
     if (page.router.test('/500')) fivehundered = page;
-    if (page.router.test('/400')) fourofour = page;
+    if (page.router.test('/404')) fourofour = page;
   });
 
-  if (!fivehundered) fivehundered = require('./pages/500');
-  if (!fourofour) fourofour = require('./pages/404');
+  //
+  // We don't have any 500 or 404 handlers, so use some default pages that are
+  // provided by us. But as these page are not processed yet, we need to kick
+  // them through our transform process.
+  //
+  if (!fivehundered) fivehundered = this.transform(require('./pages/500'));
+  if (!fourofour) fourofour = this.transform(require('./pages/404'));
 
   this.statusCodes[500] = fivehundered;
   this.statusCodes[404] = fourofour;
@@ -144,9 +152,10 @@ Pipe.prototype.discover = function discover(pages) {
  * @return {Page} The upgrade page.
  * @api private
  */
-Pipe.prototype.transform = function transform(page) {
-  var method = page.prototype.method
-    , router = page.prototype.path;
+Pipe.prototype.transform = function transform(Page) {
+  var method = Page.prototype.method
+    , router = Page.prototype.path
+    , pipe = this;
 
   //
   // Parse the methods to an array of accepted HTTP methods. We'll only accept
@@ -158,26 +167,38 @@ Pipe.prototype.transform = function transform(page) {
   });
 
   //
-  // Update the pagelets
+  // Update the pagelets, if any.
   //
-  var pagelets = this.resovle(page.prototype.pagelets, function map(pagelet) {
-    // 1. Update the paths of the assets, so they are absolute.
-    // 2. Check if the assets exist.
+  if (Page.prototype.pagelets) {
+    var pagelets = this.resovle(Page.prototype.pagelets, function map(Pagelet) {
+      // 1. Update the paths of the assets, so they are absolute.
+      // 2. Check if the assets exist.
 
-    pagelet.properties = Object.keys(pagelet.prototype);
-  });
+      Pagelet.properties = Object.keys(Pagelet.prototype);
+    });
 
-  // Update the pagelets again.
-  page.prototype.pagelets = pagelets;
+    //
+    // Save the transformed pagelets.
+    //
+    Page.prototype.pagelets = pagelets;
+  }
 
   //
   // Add the properties to the page.
   //
-  page.properties = Object.keys(page.prototype);
-  page.router = new Route(router);
-  page.method = method;
+  Page.properties = Object.keys(Page.prototype);
+  Page.router = new Route(router);
+  Page.method = method;
 
-  return page;
+  //
+  // Setup a FreeList for the page so we can re-use the page instances and
+  // reduce garbage collection to a bare minimum.
+  //
+  Page.collection = new FreeList('page', Page.prototype.freelist || 1000, function () {
+    return new Page(pipe);
+  });
+
+  return Page;
 };
 
 /**
@@ -213,6 +234,15 @@ Pipe.prototype.incoming = function incoming(req, res) {
 
   // example api:
   // this.post(req)(this.create(page))(this.querystring(req, page))
+};
+
+/**
+ * Handle incoming real-time requests.
+ *
+ * @param {Spark} socket A real-time "socket"
+ */
+Pipe.prototype.connection = function connection(socket) {
+
 };
 
 /**
