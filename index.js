@@ -12,6 +12,13 @@ var FreeList = require('freelist').FreeList
 /**
  * Our pagelet managment.
  *
+ * The following options are available:
+ *
+ * - transport: The transport engine we should use for real-time.
+ * - cache: A object were we store our url->page mapping.
+ * - stream: Where we should write our logs to.
+ * - parser: Which parser should be used to send data in real-time.
+ *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
  * @param {Mixed} pages String or array of pages we serve.
@@ -158,6 +165,11 @@ Pipe.prototype.transform = function transform(Page) {
     , pipe = this;
 
   //
+  // This page has already been processed, bailout.
+  //
+  if (Page.properties) return Page;
+
+  //
   // Parse the methods to an array of accepted HTTP methods. We'll only accept
   // there requests and should deny every other possible method.
   //
@@ -171,10 +183,18 @@ Pipe.prototype.transform = function transform(Page) {
   //
   if (Page.prototype.pagelets) {
     var pagelets = this.resovle(Page.prototype.pagelets, function map(Pagelet) {
+      //
+      // This pagelet has already been processed before as pages can share
+      // pagelets.
+      //
+      if (Pagelet.properties) return Pagelet;
+
       // 1. Update the paths of the assets, so they are absolute.
       // 2. Check if the assets exist.
 
       Pagelet.properties = Object.keys(Pagelet.prototype);
+
+      return Pagelet;
     });
 
     //

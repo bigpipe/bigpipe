@@ -7,6 +7,9 @@ var fs = require('fs');
  * able to identify the most commonly included libraries and compiles them in
  * a single core file.
  *
+ * All non-common assets are also compiled and saved to disk so we don't have to
+ * recompile everything during a request.
+ *
  * @param {Pipe} pipe Reference to the Pipe
  */
 function Librarian(pipe) {
@@ -27,11 +30,12 @@ function Librarian(pipe) {
   });
 });
 
+/**
+ * Scan the pages for common assets and dependencies.
+ *
+ * @api private
+ */
 Librarian.prototype.initialise = function initialise() {
-};
-
-Librarian.prototype.inspect = function inspect(page) {
-
 };
 
 /**

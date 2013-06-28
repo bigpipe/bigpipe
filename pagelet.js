@@ -18,6 +18,25 @@ Pagelet.prototype.__proto__ = require('stream').prototype;
 Pagelet.prototype.name = '';
 
 /**
+ * An authorization handler to see if the request is authorized to interact with
+ * this pagelet.
+ *
+ * @type {Function}
+ * @public
+ */
+Pagelet.prototype.authorize = null;
+
+/**
+ * Initialization function that is called when the pagelet is activated. This is
+ * done AFTER any of the authorization hooks are handled. So your sure that this
+ * pagelet is allowed for usage.
+ *
+ * @type {Function}
+ * @public
+ */
+Pagelet.prototype.initialize = null;
+
+/**
  * Save the location where we got our resources from, this will help us with
  * fetching assets from the correct location.
  *
