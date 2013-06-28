@@ -1,15 +1,11 @@
 'use strict';
 
-var Pagelet = require('./pagelet');
-
 /**
  *
  * @constructor
  * @api public
  */
-function Page(pipe, options) {
-  options = options || {};
-
+function Page(pipe) {
   this.pipe = pipe;                         // Pipe wrapper.
   this.connections = Object.create(null);   // Stores active real-time connections.
   this.conditional = [];                    // Pagelets that are conditional.
@@ -24,6 +20,8 @@ function Page(pipe, options) {
   //
   if ('development' === this.env) Object.seal(this);
 }
+
+Page.prototype.__proto__ = require('events').EventEmitter.prototype;
 
 /**
  * The HTTP pathname that we should be matching against.
@@ -80,6 +78,32 @@ Page.prototype.resources = {};
  * @public
  */
 Page.prototype.async = require('async');
+
+/**
+ * Reset the instance to it's orignal state and initialise it.
+ *
+ * @param {ServerRequest} req HTTP server request.
+ * @param {ServerResponse} res HTTP server response.
+ * @api private
+ */
+Page.prototype.configure = function configure(req, res) {
+  var key;
+
+  for (key in this.connections) {
+    delete this.connections[key];
+  }
+
+  for (key in this.enabled) {
+    delete this.enabled[key];
+  }
+
+  for (key in this.disabled) {
+    delete this.enabled[key];
+  }
+
+  this.conditional.length = 0;
+  this.removeAllListeners();
+};
 
 //
 // Make's the Page extendable.

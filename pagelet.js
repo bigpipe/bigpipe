@@ -2,13 +2,12 @@
 
 var path = require('path');
 
-function Pagelet(page) {
-  this.page = page;
-
-  this.id = [1, 1, 1, 1].map(function generator() {
-    return Math.random().toString(36).substring(2).toUpperCase();
-  }).join('-');
+function Pagelet() {
+  this.page = null;
+  this.id = null;
 }
+
+Pagelet.prototype.__proto__ = require('stream').prototype;
 
 /**
  * The name of this pagelet so it can checked to see if's enabled. In addition
@@ -43,6 +42,25 @@ Pagelet.prototype.enabled = function enabled(name) {
  */
 Pagelet.prototype.disabled = function disabled(name) {
   return name in this.page.disabled;
+};
+
+/**
+ * Reset the instance to it's orignal state.
+ *
+ * @param {Page} page The page instance which created this pagelet.
+ * @api private
+ */
+Pagelet.prototype.configure = function configure(page) {
+  this.page = page;
+
+  //
+  // Set a new id.
+  //
+  this.id = [1, 1, 1, 1].map(function generator() {
+    return Math.random().toString(36).substring(2).toUpperCase();
+  }).join('-');
+
+  this.removeAllListeners();
 };
 
 //
