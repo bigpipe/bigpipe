@@ -189,6 +189,16 @@ Pipe.prototype.transform = function transform(Page) {
       //
       if (Pagelet.properties) return Pagelet;
 
+      var prototype = Pagelet.prototype
+        , dir = prototype.directory;
+
+      Pagelet.prototype.view = path.resolve(dir, prototype.view);
+      Pagelet.prototype.css = path.resolve(dir, prototype.css);
+      Pagelet.prototype.js = path.resolve(dir, prototype.js);
+      Pagelet.prototype.dependencies = prototype.dependencies.map(function (dep) {
+        return path.resolve(dir, dep);
+      });
+
       // 1. Update the paths of the assets, so they are absolute.
       // 2. Check if the assets exist.
 
@@ -206,9 +216,10 @@ Pipe.prototype.transform = function transform(Page) {
   //
   // Add the properties to the page.
   //
-  Page.properties = Object.keys(Page.prototype);
-  Page.router = new Route(router);
-  Page.method = method;
+  Page.properties = Object.keys(Page.prototype);      // All properties before init.
+  Page.router = new Route(router);                    // Actual HTTP route.
+  Page.method = method;                               // Available HTTP methods.
+  Page.id = router.toString() +'&&'+ method.join();   // Unique id.
 
   //
   // Setup a FreeList for the page so we can re-use the page instances and
