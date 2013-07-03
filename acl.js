@@ -45,8 +45,8 @@ Acl.prototype.grant = function grant(grantee, resource) {
  * @api public
  */
 Acl.prototype.assert = function assert(grantee, resource, fn) {
-  var list = this.rights[grantee]
-    , pool = this.resources.get(resource)
+  var list = this.store[grantee]
+    , pool = {} // this.resources.get(resource) TODO needs to be implemented
     , ok = !!(list && ~list.indexOf(resource));
 
   // Apply the custom assert of the resource.
@@ -67,10 +67,12 @@ Acl.prototype.assert = function assert(grantee, resource, fn) {
 Acl.prototype.revoke = function revoke(grantee, resource) {
   if (!(grantee in this.store)) return this;
 
-  var list = this.rights[grantee]
+  var list = this.store[grantee]
     , index = list.indexOf(resource);
 
-  if (index !== -1) list.splice(index, 1);
+  if (~index) list.splice(index, 1);
+  if (!list.length) delete this.store[grantee];
+
   return this;
 };
 
