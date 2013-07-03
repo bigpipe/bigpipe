@@ -192,15 +192,19 @@ Pipe.prototype.transform = function transform(Page) {
       var prototype = Pagelet.prototype
         , dir = prototype.directory;
 
-      Pagelet.prototype.view = path.resolve(dir, prototype.view);
-      Pagelet.prototype.css = path.resolve(dir, prototype.css);
-      Pagelet.prototype.js = path.resolve(dir, prototype.js);
-      Pagelet.prototype.dependencies = prototype.dependencies.map(function (dep) {
-        return path.resolve(dir, dep);
-      });
+      if (prototype.view) Pagelet.prototype.view = path.resolve(dir, prototype.view);
+      if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
+      if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
 
-      // 1. Update the paths of the assets, so they are absolute.
-      // 2. Check if the assets exist.
+      //
+      // Make sure that all our dependencies are also directly mapped to an
+      // absolute url.
+      //
+      if (prototype.dependencies) {
+        Pagelet.prototype.dependencies = prototype.dependencies.map(function (dep) {
+          return path.resolve(dir, dep);
+        });
+      }
 
       Pagelet.properties = Object.keys(Pagelet.prototype);
 
