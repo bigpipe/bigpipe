@@ -42,6 +42,7 @@ Acl.prototype.grant = function grant(grantee, resource) {
  * @param {String} grantee name of the role, user, grantee
  * @param {String} resource name of the resource
  * @param {Function} fn callback
+ * @api public
  */
 Acl.prototype.assert = function assert(grantee, resource, fn) {
   var list = this.rights[grantee]

@@ -6,6 +6,17 @@
   "scripts": {
     "test": "NODE_ENV=testing ./node_modules/.bin/mocha $(find test -name '*.test.js')"
   },
+  "dependencies": {
+    "async": "0.2.x",
+    "extendable": "0.0.x",
+    "routable": "0.0.x",
+    "primus": "0.0.x"
+  },
+  "devDependencies": {
+    "chai": "1.7.x",
+    "mocha": "1.11.x",
+    "pre-commit": "0.0.x"
+  },
   "repository": {
     "type": "git",
     "url": "git://github.com/3rd-Eden/pagelets.git"

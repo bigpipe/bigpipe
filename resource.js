@@ -20,7 +20,7 @@ Resource.prototype.invalidate = function invalidate() {
 //
 // Make the Resource extendable.
 //
-Resource.extend = require('extenable');
+Resource.extend = require('extendable');
 
 //
 // Initialize.
