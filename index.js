@@ -2,9 +2,11 @@
 
 var FreeList = require('freelist').FreeList
   , Librarian = require('./librarian')
+  , Resource = require('./resource')
   , Route = require('routable')
   , Primus = require('primus')
   , Page = require('./page')
+  , Acl = require('./acl')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
@@ -29,6 +31,7 @@ function Pipe(server, pages, options) {
   options = options || {};
 
   this.statusCodes = Object.create(null);               // Stores error pages.
+  this.resources = Object.create(null);                 // Resource pool
   this.stream = options.stream || process.stdout;       // Our log stream.
   this.pages = this.resolve(pages, this.transform);     // Our Page constructors.
   this.discover(this.pages);                            // Find error pages.
@@ -43,7 +46,15 @@ function Pipe(server, pages, options) {
     parser: options.parser || 'json'
   });
 
+  //
+  // Setup our CSS/JS library
+  //
   this.library = new Librarian(this);
+
+  //
+  // Setup ACL.
+  //
+  this.acl = new Acl(this);
 
   //
   // Start listening for incoming requests.
