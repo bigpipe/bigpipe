@@ -193,7 +193,7 @@ Pipe.prototype.transform = function transform(Page) {
   // Update the pagelets, if any.
   //
   if (Page.prototype.pagelets) {
-    var pagelets = this.resovle(Page.prototype.pagelets, function map(Pagelet) {
+    var pagelets = this.resolve(Page.prototype.pagelets, function map(Pagelet) {
       //
       // This pagelet has already been processed before as pages can share
       // pagelets.

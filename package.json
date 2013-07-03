@@ -9,8 +9,9 @@
   "dependencies": {
     "async": "0.2.x",
     "extendable": "0.0.x",
+    "engine.io": "0.6.x",
     "routable": "0.0.x",
-    "primus": "0.0.x"
+    "primus": "git://github.com/3rd-Eden/primus.git"
   },
   "devDependencies": {
     "chai": "1.7.x",

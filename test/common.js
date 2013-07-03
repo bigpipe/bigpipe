@@ -6,7 +6,7 @@ chai.Assertion.includeStack = true;
 //
 // Expose primus
 //
-exports.Server = require('../');
+exports.Pipe = require('../');
 
 //
 // Expose our assertations.

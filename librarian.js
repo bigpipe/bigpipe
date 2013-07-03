@@ -49,3 +49,8 @@ Librarian.prototype.read = function read(path) {
 
   return this.buffer[path] = fs.readFileSync(path, 'utf-8');
 };
+
+//
+// Initialize.
+//
+module.exports = Librarian;
