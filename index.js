@@ -3,6 +3,7 @@
 var FreeList = require('freelist').FreeList
   , Librarian = require('./librarian')
   , Resource = require('./resource')
+  , Pool = require('./pool')
   , Route = require('routable')
   , Primus = require('primus')
   , Page = require('./page')
@@ -31,7 +32,7 @@ function Pipe(server, pages, options) {
   options = options || {};
 
   this.statusCodes = Object.create(null);               // Stores error pages.
-  this.resources = Object.create(null);                 // Resource pool
+  this.resources = new Pool({ type: 'resources' });     // Resources pool
   this.stream = options.stream || process.stdout;       // Our log stream.
   this.pages = this.resolve(pages, this.transform);     // Our Page constructors.
   this.discover(this.pages);                            // Find error pages.

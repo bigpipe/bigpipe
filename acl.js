@@ -46,11 +46,11 @@ Acl.prototype.grant = function grant(grantee, resource) {
  */
 Acl.prototype.assert = function assert(grantee, resource, fn) {
   var list = this.store[grantee]
-    , pool = {} // this.resources.get(resource) TODO needs to be implemented
+    , pool = this.resources.get(resource)
     , ok = !!(list && ~list.indexOf(resource));
 
   // Apply the custom assert of the resource.
-  if (ok && 'assert' in pool) return pool.assert(function assertion(err, result) {
+  if (ok && pool && 'assert' in pool) return pool.assert(function assertion(err, result) {
     defer(fn.bind(null, ok && result));
   });
 

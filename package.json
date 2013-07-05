@@ -11,7 +11,8 @@
     "extendable": "0.0.x",
     "engine.io": "0.6.x",
     "routable": "0.0.x",
-    "primus": "git://github.com/3rd-Eden/primus.git"
+    "primus": "1.0.x",
+    "expirable": "0.0.x"
   },
   "devDependencies": {
     "chai": "1.7.x",
