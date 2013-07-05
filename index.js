@@ -3,6 +3,7 @@
 var FreeList = require('freelist').FreeList
   , Route = require('routable')
   , Primus = require('primus')
+  , colors = require('colors')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
@@ -96,7 +97,7 @@ Pipe.prototype.log = function log(type) {
     //
     // Add some padding, write the log type, and join as pretty string.
     //
-    this.stream.write(['  '+ type].concat(data).join(' ') + '\n');
+    this.stream.write(['  '+ level +' '].concat(data).join(' ') + '\n');
   } else {
     this.emit.apply(this, ['log', type].concat(data));
   }
@@ -299,15 +300,17 @@ Pipe.prototype.transform = function transform(Page) {
  * @returns {Mixed} either a Page constructor or undefined;
  * @api public
  */
-Pipe.prototype.find = function find(url) {
+Pipe.prototype.find = function find(url, method) {
   if (this.cache && this.cache.has(url)) return this.cache.get(url);
 
-  for (var i = 0, found, length = this.pages.length; i < length; i++) {
-    if (this.pages[i].router.test(url)) {
+  for (var i = 0, page, length = this.pages.length; i < length; i++) {
+    page = this.pages[i];
 
-      if (this.cache) this.cache.set(url, this.pages[i]);
-      return this.pages[i];
-    }
+    if (!page.router.test(url)) continue;
+    if (method && page.method.length && !~page.method.indexOf(method)) continue;
+
+    if (this.cache) this.cache.set(url, page);
+    return page;
   }
 
   return undefined;

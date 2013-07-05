@@ -12,7 +12,8 @@
     "engine.io": "0.6.x",
     "routable": "0.0.x",
     "primus": "1.0.x",
-    "expirable": "0.0.x"
+    "expirable": "0.0.x",
+    "colors": "0.6.x"
   },
   "devDependencies": {
     "chai": "1.7.x",
