@@ -7,7 +7,7 @@ var FreeList = require('freelist').FreeList
   , Route = require('routable')
   , Primus = require('primus')
   , Page = require('./page')
-  , Acl = require('./acl')
+  , ACL = require('./acl')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
@@ -44,18 +44,19 @@ function Pipe(server, pages, options) {
   this.server = server;
   this.primus = new Primus(this.server, {
     transformer: options.transport || 'engine.io',
+    pathname: options.pathname || '/pagelets',
     parser: options.parser || 'json'
   });
 
   //
-  // Setup our CSS/JS library
+  // Setup our CSS/JS library.
   //
   this.library = new Librarian(this);
 
   //
   // Setup ACL.
   //
-  this.acl = new Acl(this);
+  this.acl = new ACL(this);
 
   //
   // Start listening for incoming requests.
@@ -220,6 +221,14 @@ Pipe.prototype.transform = function transform(Page) {
 
       Pagelet.properties = Object.keys(Pagelet.prototype);
 
+      //
+      // Setup a FreeList for the pagelets so we can re-use the pagelet
+      // instances and reduce garbage collection.
+      //
+      Pagelet.collection = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function () {
+        return new Pagelet();
+      });
+
       return Pagelet;
     });
 
@@ -256,12 +265,12 @@ Pipe.prototype.transform = function transform(Page) {
  * @api public
  */
 Pipe.prototype.find = function find(url) {
-  if (this.cache && url in this.cache) return this.cache[url];
+  if (this.cache && this.cache.has(url)) return this.cache.get(url);
 
   for (var i = 0, found, length = this.pages.length; i < length; i++) {
     if (this.pages[i].router.test(url)) {
 
-      if (this.cache) this.cache[url] = this.pages[i];
+      if (this.cache) this.cache.set(url, this.pages[i]);
       return this.pages[i];
     }
   }
@@ -272,6 +281,7 @@ Pipe.prototype.find = function find(url) {
 /**
  * Handle incoming requests.
  *
+ * @TODO handle POST requests.
  * @param {Request} req HTTP request.
  * @param {Resposne} res HTTP response.
  * @api private
@@ -279,16 +289,15 @@ Pipe.prototype.find = function find(url) {
 Pipe.prototype.incoming = function incoming(req, res) {
   var page = this.find(page) || this.statusCodes[404];
 
-  // example api:
-  // this.post(req)(this.create(page))(this.querystring(req, page))
 };
 
 /**
  * Handle incoming real-time requests.
  *
- * @param {Spark} socket A real-time "socket"
+ * @param {Spark} spark A real-time "socket".
+ * @api private
  */
-Pipe.prototype.connection = function connection(socket) {
+Pipe.prototype.connection = function connection(spark) {
 
 };
 
