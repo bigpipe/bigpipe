@@ -1,0 +1,9 @@
+var Page = require('../../').Page;
+
+//
+// A simple index page test route.
+//
+module.exports = Page.extend({
+  method: 'GET',
+  path: '/'
+});

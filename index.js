@@ -1,16 +1,29 @@
 'use strict';
 
 var FreeList = require('freelist').FreeList
-  , Librarian = require('./librarian')
-  , Resource = require('./resource')
-  , Pool = require('./pool')
   , Route = require('routable')
   , Primus = require('primus')
-  , Page = require('./page')
-  , ACL = require('./acl')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
+
+//
+// Library internals.
+//
+var Librarian = require('./librarian')
+  , Resource = require('./resource')
+  , Pagelet = require('./pagelet')
+  , Page = require('./page')
+  , ACL = require('./acl');
+
+//
+// Try to detect if we've got domains support. So we can easily serve 500 error
+// pages when we have an error.
+//
+var domain;
+
+try { domain = require('domain'); }
+catch (e) {}
 
 /**
  * Our pagelet managment.
@@ -31,12 +44,13 @@ var FreeList = require('freelist').FreeList
 function Pipe(server, pages, options) {
   options = options || {};
 
-  this.statusCodes = Object.create(null);               // Stores error pages.
-  this.resources = new Pool({ type: 'resources' });     // Resources pool
-  this.stream = options.stream || process.stdout;       // Our log stream.
-  this.pages = this.resolve(pages, this.transform);     // Our Page constructors.
-  this.discover(this.pages);                            // Find error pages.
-  this.cache = options.cache || null;                   // Enable URL lookup caching.
+  this.statusCodes = Object.create(null);           // Stores error pages.
+  this.resources = Object.create(null);             // Resource pool.
+  this.stream = options.stream || process.stdout;   // Our log stream.
+  this.pages = this.resolve(pages, this.transform); // Our Page constructors.
+  this.discover(this.pages);                        // Find error pages.
+  this.cache = options.cache || null;               // Enable URL lookup caching.
+  this.domains = !!options.domain && domain;        // Call all requests in a domain.
 
   //
   // Now that everything is procesed, we can setup our internals.
@@ -74,13 +88,31 @@ Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
  * @api private
  */
 Pipe.prototype.log = function log(type) {
-  this.stream.write(
-    ['  '+ type].concat(                          // Add some padding.
-      Array.prototype.slice.call(arguments, 1)    // Concat it with all args.
-    ).join(' ') + '\n'                            // Join it as pretty string.
-  );
+  var data = Array.prototype.slice.call(arguments, 1)
+    , level = Pipe.prototype.log.levels[type];
+
+  if (this.stream) {
+    //
+    // Add some padding, write the log type, and join as pretty string.
+    //
+    this.stream.write(['  '+ type].concat(data).join(' ') + '\n');
+  } else {
+    this.emit.apply(this, ['log', type].concat(data));
+  }
 
   return this;
+};
+
+/**
+ * Pretty logger prefixes.
+ *
+ * @type {Object}
+ * @private
+ */
+Pipe.prototype.log.levels = {
+  'warn': '𝓦'.yellow,
+  'error': '𝓔'.red,
+  'info': '𝓘'.blue
 };
 
 /**
@@ -124,9 +156,11 @@ Pipe.prototype.resolve = function resolve(files, transform) {
     //
     if ('function' !== typeof constructor) {
       var invalid = (JSON.stringify(constructor) || constructor.toString());
-      this.log('𝓦'.red, 'Ignorning invalid constructor: '+ invalid);
+      this.log('warn', 'Ignorning invalid constructor: '+ invalid);
       return undefined;
     }
+
+    return constructor;
   }, this).filter(Boolean);
 
   return transform
@@ -287,8 +321,40 @@ Pipe.prototype.find = function find(url) {
  * @api private
  */
 Pipe.prototype.incoming = function incoming(req, res) {
-  var page = this.find(page) || this.statusCodes[404];
+  this.decorate(req);
 
+  //
+  // Find the page that matches our route, if we don't find anything assume
+  // we've got to send a 404 instead.
+  //
+  var Page = this.find(req.uri.pathname) || this.statusCodes[404]
+    , page = Page.alloc();
+
+  if (this.domains) {
+    page.domain = domain.create();
+    page.domain.run(function run() {
+      run.configure(req, res);
+    });
+  } else {
+    page.configure(req, res);
+  }
+
+  return this;
+};
+
+/**
+ * Decorate the request object with some extensions.
+ *
+ * @param {Request} req HTTP request.
+ * @api private
+ */
+Primus.prototype.decorate = function decorate(req) {
+  req.uri = req.uri || url.parse(req.url, true);
+
+  //
+  // Add some silly HTTP properties for connect.js compatiblity.
+  //
+  req.originalUrl = req.url;
 };
 
 /**
@@ -341,6 +407,13 @@ Pipe.createServer = function createServer(port, pages, options) {
 
   return pipe;
 };
+
+//
+// Expose our constructors.
+//
+Pipe.Resource = Resource;
+Pipe.Pagelet = Pagelet;
+Pipe.Page = Page;
 
 //
 // Expose the constructor.
