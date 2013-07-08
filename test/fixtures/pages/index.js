@@ -1,6 +1,6 @@
 'use strict';
 
-var Page = require('../../').Page;
+var Page = require('../../../').Page;
 
 //
 // A simple index page test route.

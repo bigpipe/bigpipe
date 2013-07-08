@@ -13,7 +13,7 @@ describe('Pipe', function () {
       throw new Error('Unhandled request');
     });
 
-    app = new Pipe(server, __dirname + '/pages', {
+    app = new Pipe(server, __dirname + '/fixtures/pages', {
       domains: true
     });
 
@@ -93,13 +93,75 @@ describe('Pipe', function () {
 
       var pattern = [];
 
-      app = new Pipe(server, __dirname + '/pages', {
+      app = new Pipe(server, __dirname + '/fixtures/pages', {
         cache: cache
       });
 
       expect(app.find('/')).to.be.a('function');
       expect(app.find('/')).to.be.a('function');
       expect(pattern.join()).to.equal('has,set,has,get');
+    });
+  });
+
+  describe('#log', function () {
+    it('doesnt write to stdout if we dont provide a stream', function (done) {
+      app = new Pipe(server, __dirname + '/fixtures/pages', {
+        domains: true,
+        stream: null
+      });
+
+      app.on('log', function (type, arg1, arg2) {
+        expect(type).to.equal('warn');
+        expect(arg1).to.equal('foo');
+        expect(arg2).to.equal('bar');
+
+        done();
+      });
+
+      app.log('warn', 'foo', 'bar');
+    });
+
+    it('writes to specified stream', function (done) {
+      var stream = new (require('stream'));
+
+      stream.write = function (line) {
+        expect(line).to.not.contain('warn');
+        expect(line).to.contain(Pipe.prototype.log.levels.warn);
+        expect(line).to.contain('foo');
+        expect(line).to.contain('bar');
+
+        console.log(line);
+
+        done();
+      };
+
+      app = new Pipe(server, __dirname + '/fixtures/pages', {
+        domains: true,
+        stream: stream
+      });
+
+      app.log('warn', 'foo', 'bar');
+    });
+  });
+
+  describe('#discover', function () {
+    it('provides default pages if no /404 or /500 is found', function () {
+      expect(app.find('/404')).to.equal(undefined);
+      expect(app.find('/500')).to.equal(undefined);
+
+      expect(app.statusCodes[404]).to.equal(require('../pages/404'));
+      expect(app.statusCodes[500]).to.equal(require('../pages/500'));
+    });
+
+    it('uses user provided 404 and 500 pages based on routes', function () {
+      app = new Pipe(server, __dirname + '/fixtures/discover');
+      expect(app.pages).to.have.length(2);
+
+      expect(app.find('/404')).to.not.equal(undefined);
+      expect(app.find('/500')).to.not.equal(undefined);
+
+      expect(app.statusCodes[404]).to.equal(app.find('/404'));
+      expect(app.statusCodes[500]).to.equal(app.find('/500'));
     });
   });
 });

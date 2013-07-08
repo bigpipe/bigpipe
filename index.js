@@ -44,24 +44,28 @@ catch (e) {}
  * @api public
  */
 function Pipe(server, pages, options) {
-  options = options || {};
+  options = this.options(options || {});
 
-  this.statusCodes = Object.create(null);           // Stores error pages.
   this.resources = new Pool({ type: 'resources' }); // Resource pool.
-  this.stream = options.stream || process.stdout;   // Our log stream.
+  this.stream = options('stream', process.stdout);  // Our log stream.
+  this.domains = !!options('domain') && domain;     // Call all requests in a domain.
+  this.statusCodes = Object.create(null);           // Stores error pages.
+  this.cache = options('cache', null);              // Enable URL lookup caching.
+
+  //
+  // Process the pages.
+  //
   this.pages = this.resolve(pages, this.transform); // Our Page constructors.
   this.discover(this.pages);                        // Find error pages.
-  this.cache = options.cache || null;               // Enable URL lookup caching.
-  this.domains = !!options.domain && domain;        // Call all requests in a domain.
 
   //
   // Now that everything is procesed, we can setup our internals.
   //
   this.server = server;
   this.primus = new Primus(this.server, {
-    transformer: options.transport || 'engine.io',
-    pathname: options.pathname || '/pagelets',
-    parser: options.parser || 'json'
+    transformer: options('transport', 'engine.io'),
+    pathname: options('pathname', '/pagelets'),
+    parser: options('parser', 'json')
   });
 
   //
@@ -82,6 +86,19 @@ function Pipe(server, pages, options) {
 }
 
 Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
+
+/**
+ * Checks if options exists.
+ *
+ * @param {Object} obj
+ * @returns {Function}
+ * @api private
+ */
+Pipe.prototype.options = function options(obj) {
+  return function get(key, backup) {
+    return key in obj ? obj[key] : backup;
+  };
+};
 
 /**
  * Simple log method.
