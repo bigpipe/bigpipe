@@ -2,3 +2,4 @@ node_modules
 pagelets.sublime-project
 pagelets.sublime-workspace
 .tern-port
+npm-debug.log
