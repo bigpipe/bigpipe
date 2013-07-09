@@ -375,8 +375,9 @@ Pipe.prototype.incoming = function incoming(req, res) {
  * @param {Request} req HTTP request.
  * @api private
  */
-Primus.prototype.decorate = function decorate(req) {
+Pipe.prototype.decorate = function decorate(req) {
   req.uri = req.uri || url.parse(req.url, true);
+  req.query = req.query || req.uri.query;
 
   //
   // Add some silly HTTP properties for connect.js compatiblity.
