@@ -116,8 +116,11 @@ Page.prototype.discover = function discover() {
     // Check if the given pagelet has a custom authorization method which we
     // need to call and figure out if the pagelet is available.
     //
-    if ('function' === typeof pagelet.authorize) pagelet.authorize(req, done);
-    done(true);
+    if ('function' === typeof pagelet.authorize) {
+      pagelet.authorize(req, done);
+    } else {
+      done(true);
+    }
   }, function acceptance(allowed) {
     page.enabled = allowed;
 
