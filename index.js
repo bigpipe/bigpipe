@@ -157,7 +157,13 @@ Pipe.prototype.resolve = function resolve(files, transform) {
     });
   }
 
-  files = files.map(function map(constructor) {
+  files = files.filter(function jsonly(file) {
+    //
+    // Make sure we only use valid JavaScript files as sources. We want to
+    // ignore stuff like potential .log files.
+    //
+    return path.extname(file) === '.js';
+  }).map(function map(constructor) {
     //
     // It's not required to supply us with instances, we can just
     // automatically require them if they are using the:
