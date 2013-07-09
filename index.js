@@ -365,7 +365,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   // Find the page that matches our route, if we don't find anything assume
   // we've got to send a 404 instead.
   //
-  var Page = this.find(req.uri.pathname) || this.statusCodes[404]
+  var Page = this.find(req.uri.pathname, req.method) || this.statusCodes[404]
     , page = Page.alloc();
 
   if (this.domains) {
