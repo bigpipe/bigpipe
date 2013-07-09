@@ -13,6 +13,7 @@ Pagelet.prototype.__proto__ = require('stream').prototype;
  * The name of this pagelet so it can checked to see if's enabled. In addition
  * to that, it can be injected in to placeholders using this name.
  *
+ * @type {String}
  * @public
  */
 Pagelet.prototype.name = '';
@@ -43,6 +44,9 @@ Pagelet.prototype.authorize = null;
  * template it doesn't mean we will render it. It depends on how the pagelet is
  * called. If it's called from the client side we will only forward the data to
  * server.
+ *
+ * As a user you need to make sure that your template runs on the client as well
+ * as on the server side.
  *
  * @type {String}
  * @public
@@ -130,9 +134,7 @@ Pagelet.prototype.configure = function configure(page) {
     return Math.random().toString(36).substring(2).toUpperCase();
   }).join('-');
 
-  this.removeAllListeners();
-
-  return this;
+  return this.removeAllListeners();
 };
 
 //

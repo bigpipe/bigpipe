@@ -63,7 +63,7 @@ function Pipe(server, pages, options) {
   //
   this.server = server;
   this.primus = new Primus(this.server, {
-    transformer: options('transport', 'engine.io'),
+    transformer: options('transport', 'websockets'),
     pathname: options('pathname', '/pagelets'),
     parser: options('parser', 'json')
   });
@@ -151,7 +151,14 @@ Pipe.prototype.resolve = function resolve(files, transform) {
   } else if (!Array.isArray(files)) {
     files = Object.keys(files).map(function merge(name) {
       var constructor = files[name];
-      constructor.prototype.name = constructor.prototype.name || name;
+
+      //
+      // Add a name to the prototype, if we have this property in the prototype.
+      // This mostly applies for the Pagelets.
+      //
+      if ('name' in constructor.prototype) {
+        constructor.prototype.name = constructor.prototype.name || name;
+      }
 
       return constructor;
     });
@@ -267,6 +274,10 @@ Pipe.prototype.transform = function transform(Page) {
       if (prototype.view) Pagelet.prototype.view = path.resolve(dir, prototype.view);
       if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
       if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
+
+      if (!prototype.render || 'function' !== typeof prototype.render) {
+        throw new Error('Pagelet('+ prototype.name + ') is missing a `render` method');
+      }
 
       //
       // Make sure that all our dependencies are also directly mapped to an
