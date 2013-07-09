@@ -12,6 +12,8 @@ function Page(pipe) {
   this.conditional = [];                    // Pagelets that are conditional.
   this.disabled = {};                       // Disabled pagelets.
   this.enabled = {};                        // Enabled pagelets.
+  this.req = null;                          // Reference to HTTP request.
+  this.res = null;                          // Reference to HTTP response.
 
   //
   // Don't allow any further extensions of the object. This improves performance
@@ -96,8 +98,9 @@ Page.prototype.async = require('async');
  *
  * @api private
  */
-Page.prototype.discover = function discover(req) {
-  var page = this
+Page.prototype.discover = function discover() {
+  var req = this.req
+    , page = this
     , pagelets;
 
   pagelets = this.pagelets.map(function allocate(Pagelet) {
@@ -117,10 +120,23 @@ Page.prototype.discover = function discover(req) {
     done(true);
   }, function acceptance(allowed) {
     page.enabled = allowed;
+
     page.disabled = pagelets.filter(function disabled(pagelet) {
       return !!allowed.indexOf(pagelet);
     });
   });
+};
+
+/**
+ * Start rendering the appropriate pagelets and combine them in to a single
+ * page.
+ *
+ * @api private
+ */
+Page.prototype.render = function render() {
+  var page = this;
+
+  // @TODO render something =/
 };
 
 /**
@@ -147,6 +163,9 @@ Page.prototype.configure = function configure(req, res) {
 
   this.conditional.length = 0;
   this.removeAllListeners();
+
+  this.req = req;
+  this.res = res;
 
   this.discover();
 
