@@ -1,6 +1,7 @@
 'use strict';
 
 /**
+ * A simple object representation of a given page.
  *
  * @constructor
  * @api public
@@ -61,13 +62,24 @@ Page.prototype.env = (process.env.NODE_ENV || 'development').toLowerCase();
  * The pagelets that need to be loaded on this page.
  *
  * @type {Object}
+ * @public
  */
 Page.prototype.pagelets = {};
+
+/**
+ * Parameter parsers, key is the name of param and value the function that
+ * parsers it.
+ *
+ * @type {Object}
+ * @public
+ */
+Page.prototype.parsers = {};
 
 /**
  * List of resources that can be used by the pagelets.
  *
  * @type {object}
+ * @public
  */
 Page.prototype.resources = {};
 
@@ -78,6 +90,38 @@ Page.prototype.resources = {};
  * @public
  */
 Page.prototype.async = require('async');
+
+/**
+ * Discover pagelets that we're allowed to use.
+ *
+ * @api private
+ */
+Page.prototype.discover = function discover(req) {
+  var page = this
+    , pagelets;
+
+  pagelets = this.pagelets.map(function allocate(Pagelet) {
+    return Pagelet.alloc().configure(page);
+  });
+
+  //
+  // The Pipe#transform has transformed our pagelets object in to an array so we
+  // can easily iternate over them.
+  //
+  this.async.filter(pagelets, function rejection(pagelet, done) {
+    //
+    // Check if the given pagelet has a custom authorization method which we
+    // need to call and figure out if the pagelet is available.
+    //
+    if ('function' === typeof pagelet.authorize) pagelet.authorize(req, done);
+    done(true);
+  }, function acceptance(allowed) {
+    page.enabled = allowed;
+    page.disabled = pagelets.filter(function disabled(pagelet) {
+      return !!allowed.indexOf(pagelet);
+    });
+  });
+};
 
 /**
  * Reset the instance to it's orignal state and initialise it.
@@ -103,6 +147,10 @@ Page.prototype.configure = function configure(req, res) {
 
   this.conditional.length = 0;
   this.removeAllListeners();
+
+  this.discover();
+
+  return this;
 };
 
 //

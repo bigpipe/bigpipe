@@ -81,7 +81,7 @@ function Pipe(server, pages, options) {
   //
   // Start listening for incoming requests.
   //
-  this.server.on('request', this.incoming.bind(this));
+  this.server.on('request', this.dispatch.bind(this));
   this.primus.on('connection', this.connection.bind(this));
 }
 
@@ -340,14 +340,14 @@ Pipe.prototype.find = function find(url, method) {
 };
 
 /**
- * Handle incoming requests.
+ * Dispatch incoming requests.
  *
  * @TODO handle POST requests.
  * @param {Request} req HTTP request.
  * @param {Resposne} res HTTP response.
  * @api private
  */
-Pipe.prototype.incoming = function incoming(req, res) {
+Pipe.prototype.dispatch = function dispatch(req, res) {
   this.decorate(req);
 
   //
