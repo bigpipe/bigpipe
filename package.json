@@ -1,7 +1,7 @@
 {
   "name": "pagelets",
   "version": "0.0.0",
-  "description": "Modular application framework for building real-time applications.",
+  "description": "Pagelets is a modular framework for Node.js that's inspired by Facebook's BigPipe and various of real-time frameworks.",
   "main": "index.js",
   "scripts": {
     "test": "NODE_ENV=testing ./node_modules/.bin/mocha $(find test -name '*.test.js')"
@@ -9,7 +9,7 @@
   "dependencies": {
     "async": "0.2.x",
     "extendable": "0.0.x",
-    "engine.io": "0.6.x",
+    "ws": "0.4.27",
     "routable": "0.0.x",
     "primus": "1.0.x",
     "expirable": "0.0.x",
