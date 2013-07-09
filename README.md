@@ -14,7 +14,7 @@ assets by stream.
 
 ### Installation
 
-To use pagelets as dependency simply use nmp to install and save the module to
+To use pagelets as dependency simply use npm to install and save the module to
 *package.json*
 
 ```
