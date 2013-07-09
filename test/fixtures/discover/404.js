@@ -7,5 +7,5 @@ var Page = require('../../../page');
 //
 module.exports = Page.extend({
   statusCode: 404,
-  url: '/404'
+  path: '/404'
 });
