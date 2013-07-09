@@ -366,7 +366,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   // we've got to send a 404 instead.
   //
   var Page = this.find(req.uri.pathname, req.method) || this.statusCodes[404]
-    , page = Page.alloc();
+    , page = Page.collection.alloc();
 
   if (this.domains) {
     page.domain = domain.create();
