@@ -104,7 +104,7 @@ Page.prototype.discover = function discover() {
     , pagelets;
 
   pagelets = this.pagelets.map(function allocate(Pagelet) {
-    return Pagelet.alloc().configure(page);
+    return Pagelet.freelist.alloc().configure(page);
   });
 
   //

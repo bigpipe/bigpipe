@@ -295,7 +295,7 @@ Pipe.prototype.transform = function transform(Page) {
       // Setup a FreeList for the pagelets so we can re-use the pagelet
       // instances and reduce garbage collection.
       //
-      Pagelet.collection = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function () {
+      Pagelet.freelist = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function () {
         return new Pagelet();
       });
 
@@ -320,7 +320,7 @@ Pipe.prototype.transform = function transform(Page) {
   // Setup a FreeList for the page so we can re-use the page instances and
   // reduce garbage collection to a bare minimum.
   //
-  Page.collection = new FreeList('page', Page.prototype.freelist || 1000, function () {
+  Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function () {
     return new Page(pipe);
   });
 
@@ -366,7 +366,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   // we've got to send a 404 instead.
   //
   var Page = this.find(req.uri.pathname, req.method) || this.statusCodes[404]
-    , page = Page.collection.alloc();
+    , page = Page.freelist.alloc();
 
   if (this.domains) {
     page.domain = domain.create();
