@@ -2,6 +2,12 @@
 
 var path = require('path');
 
+/**
+ * A simple pagelet.
+ *
+ * @constructor
+ * @api public
+ */
 function Pagelet() {
   this.page = null;
   this.id = null;
