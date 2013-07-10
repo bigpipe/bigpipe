@@ -17,6 +17,40 @@ module.exports = Page.extend({
 });
 ```
 
+Pagelets can be specified using:
+
+```js
+Page.extend({
+  pagelets: {
+    'name of the pagelet': 'relative path to the pagelet',
+    'name': require('exported pagelet constructor')
+  }
+});
+```
+
+#### Flow
+
+- Request comes in throught the `Pipe`
+- The `Pipe` searches for a matching `Page` based on the defined `path`
+  property. When nothing is found, a default `404` or `/404` page will be used
+  instead.
+- A new Page instance is allocated through the `Freelist` module to reduce
+  garbage collection.
+- The page instance receives the http request that it needs to handle.
+- The page starts discovering which pagelets are allowed to be included on this
+  page based on the authorization restrictions that are set on the `Pagelet`
+  instance.
+- During the discovery above we imnedieally start flushing the `view` template
+  to the browser so it can already start loading the specified resources in the
+  `<head>` of the template. The template receives resouces that needs to include
+  in the `<head>` of the page. These resources are pre-compiled core's of
+  JavaScript and CSS that is shared between pages or pagelets.
+- After the initial template is flushed we writing the rest of the pagelets that
+  are initialized after the `page#discovery` using the specified `mode`
+  property.
+- Once everything is flushed to the browser, we end the connection and release
+  the page again to the `Freelist`.
+
 #### View
 
 The page needs to have a default view where the pagelets can be added in to. The
@@ -94,6 +128,22 @@ Page.extend({
 ```
 
 #### Resources
+
+The specified resources should be shared between the available pagelets in order
+to prevent duplicate data calls. The data should be cached for the duration of
+the intial request. Data that needs to be fetches after the request (for example
+to update a pagelet in real-time) should bypass this cache.
+
+Resources should be build with upon our `Resource` instance. Multiple resources
+can be specified using:
+
+```js
+Page.extend({
+  resources: {
+    'resource-name': require('my-resource')
+  }
+});
+```
 
 #### Generation
 
