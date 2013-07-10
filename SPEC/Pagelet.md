@@ -24,6 +24,16 @@ the serverside as well as the client side. This allows greater control over the
 pagelets. The view should be a reference to a file location instead of the
 actual template.
 
+While the template engine should be automatically detected based on the file
+name, it should also be possible to force a template engine:
+
+```js
+Pagelet.extend({
+  view: '../views/whatever/template.mustache'
+  engine: 'hogan.js'
+});
+```
+
 #### css
 
 The pagelet can be styled through CSS, the CSS that's defined for the pagelet
