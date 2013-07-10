@@ -1,17 +1,20 @@
 'use strict';
 
-var path = require('path');
+var path = require('path')
+  , fs = require('fs');
 
 /**
- * Temper can compile templates.
+ * Temper compiles templates to client-side compatible templates as well as it's
+ * server side equivalents.
  *
  * @constructor
  * @api public
  */
 function Temper() {
-  this.cache = Object.create(null);       // File cache.
   this.installed = Object.create(null);   // Installed module for extension cache.
   this.required = Object.create(null);    // Template engine require cache.
+  this.compiled = Object.create(null);    // Compiled template cache.
+  this.file = Object.create(null);        // File lookup cache.
 }
 
 /**
@@ -42,7 +45,69 @@ Temper.prototype.require = function requires(engine) {
     throw new Error('The '+ engine +' module isnt installed. Run npm install --save '+ engine);
   }
 
+  //
+  // Release the cached template compilers again, there is no need to keep it.
+  //
+  setTimeout(function cleanup() {
+    delete this.required[engine];
+  }.bind(this), 5 * 60 * 1000);
+
   return this.required[engine];
+};
+
+/**
+ * Reads a file in to the cache and returns the contents.
+ *
+ * @param {String} file The absolute location of a file.
+ * @returns {String} The file contents.
+ * @api private
+ */
+Temper.prototype.read = function read(file) {
+  if (file in this.file) return this.file[file];
+
+  //
+  // Temporarily store the file in our cache. Remove it after a while because
+  // we're going to compile the source to a template function anyways so this
+  // will no longer serve it's use.
+  //
+  this.file[file] = fs.readFileSync(file, 'utf-8');
+
+  setTimeout(function cleanup() {
+    delete this.file[file];
+  }.bind(this), 60 * 1000);
+
+  return this.file[file];
+};
+
+/**
+ * Pre-load a new template in to the cache.
+ *
+ * @param {String} file The file that needs to be compiled.
+ * @api public
+ */
+Temper.prototype.preload = function preload(file) {
+  if (file in this.compiled) return this.compiled[file];
+
+  var name = path.basename(file, path.extname(file))
+    , engine = this.discover(file)
+    , template = this.read(file);
+
+  //
+  // Now that we have all required information we can compile the template in to
+  // different sections.
+  //
+  this.compiled[file] = this.compile(template, engine, name);
+  return this.compiled[file];
+};
+
+/**
+ * Retrieve a compiled version of a template.
+ *
+ * @param {String} file
+ * @api public
+ */
+Temper.prototype.find = function find(file) {
+  return this.compiled[file] || this.preload(file);
 };
 
 /**
