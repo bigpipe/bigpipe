@@ -8,6 +8,13 @@ content, an individual row anything you want. A pagelet is composed out of
 - [css](#css)
 - [js](#js)
 
+While the pagelets have a view, there isn't any rendering taking place. A
+Pagelet is basically a definition of resources and a resource
+allocator/transformer. The page has 2 important functions:
+
+- initialize, called when the pagelet is going to be used.
+- render, called when we need to render the pagelet.
+
 #### view
 
 Pagelets are renderd in a view. But this rendering is decided by the wrapping
