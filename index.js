@@ -14,6 +14,7 @@ var FreeList = require('freelist').FreeList
 var Librarian = require('./librarian')
   , Resource = require('./resource')
   , Pagelet = require('./pagelet')
+  , Temper = require('./temper')
   , Pool = require('./pool')
   , Page = require('./page')
   , ACL = require('./acl');
@@ -53,6 +54,13 @@ function Pipe(server, pages, options) {
   this.cache = options('cache', null);              // Enable URL lookup caching.
 
   //
+  // Setup our CSS/JS librarian, Access Control List and Template compiler.
+  //
+  this.library = new Librarian(this);
+  this.temper = new Temper();
+  this.acl = new ACL(this);
+
+  //
   // Process the pages.
   //
   this.pages = this.resolve(pages, this.transform); // Our Page constructors.
@@ -67,16 +75,6 @@ function Pipe(server, pages, options) {
     pathname: options('pathname', '/pagelets'),
     parser: options('parser', 'json')
   });
-
-  //
-  // Setup our CSS/JS library.
-  //
-  this.library = new Librarian(this);
-
-  //
-  // Setup ACL.
-  //
-  this.acl = new ACL(this);
 
   //
   // Start listening for incoming requests.
@@ -272,7 +270,11 @@ Pipe.prototype.transform = function transform(Page) {
       var prototype = Pagelet.prototype
         , dir = prototype.directory;
 
-      if (prototype.view) Pagelet.prototype.view = path.resolve(dir, prototype.view);
+      if (prototype.view) {
+        Pagelet.prototype.view = path.resolve(dir, prototype.view);
+        pipe.temper.preload(Pagelet.prototype.view);
+      }
+
       if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
       if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
 
@@ -307,6 +309,12 @@ Pipe.prototype.transform = function transform(Page) {
     // Save the transformed pagelets.
     //
     Page.prototype.pagelets = pagelets;
+  }
+
+  if (Page.prototype.view) {
+    // @TODO this might need a root directory.
+    Page.prototype.view = path.resolve(Page.prototype.view);
+    pipe.temper.preload(Page.prototype.view);
   }
 
   //
