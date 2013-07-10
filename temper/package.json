@@ -1,0 +1,26 @@
+{
+  "name": "temper",
+  "version": "0.0.0",
+  "description": "Temper compiles template for client and server side usage.",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_ENV=testing ./node_modules/.bin/mocha $(find test -name '*.test.js')"
+  },
+  "repository": "",
+  "keywords": [
+    "temper",
+    "templating",
+    "browser",
+    "compile"
+  ],
+  "author": "Arnout Kazemier",
+  "license": "MIT",
+  "devDependencies": {
+    "chai": "~1.7.2",
+    "mocha": "~1.12.0",
+    "jade": "~0.32.0",
+    "hogan.js": "~2.0.0",
+    "handlebars": "~1.0.12",
+    "ejs": "~0.8.4"
+  }
+}

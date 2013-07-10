@@ -134,7 +134,7 @@ Temper.prototype.discover = function discover(file) {
   //
   // A unknown file extension, we have no clue how to process this, so throw.
   //
-  if (!list) throw new Error('Unknown file extensions, cannot detect template engine.');
+  if (!list) throw new Error('Unknown file extension. '+ extname + ' is not supported');
 
   found = list.filter(function filter(engine) {
     var compiler;
@@ -243,6 +243,15 @@ Temper.prototype.compile = function compile(template, engine, name) {
     client: client,                               // Pre-compiled code.
     server: server                                // Compiled template.
   };
+};
+
+/**
+ * Destroy.
+ *
+ * @api public
+ */
+Temper.prototype.destroy = function destroy() {
+  this.installed = this.required = this.compiled = this.file = null;
 };
 
 //
