@@ -13,7 +13,7 @@ var defer = process.nextTick;
  * @param {Object} options
  * @api public
  */
-function Acl(pipe) {
+function ACL(pipe) {
   this.pipe = pipe;
   this.store = {};
 
@@ -28,7 +28,7 @@ function Acl(pipe) {
  * @param {String} resource name
  * @api public
  */
-Acl.prototype.grant = function grant(grantee, resource) {
+ACL.prototype.grant = function grant(grantee, resource) {
   if (!(grantee in this.store)) this.store[grantee] = [];
 
   this.store[grantee].push(resource);
@@ -44,17 +44,17 @@ Acl.prototype.grant = function grant(grantee, resource) {
  * @param {Function} fn callback
  * @api public
  */
-Acl.prototype.assert = function assert(grantee, resource, fn) {
+ACL.prototype.assert = function assert(grantee, resource, fn) {
   var list = this.store[grantee]
     , pool = this.resources.get(resource)
     , ok = !!(list && ~list.indexOf(resource));
 
   // Apply the custom assert of the resource.
   if (ok && pool && 'assert' in pool) return pool.assert(function assertion(err, result) {
-    defer(fn.bind(null, ok && result));
+    defer(fn.bind(ok && result));
   });
 
-  defer(fn.bind(null, ok));
+  defer(fn.bind(ok));
 };
 
 /**
@@ -64,7 +64,7 @@ Acl.prototype.assert = function assert(grantee, resource, fn) {
  * @param {String} resource name
  * @api public
  */
-Acl.prototype.revoke = function revoke(grantee, resource) {
+ACL.prototype.revoke = function revoke(grantee, resource) {
   if (!(grantee in this.store)) return this;
 
   var list = this.store[grantee]
@@ -79,4 +79,4 @@ Acl.prototype.revoke = function revoke(grantee, resource) {
 //
 // Initialize.
 //
-module.exports = Acl;
+module.exports = ACL;

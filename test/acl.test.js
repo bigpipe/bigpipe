@@ -84,5 +84,7 @@ describe('Access Control List', function () {
         done();
       });
     });
+
+    it('calls the assert function of the resource if available');
   });
 });
