@@ -12,6 +12,7 @@ function Page(pipe) {
   this.conditional = [];                    // Pagelets that are conditional.
   this.disabled = {};                       // Disabled pagelets.
   this.enabled = {};                        // Enabled pagelets.
+
   this.req = null;                          // Reference to HTTP request.
   this.res = null;                          // Reference to HTTP response.
 
@@ -50,6 +51,14 @@ Page.prototype.method = 'GET';
  * @public
  */
 Page.prototype.statusCode = 200;
+
+/**
+ * The location of the base template.
+ *
+ * @type {String}
+ * @public
+ */
+Page.prototype.view = '';
 
 /**
  * The environment that we're running this page in. If this is set to
