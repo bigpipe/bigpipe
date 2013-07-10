@@ -103,6 +103,22 @@ describe('Pipe', function () {
     });
   });
 
+  describe('#addPage(s)', function () {
+    it('adds the Page to the pages collection', function () {
+      var Index = require(__dirname + '/fixtures/pages/index');
+      app.addPage(Index);
+
+      expect(app.pages.length).to.equal(3);
+      expect(app.pages[2]).to.be.an('function');
+    });
+
+    it('will resolve and add the page if directory or array', function () {
+      app.addPage(__dirname + '/fixtures/pages');
+
+      expect(app.pages.length).to.equal(4);
+    });
+  });
+
   describe('#log', function () {
     it('doesnt write to stdout if we dont provide a stream', function (done) {
       app = new Pipe(server, __dirname + '/fixtures/pages', {

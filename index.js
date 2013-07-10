@@ -152,7 +152,6 @@ Pipe.prototype.resolve = function resolve(files, transform) {
   } else if (!Array.isArray(files)) {
     files = Object.keys(files).map(function merge(name) {
       var constructor = files[name];
-
       //
       // Add a name to the prototype, if we have this property in the prototype.
       // This mostly applies for the Pagelets.
@@ -168,9 +167,9 @@ Pipe.prototype.resolve = function resolve(files, transform) {
   files = files.filter(function jsonly(file) {
     //
     // Make sure we only use valid JavaScript files as sources. We want to
-    // ignore stuff like potential .log files.
+    // ignore stuff like potential .log files. Also include Page constructors.
     //
-    return path.extname(file) === '.js';
+    return path.extname(file) === '.js' || file.constructor.name === 'Function';
   }).map(function map(constructor) {
     //
     // It's not required to supply us with instances, we can just
@@ -336,15 +335,11 @@ Pipe.prototype.transform = function transform(Page) {
  * @param {Mixed} page composed Page object or file.
  * @returns {Pipe} fluent interface
  * @api public
- *
  */
-Pipe.prototype.addPage = function addPage(page) {
-  if (page instanceof 'Page') {
-    this.pages.push(this.transform(page));
-  } else {
-    this.pages.concat(this.resolve(page, this.transform));
-  }
+Pipe.prototype.addPages = function addPages(page) {
+  if ('function' === typeof page) page = [ page ];
 
+  this.pages.push.apply(this.pages, this.resolve(page, this.transform));
   return this;
 };
 
@@ -468,6 +463,11 @@ Pipe.createServer = function createServer(port, pages, options) {
 
   return pipe;
 };
+
+//
+// Set some proxy methods.
+//
+Pipe.prototype.addPage = Pipe.prototype.addPages;
 
 //
 // Expose our constructors.
