@@ -104,6 +104,7 @@ Pipe.prototype.options = function options(obj) {
  * Simple log method.
  *
  * @param {String} type The log type.
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.prototype.log = function log(type) {
@@ -205,6 +206,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
  * in case we need to handle a 404 or and 500 error page.
  *
  * @param {Array} pages All enabled pages.
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.prototype.discover = function discover(pages) {
@@ -235,7 +237,7 @@ Pipe.prototype.discover = function discover(pages) {
  * something useful.
  *
  * @param {Page} page Page constructor.
- * @return {Page} The upgrade page.
+ * @returns {Page} The upgrade page.
  * @api private
  */
 Pipe.prototype.transform = function transform(Page) {
@@ -328,6 +330,25 @@ Pipe.prototype.transform = function transform(Page) {
 };
 
 /**
+ * Insert page into collection of pages. If page is a manually instantiated
+ * Page push it in, otherwise resolve the path, always transform the page.
+ *
+ * @param {Mixed} page composed Page object or file.
+ * @returns {Pipe} fluent interface
+ * @api public
+ *
+ */
+Pipe.prototype.addPage = function addPage(page) {
+  if (page instanceof 'Page') {
+    this.pages.push(this.transform(page));
+  } else {
+    this.pages.concat(this.resolve(page, this.transform));
+  }
+
+  return this;
+};
+
+/**
  * Find the correct Page constructor based on the given url.
  *
  * @param {String} url The url we need to find.
@@ -355,7 +376,8 @@ Pipe.prototype.find = function find(url, method) {
  *
  * @TODO handle POST requests.
  * @param {Request} req HTTP request.
- * @param {Resposne} res HTTP response.
+ * @param {Response} res HTTP response.
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.prototype.dispatch = function dispatch(req, res) {
