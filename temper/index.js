@@ -83,14 +83,16 @@ Temper.prototype.read = function read(file) {
  * Pre-load a new template in to the cache.
  *
  * @param {String} file The file that needs to be compiled.
+ * @param {String} engine The engine we need to use.
  * @api public
  */
-Temper.prototype.preload = function preload(file) {
+Temper.prototype.preload = function preload(file, engine) {
   if (file in this.compiled) return this.compiled[file];
 
   var name = path.basename(file, path.extname(file))
-    , engine = this.discover(file)
     , template = this.read(file);
+
+  engine = engine || this.discover(file);
 
   //
   // Now that we have all required information we can compile the template in to
