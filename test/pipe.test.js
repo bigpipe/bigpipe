@@ -46,7 +46,7 @@ describe('Pipe', function () {
 
   it('correctly resolves `pages` as a string to an array', function () {
     expect(app.pages).to.be.a('array');
-    expect(app.pages).to.have.length(2);
+    expect(app.pages).to.have.length(3);
   });
 
   it('transforms pages', function () {
@@ -103,19 +103,23 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#addPage(s)', function () {
+  describe('#define', function () {
     it('adds the Page to the pages collection', function () {
-      var Index = require(__dirname + '/fixtures/pages/index');
-      app.addPage(Index);
+      var faq = require(__dirname + '/fixtures/pages/faq');
+      app.define(faq);
 
-      expect(app.pages.length).to.equal(3);
+      expect(app.pages).to.have.length(4);
       expect(app.pages[2]).to.be.an('function');
+      expect(app.pages[2]).to.have.property('properties');
     });
 
     it('will resolve and add the page if directory or array', function () {
-      app.addPage(__dirname + '/fixtures/pages');
+      app.define(__dirname + '/fixtures/pages');
 
-      expect(app.pages.length).to.equal(4);
+      expect(app.pages).to.have.length(6);
+      app.pages.forEach(function (page) {
+        expect(page).to.have.property('properties');
+      });
     });
   });
 

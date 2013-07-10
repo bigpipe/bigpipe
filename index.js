@@ -336,7 +336,7 @@ Pipe.prototype.transform = function transform(Page) {
  * @returns {Pipe} fluent interface
  * @api public
  */
-Pipe.prototype.addPages = function addPages(page) {
+Pipe.prototype.define = function define(page) {
   if ('function' === typeof page) page = [ page ];
 
   this.pages.push.apply(this.pages, this.resolve(page, this.transform));
@@ -463,11 +463,6 @@ Pipe.createServer = function createServer(port, pages, options) {
 
   return pipe;
 };
-
-//
-// Set some proxy methods.
-//
-Pipe.prototype.addPage = Pipe.prototype.addPages;
 
 //
 // Expose our constructors.
