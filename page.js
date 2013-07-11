@@ -213,7 +213,7 @@ Page.extend = require('extendable');
 // Expose the Page on the exports and parse our the directory.
 //
 Page.on = function on(module) {
-  this.prototype.directory = path.dirname(module.filename);
+  this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
   module.exports = this;
 
   return this;

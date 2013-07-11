@@ -161,7 +161,7 @@ Pagelet.extend = require('extendable');
 // Expose the Pagelet on the exports and parse our the directory.
 //
 Pagelet.on = function on(module) {
-  this.prototype.directory = path.dirname(module.filename);
+  this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
   module.exports = this;
 
   return this;
