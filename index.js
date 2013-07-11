@@ -372,6 +372,7 @@ Pipe.prototype.transform = function transform(Page) {
  * @api public
  */
 Pipe.prototype.define = function define(page) {
+  if (!page) return this;
   if ('function' === typeof page) page = [ page ];
 
   this.pages.push.apply(this.pages, this.resolve(page, this.transform));
