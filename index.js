@@ -324,8 +324,7 @@ Pipe.prototype.transform = function transform(Page) {
   }
 
   if (Page.prototype.view) {
-    // @TODO this might need a root directory.
-    Page.prototype.view = path.resolve(Page.prototype.view);
+    Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
     pipe.temper.preload(Page.prototype.view, Page.prototype.engine);
   }
 
