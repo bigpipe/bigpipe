@@ -1,5 +1,7 @@
 'use strict';
 
+var path = require('path');
+
 /**
  * A simple object representation of a given page.
  *
@@ -59,6 +61,15 @@ Page.prototype.statusCode = 200;
  * @public
  */
 Page.prototype.view = '';
+
+/**
+ * Save the location where we got our resources from, this will help us with
+ * fetching assets from the correct location.
+ *
+ * @type {String}
+ * @public
+ */
+Page.prototype.directory = '';
 
 /**
  * The environment that we're running this page in. If this is set to
@@ -188,6 +199,16 @@ Page.prototype.configure = function configure(req, res) {
 // Make's the Page extendable.
 //
 Page.extend = require('extendable');
+
+//
+// Expose the Page on the exports and parse our the directory.
+//
+Page.on = function on(module) {
+  this.prototype.directory = path.dirname(module.filename);
+  module.exports = this;
+
+  return this;
+};
 
 //
 // Expose the constructor.

@@ -88,6 +88,15 @@ Pagelet.prototype.js = '';
 Pagelet.prototype.dependencies = [];
 
 /**
+ * Save the location where we got our resources from, this will help us with
+ * fetching assets from the correct location.
+ *
+ * @type {String}
+ * @public
+ */
+Pagelet.prototype.directory = '';
+
+/**
  * Initialization function that is called when the pagelet is activated. This is
  * done AFTER any of the authorization hooks are handled. So your sure that this
  * pagelet is allowed for usage.
@@ -96,15 +105,6 @@ Pagelet.prototype.dependencies = [];
  * @public
  */
 Pagelet.prototype.initialize = function initialize() {};
-
-/**
- * Save the location where we got our resources from, this will help us with
- * fetching assets from the correct location.
- *
- * @type {String}
- * @public
- */
-Pagelet.prototype.directory = path.dirname(process.mainModule.filename);
 
 /**
  * Check if the given pagelet has been enabled for the page.
@@ -147,6 +147,16 @@ Pagelet.prototype.configure = function configure(page) {
 // Make the Pagelet extendable.
 //
 Pagelet.extend = require('extendable');
+
+//
+// Expose the Pagelet on the exports and parse our the directory.
+//
+Pagelet.on = function on(module) {
+  this.prototype.directory = path.dirname(module.filename);
+  module.exports = this;
+
+  return this;
+};
 
 //
 // Expose the pagelet.

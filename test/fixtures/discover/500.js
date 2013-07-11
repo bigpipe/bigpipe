@@ -5,7 +5,7 @@ var Page = require('../../../page');
 //
 // Custom 500 error page, internal server fuckup.
 //
-module.exports = Page.extend({
+Page.extend({
   statusCode: 500,
   path: '/500'
-});
+}).on(module);
