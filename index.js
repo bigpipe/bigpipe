@@ -63,8 +63,8 @@ function Pipe(server, options) {
   //
   // Process the pages.
   //
-  var pages = options('pages');
-  this.pages = pages ? this.resolve(pages, this.transform) : [];
+  this.pages = [];
+  this.define(options('pages'));
 
   //
   // Find error pages.
@@ -89,6 +89,22 @@ function Pipe(server, options) {
 }
 
 Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
+
+/**
+ * Simple emit wrapper that returns a function that emits an event once it's
+ * called
+ *
+ * @param {String} event Name of the event that we should emit.
+ * @param {Function} parser Argument parser.
+ * @api public
+ */
+Pipe.prototype.emits = function emits(event, parser) {
+  var self = this;
+
+  return function emit(arg) {
+    self.emit(event, parser ? parser.apply(self, arguments) : arg);
+  };
+};
 
 /**
  * Checks if options exists.
@@ -359,6 +375,7 @@ Pipe.prototype.define = function define(page) {
   if ('function' === typeof page) page = [ page ];
 
   this.pages.push.apply(this.pages, this.resolve(page, this.transform));
+  this.library.catalog();
   return this;
 };
 

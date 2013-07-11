@@ -10,13 +10,13 @@ var fs = require('fs');
  * All non-common assets are also compiled and saved to disk so we don't have to
  * recompile everything during a request.
  *
+ * @constructor
  * @param {Pipe} pipe Reference to the Pipe
+ * @api public
  */
 function Librarian(pipe) {
-  this.pipe = pipe;
-
   this.buffer = Object.create(null);
-  this.initialise();
+  this.pipe = pipe;
 }
 
 //
@@ -31,11 +31,16 @@ function Librarian(pipe) {
 });
 
 /**
- * Scan the pages for common assets and dependencies.
+ * Scan the supplied pages for duplicate pagelet definitions.
  *
- * @api private
+ * @api public
  */
-Librarian.prototype.initialise = function initialise() {
+Librarian.prototype.catalog = function optimize() {
+
+};
+
+Librarian.prototype.lend = function lend() {
+
 };
 
 /**
