@@ -395,7 +395,7 @@ Pipe.prototype.find = function find(url, method) {
  * @api private
  */
 Pipe.prototype.dispatch = function dispatch(req, res) {
-  this.decorate(req);
+  this.decorate(req, res);
 
   //
   // Find the page that matches our route, if we don't find anything assume
@@ -403,6 +403,15 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   //
   var Page = this.find(req.uri.pathname, req.method) || this.statusCodes[404]
     , page = Page.freelist.alloc();
+
+  //
+  // Release the page again when we receive a `free` event.
+  //
+  page.once('free', function free() {
+    Page.freelist.free(page);
+  });
+
+  res.once('close', page.emits('close'));
 
   if (this.domains) {
     page.domain = domain.create();
@@ -420,6 +429,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
  * Decorate the request object with some extensions.
  *
  * @param {Request} req HTTP request.
+ * @param {Response} res HTTP response.
  * @api private
  */
 Pipe.prototype.decorate = function decorate(req) {

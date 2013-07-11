@@ -135,6 +135,26 @@ Pagelet.prototype.disabled = function disabled(name) {
 };
 
 /**
+ * Simple emit wrapper that returns a function that emits an event once it's
+ * called.
+ *
+ * ```js
+ * page.on('close', pagelet.emits('close'));
+ * ```
+ *
+ * @param {String} event Name of the event that we should emit.
+ * @param {Function} parser Argument parser.
+ * @api public
+ */
+Pagelet.prototype.emits = function emits(event, parser) {
+  var self = this;
+
+  return function emit(arg) {
+    self.emit(event, parser ? parser.apply(self, arguments) : arg);
+  };
+};
+
+/**
  * Reset the instance to it's orignal state.
  *
  * @param {Page} page The page instance which created this pagelet.

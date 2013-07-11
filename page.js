@@ -55,6 +55,19 @@ Page.prototype.method = 'GET';
 Page.prototype.statusCode = 200;
 
 /**
+ * With what kind of generation mode do we need to output the generated
+ * pagelets. We're supporting 3 different modes:
+ *
+ * - render, fully render the page without any fancy flushing.
+ * - async, render all pagelets async and flush them as fast as possible.
+ * - pipe, same as async but in the specified order.
+ *
+ * @type {String}
+ * @public
+ */
+Page.prototype.mode = 'async';
+
+/**
  * The location of the base template.
  *
  * @type {String}
@@ -123,6 +136,22 @@ Page.prototype.resources = {};
 Page.prototype.async = require('async');
 
 /**
+ * Simple emit wrapper that returns a function that emits an event once it's
+ * called
+ *
+ * @param {String} event Name of the event that we should emit.
+ * @param {Function} parser Argument parser.
+ * @api public
+ */
+Page.prototype.emits = function emits(event, parser) {
+  var self = this;
+
+  return function emit(arg) {
+    self.emit(event, parser ? parser.apply(self, arguments) : arg);
+  };
+};
+
+/**
  * Discover pagelets that we're allowed to use.
  *
  * @api private
@@ -166,9 +195,11 @@ Page.prototype.discover = function discover() {
  * @api private
  */
 Page.prototype.render = function render() {
-  var page = this;
+  var view = this.pipe.temper.fetch(this.view).server;
 
-  // @TODO render something =/
+  this.res.write(view({
+    bootstrap: this.bootstrap()
+  }));
 };
 
 /**
@@ -200,6 +231,7 @@ Page.prototype.configure = function configure(req, res) {
   this.res = res;
 
   this.discover();
+  this.render();
 
   return this;
 };
