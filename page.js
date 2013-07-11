@@ -14,7 +14,7 @@ function Page(pipe) {
   this.conditional = [];                    // Pagelets that are conditional.
   this.disabled = {};                       // Disabled pagelets.
   this.enabled = {};                        // Enabled pagelets.
-  this._events = {};
+  this._events = {};                        // Allow events to be registered.
 
   this.req = null;                          // Reference to HTTP request.
   this.res = null;                          // Reference to HTTP response.
