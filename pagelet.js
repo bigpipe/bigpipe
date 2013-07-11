@@ -10,6 +10,7 @@ var path = require('path');
  */
 function Pagelet() {
   this.page = null;
+  this.pipe = null;
   this.id = null;
 }
 
@@ -140,6 +141,7 @@ Pagelet.prototype.disabled = function disabled(name) {
  * @api private
  */
 Pagelet.prototype.configure = function configure(page) {
+  this.pipe = page.pipe;
   this.page = page;
 
   //
@@ -153,12 +155,27 @@ Pagelet.prototype.configure = function configure(page) {
 };
 
 //
-// Make the Pagelet extendable.
+// Make the Pagelet extendable. This allows us to use:
+//
+// ```js
+// Pagelet.extend({
+//   prop: value
+// });
+// ```
+//
+// For extending the prototypes, just like you're used to in Backbone.
 //
 Pagelet.extend = require('extendable');
 
 //
-// Expose the Pagelet on the exports and parse our the directory.
+// Expose the Pagelet on the exports and parse our the directory. This ensures
+// that we can properly resolve all relative assets:
+//
+// ```js
+// Pagelet.extend({
+//   ..
+// }).on(module);
+// ```
 //
 Pagelet.on = function on(module) {
   this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
