@@ -252,7 +252,9 @@ Page.on = function on(module) {
   // Resolve pagelets paths.
   //
   if (pagelets) Object.keys(pagelets).forEach(function resolve(pagelet) {
-    pagelets[pagelet] = path.join(dir, pagelets[pagelet]);
+    if ('string' === typeof pagelets[pagelet]) {
+      pagelets[pagelet] = path.join(dir, pagelets[pagelet]);
+    }
   });
 
   module.exports = this;
