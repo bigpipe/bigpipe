@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "chai": "1.7.x",
-    "mocha": "1.11.x",
+    "mocha": "1.12.x",
     "pre-commit": "0.0.x"
   },
   "repository": {
