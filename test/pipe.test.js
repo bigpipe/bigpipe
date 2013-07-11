@@ -13,8 +13,9 @@ describe('Pipe', function () {
       throw new Error('Unhandled request');
     });
 
-    app = new Pipe(server, __dirname + '/fixtures/pages', {
-      domains: true
+    app = new Pipe(server, {
+        pages: __dirname + '/fixtures/pages'
+      , domains: true
     });
 
     server.portnumber = common.port;
@@ -93,8 +94,9 @@ describe('Pipe', function () {
 
       var pattern = [];
 
-      app = new Pipe(server, __dirname + '/fixtures/pages', {
-        cache: cache
+      app = new Pipe(server, {
+          pages: __dirname + '/fixtures/pages'
+        , cache: cache
       });
 
       expect(app.find('/')).to.be.a('function');
@@ -125,7 +127,8 @@ describe('Pipe', function () {
 
   describe('#log', function () {
     it('doesnt write to stdout if we dont provide a stream', function (done) {
-      app = new Pipe(server, __dirname + '/fixtures/pages', {
+      app = new Pipe(server, {
+        pages: __dirname + '/fixtures/pages',
         domains: true,
         stream: null
       });
@@ -155,7 +158,8 @@ describe('Pipe', function () {
         done();
       };
 
-      app = new Pipe(server, __dirname + '/fixtures/pages', {
+      app = new Pipe(server, {
+        pages: __dirname + '/fixtures/pages',
         domains: true,
         stream: stream
       });
@@ -174,7 +178,7 @@ describe('Pipe', function () {
     });
 
     it('uses user provided 404 and 500 pages based on routes', function () {
-      app = new Pipe(server, __dirname + '/fixtures/discover');
+      app = new Pipe(server, { pages: __dirname + '/fixtures/discover' });
       expect(app.pages).to.have.length(2);
 
       expect(app.find('/404')).to.not.equal(undefined);

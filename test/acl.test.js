@@ -5,7 +5,7 @@ describe('Access Control List', function () {
     , Pipe = common.Pipe
     , expect = common.expect
     , Acl = require('../acl')
-    , server = Pipe.createServer(1337, 'pages')
+    , server = Pipe.createServer(1337, { pages: 'pages' })
     , acl;
 
   beforeEach(function () {

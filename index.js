@@ -37,14 +37,14 @@ catch (e) {}
  * - cache: A object were we store our url->page mapping.
  * - stream: Where we should write our logs to.
  * - parser: Which parser should be used to send data in real-time.
+ * - pages: String or array of pages we serve.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
- * @param {Mixed} pages String or array of pages we serve.
  * @param {Object} options Configuration.
  * @api public
  */
-function Pipe(server, pages, options) {
+function Pipe(server, options) {
   options = this.options(options || {});
 
   this.resources = new Pool({ type: 'resources' }); // Resource pool.
@@ -63,8 +63,13 @@ function Pipe(server, pages, options) {
   //
   // Process the pages.
   //
-  this.pages = this.resolve(pages, this.transform); // Our Page constructors.
-  this.discover(this.pages);                        // Find error pages.
+  var pages = options('pages');
+  this.pages = pages ? this.resolve(pages, this.transform) : [];
+
+  //
+  // Find error pages.
+  //
+  this.discover(this.pages);
 
   //
   // Now that everything is procesed, we can setup our internals.
@@ -435,12 +440,11 @@ Pipe.prototype.connection = function connection(spark) {
  * Create a new Pagelet/Pipe server.
  *
  * @param {Number} port Port number we should listen on.
- * @param {Array} pages List with pages.
  * @param {Object} options Configuration.
  * @returns {Pipe}
  * @api public
  */
-Pipe.createServer = function createServer(port, pages, options) {
+Pipe.createServer = function createServer(port, options) {
   options = options || {};
 
   var certs = 'key' in options && 'cert' in options
@@ -466,7 +470,7 @@ Pipe.createServer = function createServer(port, pages, options) {
   //
   // Now that we've got a server, we can setup the pipe and start listening.
   //
-  var pipe = new Pipe(server, pages || options.pages, options);
+  var pipe = new Pipe(server, options);
   server.listen(port);
 
   return pipe;
