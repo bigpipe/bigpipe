@@ -148,13 +148,30 @@ Pipe.prototype.log.levels = {
  * @api private
  */
 Pipe.prototype.resolve = function resolve(files, transform) {
+  /**
+   * It's not required to supply resolve with instances, we can just
+   * automatically require them if they are using the:
+   *
+   *   module.exports = base.extend();
+   *
+   * pattern for defining the pages/pagelets.
+   *
+   * @param {String} constructor
+   * @returns {Object} initialized object
+   * @api private
+   */
+  function init (constructor) {
+    return ('string' === typeof constructor) ? require(constructor) : constructor;
+  }
+
   if ('string' === typeof files) {
     files = fs.readdirSync(files).map(function locate(file) {
       return path.resolve(files, file);
     });
   } else if (!Array.isArray(files)) {
     files = Object.keys(files).map(function merge(name) {
-      var constructor = files[name];
+      var constructor = init(files[name]);
+
       //
       // Add a name to the prototype, if we have this property in the prototype.
       // This mostly applies for the Pagelets.
@@ -174,17 +191,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
     //
     return path.extname(file) === '.js' || file.constructor.name === 'Function';
   }).map(function map(constructor) {
-    //
-    // It's not required to supply us with instances, we can just
-    // automatically require them if they are using the:
-    //
-    //   module.exports = base.extend();
-    //
-    // pattern for defining the pages/pagelets.
-    //
-    if ('string' === typeof constructor) {
-      constructor = require(constructor);
-    }
+    constructor = init(constructor);
 
     //
     // We didn't receive a proper page instance.
