@@ -46,6 +46,15 @@ Pagelet.prototype.name = '';
 Pagelet.prototype.authorize = null;
 
 /**
+ * Optional template engine preference. Useful when we detect the wrong template
+ * engine based on the view's file name.
+ *
+ * @type {String}
+ * @public
+ */
+Pagelet.prototype.engine = '';
+
+/**
  * The location of your view template. But just because you've got a view
  * template it doesn't mean we will render it. It depends on how the pagelet is
  * called. If it's called from the client side we will only forward the data to

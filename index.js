@@ -284,7 +284,7 @@ Pipe.prototype.transform = function transform(Page) {
 
       if (prototype.view) {
         Pagelet.prototype.view = path.resolve(dir, prototype.view);
-        pipe.temper.preload(Pagelet.prototype.view, Pagelet.prototype.engine);
+        pipe.temper.prefetch(Pagelet.prototype.view, Pagelet.prototype.engine);
       }
 
       if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
@@ -325,7 +325,7 @@ Pipe.prototype.transform = function transform(Page) {
 
   if (Page.prototype.view) {
     Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
-    pipe.temper.preload(Page.prototype.view, Page.prototype.engine);
+    pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
   }
 
   //

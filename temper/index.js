@@ -80,13 +80,13 @@ Temper.prototype.read = function read(file) {
 };
 
 /**
- * Pre-load a new template in to the cache.
+ * Prefetch a new template in to the cache.
  *
  * @param {String} file The file that needs to be compiled.
  * @param {String} engine The engine we need to use.
  * @api public
  */
-Temper.prototype.preload = function preload(file, engine) {
+Temper.prototype.prefetch = function prefetch(file, engine) {
   if (file in this.compiled) return this.compiled[file];
 
   var name = path.basename(file, path.extname(file))
@@ -103,13 +103,13 @@ Temper.prototype.preload = function preload(file, engine) {
 };
 
 /**
- * Retrieve a compiled version of a template.
+ * Fetch a compiled version of a template.
  *
  * @param {String} file
  * @api public
  */
-Temper.prototype.find = function find(file) {
-  return this.compiled[file] || this.preload(file);
+Temper.prototype.fetch = function fetch(file) {
+  return this.compiled[file] || this.prefetch(file);
 };
 
 /**

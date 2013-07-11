@@ -63,6 +63,15 @@ Page.prototype.statusCode = 200;
 Page.prototype.view = '';
 
 /**
+ * Optional template engine preference. Useful when we detect the wrong template
+ * engine based on the view's file name.
+ *
+ * @type {String}
+ * @public
+ */
+Page.prototype.engine = '';
+
+/**
  * Save the location where we got our resources from, this will help us with
  * fetching assets from the correct location.
  *
