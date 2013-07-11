@@ -213,9 +213,17 @@ Page.extend = require('extendable');
 // Expose the Page on the exports and parse our the directory.
 //
 Page.on = function on(module) {
-  this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
-  module.exports = this;
+  var dir = this.prototype.directory = this.prototype.directory || path.dirname(module.filename)
+    , pagelets = this.prototype.pagelets;
 
+  //
+  // Resolve pagelets paths.
+  //
+  if (pagelets) Object.keys(pagelets).forEach(function resolve(pagelet) {
+    pagelets[pagelet] = path.join(dir, pagelets[pagelet]);
+  });
+
+  module.exports = this;
   return this;
 };
 
