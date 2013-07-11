@@ -1,6 +1,7 @@
 'use strict';
 
-var fs = require('fs');
+var crypto = require('crypto')
+  , fs = require('fs');
 
 /**
  * The librarian manages all the assets that we have inside our pagelets. It's
@@ -10,19 +11,28 @@ var fs = require('fs');
  * All non-common assets are also compiled and saved to disk so we don't have to
  * recompile everything during a request.
  *
+ * Options:
+ *
+ * - threshold, the precentage of pages it's included on for it to be consided
+ *   a candicate for the core file. Default to 80%.
+ *
  * @constructor
  * @param {Pipe} pipe Reference to the Pipe
  * @api public
  */
-function Librarian(pipe) {
-  this.buffer = Object.create(null);
+function Librarian(pipe, options) {
+  options = options || {};
+
+  this.threshold = parseInt(options.threshold || 80, 10); // Threshold for core.
+  this.appendix = Object.create(null);                    // List of core files.
+  this.buffer = Object.create(null);                      // File lookup table.
   this.pipe = pipe;
 }
 
 //
 // Proxy some of the pipe's properties directly in to our librarian.
 //
-['log', 'pages'].forEach(function proxy(api) {
+['log', 'pages', 'temper'].forEach(function proxy(api) {
   Object.defineProperty(Librarian.prototype, api, {
     get: function get() {
       return this.pipe[api];
@@ -30,17 +40,138 @@ function Librarian(pipe) {
   });
 });
 
+//
+// Provide a pre-parsed interface to the pagelet for easy modification.
+//
+Object.defineProperty(Librarian.prototype, 'parsed', {
+  get: function pagelets() {
+    var authorization = {}
+      , pagelet = {};
+
+    var pages = this.pipe.pages.reduce(function each(memo, Page) {
+      memo[Page.id] = Page.prototype.pagelets.map(function normalize(Pagelet) {
+        var proto = Pagelet.prototype;
+
+        return {
+          dependencies: proto.dependencies,   // Array of pagelet dependencies.
+          authorized: !!proto.authorize,      // Is authorization required.
+          view: proto.view,                   // Location of the view.
+          name: proto.name,                   // Name of the pagelet.
+          css: proto.css,                     // Location of the CSS.
+          js: proto.view,                     // Location of the JS.
+          id: Page.id                         // Id of the page.
+        };
+      }).reduce(function sort(pagelets, data) {
+        if (data.authorized) authorization[data.name] = data;
+        else pagelet[data.name] = data;
+
+        pagelets[data.name] = data;
+        return pagelets;
+      }, {});
+
+      return memo;
+    }, {});
+
+    //
+    // Add some easy to use iterators.
+    //
+    [authorization, pagelet, pages].forEach(function each(data) {
+      Object.defineProperty(data, 'forEach', {
+        value: function (fn) {
+          Object.keys(data).forEach(function (key) {
+            fn(data[key], key, data);
+          });
+        }
+      });
+    });
+
+    return {
+      authorized: authorization,
+      pagelets: pagelet,
+      pages: pages
+    };
+  }
+});
+
+Librarian.prototype.catalog = function catalog() {
+  var meta = this.meta();
+};
+
 /**
- * Scan the supplied pages for duplicate pagelet definitions.
+ * Scan the supplied pages for duplicate pagelet definitions. Some rules for
+ * scanning:
+ *
+ * - Pagelets that require authorization should never be included in the core
+ *   file. This includes the template engines they leverage. As this code
+ *   shouldn't be exposed to the general public.
  *
  * @api public
  */
-Librarian.prototype.catalog = function optimize() {
+Librarian.prototype.meta = function metagenerator() {
+  var temper = this.temper
+    , data = this.parsed
+    , meta = {};
+
+  /**
+   * Increment a metric.
+   *
+   * @param {String} what Name of the metrics.
+   * @api private
+   */
+  function incr(what) {
+    if (what in meta) meta['counter::'+ what]++;
+    else meta['counter::'+ what] = 1;
+
+    return incr;
+  }
+
+  data.pagelets.forEach(function each(pagelet) {
+    var template = temper.fetch(pagelet.view);
+
+    meta[template.engine] = template.library;
+    incr('library::'+ template.engine);
+  });
+
+  return meta;
+};
+
+/**
+ * Returns a list of files that should be embed in to the page.
+ *
+ * @api public
+ */
+Librarian.prototype.lend = function lend(page) {
 
 };
 
-Librarian.prototype.lend = function lend() {
+/**
+ * Serve the content over the HTTP connection.
+ *
+ * @param {Request} req The HTTP request.
+ * @param {Response} res The HTTP response.
+ * @returns {Boolean} Served by the librarian.
+ * @api public
+ */
+Librarian.prototype.serve = function serve(req, res) {
+  if (!(req.url in this.buffer)) return false;
 
+  return true;
+};
+
+/**
+ * Create a versioned filename from the content. This allows cache busting when
+ * the content has changed.
+ *
+ * @param {String} extension The file extension returned from path.extname.
+ * @param {String} content The content.
+ * @returns {String} The versioned filename
+ * @api private
+ */
+Librarian.prototype.version = function version(extension, content) {
+  return crypto.createHash('sha1')
+    .update(content)
+    .digest()
+    .toString('hex') + extension;
 };
 
 /**

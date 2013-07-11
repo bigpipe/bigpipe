@@ -38,6 +38,8 @@ catch (e) {}
  * - stream: Where we should write our logs to.
  * - parser: Which parser should be used to send data in real-time.
  * - pages: String or array of pages we serve.
+ * - threshold: Percentag of pages where a pagelet needs to be included in order
+ *   to be bundled in to a core file.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -56,9 +58,11 @@ function Pipe(server, options) {
   //
   // Setup our CSS/JS librarian, Access Control List and Template compiler.
   //
-  this.library = new Librarian(this);
-  this.temper = new Temper();
   this.acl = new ACL(this);
+  this.temper = new Temper();
+  this.library = new Librarian(this, {
+    threshold: options('threshold', 80)
+  });
 
   //
   // Process the pages.
