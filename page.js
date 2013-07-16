@@ -193,14 +193,57 @@ Page.prototype.discover = function discover() {
  * Start rendering the appropriate pagelets and combine them in to a single
  * page.
  *
+ * @param {String} mode The rendering mode that we should use to output pagelets.
  * @api private
  */
-Page.prototype.render = function render() {
+Page.prototype.render = function render(mode) {
+  mode = mode || this.mode;
+
   var view = this.pipe.temper.fetch(this.view).server;
 
   this.res.write(view({
-    bootstrap: this.bootstrap()
+    bootstrap: this.bootstrap(mode)
   }));
+};
+
+/**
+ * The bootstrap method generates a string that needs to be included in the
+ * template in order for pagelets to function.
+ *
+ * - It includes the pipe.js JavaScript client and initialises it.
+ * - It includes "core" library files for the page.
+ * - It includes "core" css for the page.
+ * - It adds a <noscript> meta refresh for force a sync method.
+ *
+ * @param {String} mode The rendering mode that's used to output the pagelets.
+ * @returns {String}
+ * @api private
+ */
+Page.prototype.bootstrap = function bootstrap(mode) {
+  var library = this.pipe.library.lend(this)
+    , path = this.req.uri.pathname
+    , head;
+
+  head = [
+    '<meta charset="utf-8" />',
+    '<noscript>',
+      '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1" />',
+    '</noscript>'
+  ];
+
+  if (library.css) library.css.forEach(function inject(url) {
+    head += '<link rel="stylesheet" href="'+ url +'" />';
+  });
+
+  if (library.js) library.js.forEach(function inject(url) {
+    head += '<link rel="stylesheet" href="'+ url +'" />';
+  });
+
+  // @TODO rel prefetch for resources that are used on the next page?
+  // @TODO cache manifest.
+  // @TODO rel dns prefetch.
+
+  return head;
 };
 
 /**
