@@ -30,7 +30,7 @@ Page.extend({
 
 #### Flow
 
-- Request comes in throught the `Pipe`
+- Request comes in through the `Pipe`
 - The `Pipe` searches for a matching `Page` based on the defined `path`
   property. When nothing is found, a default `404` or `/404` page will be used
   instead.
@@ -40,9 +40,9 @@ Page.extend({
 - The page starts discovering which pagelets are allowed to be included on this
   page based on the authorization restrictions that are set on the `Pagelet`
   instance.
-- During the discovery above we imnedieally start flushing the `view` template
+- During the discovery above we immediately start flushing the `view` template
   to the browser so it can already start loading the specified resources in the
-  `<head>` of the template. The template receives resouces that needs to include
+  `<head>` of the template. The template receives resources that needs to include
   in the `<head>` of the page. These resources are pre-compiled core's of
   JavaScript and CSS that is shared between pages or pagelets.
 - After the initial template is flushed we writing the rest of the pagelets that
@@ -55,7 +55,7 @@ Page.extend({
 
 The page needs to have a default view where the pagelets can be added in to. The
 view should be the location of the template that needs to be rendered. Because
-you should be allowed to use every template language we can't really "preprocess"
+you should be allowed to use every template language we can't really "pre-process"
 these templates and add placeholders for the pagelets. This is something that
 the developer should do. At Facebook they assign `id` attributes to DOM elements
 and map Pagelets to that id attribute. I personally feel that we should leave
@@ -77,8 +77,8 @@ of using `data-pagelet` attributes is that it can be used multiple times on
 a single page. Where as using an `id` attribute would result in a pagelet that
 can only be rendered once.
 
-By default we will respond with a `200` statusCode, but if your building a 404
-page or maybe an error page, you want to change this. This should be controled
+By default we will respond with a `200` status code, but if your building a 404
+page or maybe an error page, you want to change this. This should be controlled
 through:
 
 ```js
@@ -89,7 +89,7 @@ Page.extend({
 
 #### Routing
 
-Pages are tied to routes on your webpage. It makes no sense to adopt the
+Pages are tied to routes on your web-page. It makes no sense to adopt the
 horrible `app.get('/path', function)` pattern if we are creating different page
 constructors. Instead we should be able to specify routing information directly
 in to the page. The only information we would need are:
@@ -131,7 +131,7 @@ Page.extend({
 
 The specified resources should be shared between the available pagelets in order
 to prevent duplicate data calls. The data should be cached for the duration of
-the intial request. Data that needs to be fetches after the request (for example
+the initial request. Data that needs to be fetches after the request (for example
 to update a pagelet in real-time) should bypass this cache.
 
 Resources should be build with upon our `Resource` instance. Multiple resources

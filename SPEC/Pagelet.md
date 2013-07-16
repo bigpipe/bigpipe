@@ -5,7 +5,7 @@ content, an individual row anything you want. A pagelet is composed out of
 3 components:
 
 - [view](#view)
-- [css](#css)
+- [CSS](#css)
 - [js](#js)
 
 While the pagelets have a view, there isn't any rendering taking place. A
@@ -17,10 +17,10 @@ allocator/transformer. The page has 2 important functions:
 
 #### view
 
-Pagelets are renderd in a view. But this rendering is decided by the wrapping
+Pagelets are rendered in a view. But this rendering is decided by the wrapping
 Page. It could be that your page is rendered on the server side but also on the
 client side. So you need to use a template language that is compatible with both
-the serverside as well as the client side. This allows greater control over the
+the server side as well as the client side. This allows greater control over the
 pagelets. The view should be a reference to a file location instead of the
 actual template.
 
@@ -34,12 +34,12 @@ Pagelet.extend({
 });
 ```
 
-#### css
+#### CSS
 
 The pagelet can be styled through CSS, the CSS that's defined for the pagelet
 should only contain the bare minimal that is needed to only render this pagelet.
 In the early stage of this project we should only narrow our focus to plain ol
-css. Once we've reached a 1.0 release we should also be able to process less,
+CSS. Once we've reached a 1.0 release we should also be able to process less,
 sass and stylus. This should be a reference to a file so we can potentially
 bundle it in to a core file.
 
@@ -50,7 +50,7 @@ dedicated JavaScript for it as well. Again, this should be a reference so it can
 be bundled in a core file if needed.
 
 We might need to provide a simple custom framework for interacting with the
-pagelets on the front-end. Either a event listener apporach:
+pagelets on the front-end. Either a event listener approach:
 
 ```js
 pipe.on('pageletname', function loaded(elements) {
@@ -58,7 +58,7 @@ pipe.on('pageletname', function loaded(elements) {
 });
 ```
 
-Or mabye a backbone inspired pagelet 'view' could be adviced:
+Or maybe a backbone inspired pagelet 'view' could be advised:
 
 ```js
 var Pagelet = Pipe.Pagelet.extend({
@@ -80,8 +80,8 @@ var Pagelet = Pipe.Pagelet.extend({
 
 ### Dependencies
 
-As a pagelet is a modular piece of layout it can dependen on external resources.
-For example css or JavaScript frameworks. These dependencies should be an array
+As a pagelet is a modular piece of layout it can depended on external resources.
+For example CSS or JavaScript frameworks. These dependencies should be an array
 with strings that point to file locations that are relative to the module.
 
 ```js
@@ -98,7 +98,7 @@ Pagelet.exend({
 Pagelets can have custom authorization methods so you can create conditional
 layouts. This is great for adding an administrator view for example.
 Authorization should be as simple as possible and not care about any issues.
-A single callback with a true/false should be suffectient.
+A single callback with a true/false should be sufficient.
 
 ```js
 Pagelet.extend({
