@@ -59,11 +59,19 @@ Object.defineProperty(Librarian.prototype, 'parsed', {
           name: proto.name,                   // Name of the pagelet.
           css: proto.css,                     // Location of the CSS.
           js: proto.view,                     // Location of the JS.
-          id: Page.id                         // Id of the page.
+          id: Page.id,                        // Id of the page.
+          amount: 1                           // How many times we've seen it.
         };
       }).reduce(function sort(pagelets, data) {
         if (data.authorized) authorization[data.name] = data;
-        else pagelet[data.name] = data;
+        else if (pagelet[data.name]) {
+          //
+          // We've already seen this pagelet, so mark it as a duplicate.
+          //
+          pagelet[data.name].amount++;
+        } else {
+          pagelet[data.name] = data;
+        }
 
         pagelets[data.name] = data;
         return pagelets;
@@ -116,23 +124,26 @@ Librarian.prototype.meta = function metagenerator() {
    * Increment a metric.
    *
    * @param {String} what Name of the metrics.
+   * @param {Number} howmany How many of these should be incremented.
    * @api private
    */
-  function incr(what) {
-    if (what in meta) meta['counter::'+ what]++;
-    else meta['counter::'+ what] = 1;
+  function incr(what, howmany) {
+    howmany = howmany || 1;
+
+    if (what in meta) meta['counter::'+ what] = meta['counter::'+ what] + howmany;
+    else meta['counter::'+ what] = howmany;
 
     return incr;
   }
 
   data.pagelets.forEach(function each(pagelet) {
     var template = temper.fetch(pagelet.view);
-
     meta[template.engine] = template.library;
-    incr('library::'+ template.engine);
-    incr('view::'+ pagelet.view);
-    incr('css::'+ pagelet.css);
-    incr('js::'+ pagelet.js);
+
+    incr('library::'+ template.engine, pagelet.amount);
+    incr('view::'+ pagelet.view, pagelet.amount);
+    incr('css::'+ pagelet.css, pagelet.amount);
+    incr('js::'+ pagelet.js, pagelet.amount);
   });
 
   return meta;
