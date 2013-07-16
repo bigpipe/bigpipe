@@ -130,6 +130,9 @@ Librarian.prototype.meta = function metagenerator() {
 
     meta[template.engine] = template.library;
     incr('library::'+ template.engine);
+    incr('view::'+ pagelet.view);
+    incr('css::'+ pagelet.css);
+    incr('js::'+ pagelet.js);
   });
 
   return meta;
@@ -138,6 +141,8 @@ Librarian.prototype.meta = function metagenerator() {
 /**
  * Returns a list of files that should be embed in to the page.
  *
+ * @param {Page} page A page instance.
+ * @returns {Object} JavaScript and CSS that needs to be included in the page.
  * @api public
  */
 Librarian.prototype.lend = function lend(page) {
