@@ -12,8 +12,16 @@ function Pipe(server, options) {
   options = options || {};
 
   this.stream = null;     // Reference to the connected Primus socket.
+
+  Primus.EventEmitter.call(this);
   this.connect(server, options.primus);
 }
+
+//
+// Inherit from Primus's EventEmitter.
+//
+Pipe.prototype = new Primus.EventEmitter();
+Pipe.prototype.constructor = Pipe;
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
