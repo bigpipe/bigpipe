@@ -7,5 +7,8 @@ var Page = require('../../../page');
 //
 Page.extend({
   statusCode: 404,
-  path: '/404'
+  path: '/404',
+  pagelets: {
+    hero: '../pagelets/hero'
+  }
 }).on(module);
