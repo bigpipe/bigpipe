@@ -3,6 +3,7 @@
 var FreeList = require('freelist').FreeList
   , Route = require('routable')
   , Primus = require('primus')
+  , Temper = require('temper')
   , colors = require('colors')
   , path = require('path')
   , url = require('url')
@@ -14,7 +15,6 @@ var FreeList = require('freelist').FreeList
 var Librarian = require('./librarian')
   , Resource = require('./resource')
   , Pagelet = require('./pagelet')
-  , Temper = require('./temper')
   , Pool = require('./pool')
   , Page = require('./page')
   , ACL = require('./acl');

@@ -13,12 +13,14 @@
     "routable": "0.0.x",
     "primus": "1.0.x",
     "expirable": "0.0.x",
-    "colors": "0.6.x"
+    "colors": "0.6.x",
+    "temper": "0.0.0"
   },
   "devDependencies": {
     "chai": "1.7.x",
     "mocha": "1.12.x",
-    "pre-commit": "0.0.x"
+    "pre-commit": "0.0.x",
+    "jade": "~0.33.0"
   },
   "repository": {
     "type": "git",
