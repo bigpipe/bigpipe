@@ -1,7 +1,17 @@
 'use strict';
 
 var async = require('async')
-  , path = require('path');
+  , path = require('path')
+  , fs = require('fs');
+
+/**
+ * The fragment is actual chunk of the response that is written for each
+ * pagelet.
+ *
+ * @type {String}
+ * @private
+ */
+var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8');
 
 /**
  * A simple object representation of a given page.
@@ -295,6 +305,28 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     enumerable: false,
     value: function render() {
 
+    }
+  },
+
+  /**
+   * Write a new pagelet to the request.
+   *
+   * @param {Pagelet} pagelet Pagelet instance.
+   * @param {Mixed} data The data returned from Pagelet.render().
+   * @api private
+   */
+  write: {
+    enumerable: false,
+    value: function write(pagelet, data) {
+      var view = this.pipe.temper.fetch(pagelet.view).server;
+
+      this.res.write(fragment
+        .replace('{pagelet::name}', pagelet.name)
+        .replace('{pagelet::template}', view(data).replace('-->', ''))
+        .replace('{pagelet::data}', JSON.stringify({
+          data: data
+        }))
+      );
     }
   },
 

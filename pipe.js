@@ -27,10 +27,11 @@ Pipe.prototype.constructor = Pipe;
  * A new Pagelet is flushed by the server. We should register it and update the
  * content.
  *
- * @param {Object} pagelet Pagelet configuration.
+ * @param {String} name The name of the pagelet.
+ * @param {Object} data Pagelet data.
  * @api public
  */
-Pipe.prototype.arrive = function arrive(pagelet) {
+Pipe.prototype.arrive = function arrive(name, data) {
   return this;
 };
 

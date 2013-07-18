@@ -1,0 +1,6 @@
+<code data-pagelet-fragment="{pagelet::name}">
+  <!-- {pagelet::template} -->
+</code>
+<script>
+pipe.arrive("{pagelet::name}", {pagelet::data});
+</script>
