@@ -163,9 +163,9 @@ influences on your page. There are three different modes supported for page.
     a pagelet is loaded it will flush the compiled template as well as the
     template data to the client. This is <strong>not</strong> done in order.
   </dd>
-  <dt>pipe</dt>
+  <dt>pipeline</dt>
   <dd>
-    The "pipe" mode is exactly the same as the "async" mode except it flushes
+    The "pipeline" mode is exactly the same as the "async" mode except it flushes
     the pagelets in the specified order. Allowing greater control over the
     progressive rendering proces at the potential cost of performance.
   </dd>

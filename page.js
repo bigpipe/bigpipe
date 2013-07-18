@@ -1,6 +1,7 @@
 'use strict';
 
-var path = require('path');
+var async = require('async')
+  , path = require('path');
 
 /**
  * A simple object representation of a given page.
@@ -129,14 +130,6 @@ Page.prototype.parsers = {};
 Page.prototype.resources = {};
 
 /**
- * Expose our async flow control library.
- *
- * @type {Object}
- * @public
- */
-Page.prototype.async = require('async');
-
-/**
  * Simple emit wrapper that returns a function that emits an event once it's
  * called
  *
@@ -170,7 +163,7 @@ Page.prototype.discover = function discover() {
   // The Pipe#transform has transformed our pagelets object in to an array so we
   // can easily iternate over them.
   //
-  this.async.filter(pagelets, function rejection(pagelet, done) {
+  async.filter(pagelets, function rejection(pagelet, done) {
     //
     // Check if the given pagelet has a custom authorization method which we
     // need to call and figure out if the pagelet is available.
@@ -190,20 +183,33 @@ Page.prototype.discover = function discover() {
 };
 
 /**
- * Start rendering the appropriate pagelets and combine them in to a single
- * page.
+ * Mode: Render
+ * Output the pagelets fully rendered in the HTML template.
  *
- * @param {String} mode The rendering mode that we should use to output pagelets.
  * @api private
  */
-Page.prototype.render = function render(mode) {
-  mode = mode || this.mode;
+Page.prototype.render = function render() {
 
-  var view = this.pipe.temper.fetch(this.view).server;
+};
 
-  this.res.write(view({
-    bootstrap: this.bootstrap(mode)
-  }));
+/**
+ * Mode: Async
+ * Output the pagelets as fast as possible.
+ *
+ * @api private
+ */
+Page.prototype.async = function asyncmode() {
+
+};
+
+/**
+ * Mode: pipeline
+ * Output the pagelets as fast as possible but in order.
+ *
+ * @api private
+ */
+Page.prototype.pipeline = function pipeline() {
+
 };
 
 /**
@@ -216,11 +222,11 @@ Page.prototype.render = function render(mode) {
  * - It adds a <noscript> meta refresh for force a sync method.
  *
  * @param {String} mode The rendering mode that's used to output the pagelets.
- * @returns {String}
  * @api private
  */
 Page.prototype.bootstrap = function bootstrap(mode) {
-  var library = this.pipe.library.lend(this)
+  var view = this.pipe.temper.fetch(this.view).server
+    , library = this.pipe.library.lend(this)
     , path = this.req.uri.pathname
     , head;
 
@@ -243,7 +249,11 @@ Page.prototype.bootstrap = function bootstrap(mode) {
   // @TODO cache manifest.
   // @TODO rel dns prefetch.
 
-  return head;
+  this.res.write(view({
+    bootstrap: head
+  }));
+
+  return this;
 };
 
 /**
@@ -274,8 +284,12 @@ Page.prototype.configure = function configure(req, res) {
   this.req = req;
   this.res = res;
 
+  //
+  // Start rendering as fast as possible so the browser can start download the
+  // resources as fast as possible.
+  //
+  this.bootstrap();
   this.discover();
-  this.render();
 
   return this;
 };
