@@ -29,270 +29,363 @@ function Page(pipe) {
   if ('development' === this.env) Object.seal(this);
 }
 
-Page.prototype.__proto__ = require('events').EventEmitter.prototype;
+Page.prototype = Object.create(require('events').EventEmitter.prototype, {
+  constructor: {
+    value: Page,
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * The HTTP pathname that we should be matching against.
- *
- * @type {String|RegExp}
- * @public
- */
-Page.prototype.path = '/';
+  /**
+   * The HTTP pathname that we should be matching against.
+   *
+   * @type {String|RegExp}
+   * @public
+   */
+  path: {
+    value: '/',
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * Which HTTP methods should this page accept. It can be a string, comma
- * separated string or an array.
- *
- * @type {String|Array}
- * @public
- */
-Page.prototype.method = 'GET';
+  /**
+   * Which HTTP methods should this page accept. It can be a string, comma
+   * separated string or an array.
+   *
+   * @type {String|Array}
+   * @public
+   */
+  method: {
+    value: 'GET',
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * The default status code that we should send back to the user.
- *
- * @type {Number}
- * @public
- */
-Page.prototype.statusCode = 200;
+  /**
+   * The default status code that we should send back to the user.
+   *
+   * @type {Number}
+   * @public
+   */
+  statusCode: {
+    value: 200,
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * With what kind of generation mode do we need to output the generated
- * pagelets. We're supporting 3 different modes:
- *
- * - render, fully render the page without any fancy flushing.
- * - async, render all pagelets async and flush them as fast as possible.
- * - pipe, same as async but in the specified order.
- *
- * @type {String}
- * @public
- */
-Page.prototype.mode = 'async';
+  /**
+   * With what kind of generation mode do we need to output the generated
+   * pagelets. We're supporting 3 different modes:
+   *
+   * - render, fully render the page without any fancy flushing.
+   * - async, render all pagelets async and flush them as fast as possible.
+   * - pipe, same as async but in the specified order.
+   *
+   * @type {String}
+   * @public
+   */
+  mode: {
+    value: 'async',
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * The location of the base template.
- *
- * @type {String}
- * @public
- */
-Page.prototype.view = '';
+  /**
+   * The location of the base template.
+   *
+   * @type {String}
+   * @public
+   */
+  view: {
+    value: '',
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * Optional template engine preference. Useful when we detect the wrong template
- * engine based on the view's file name.
- *
- * @type {String}
- * @public
- */
-Page.prototype.engine = '';
+  /**
+   * Optional template engine preference. Useful when we detect the wrong template
+   * engine based on the view's file name.
+   *
+   * @type {String}
+   * @public
+   */
+  engine: {
+    value: '',
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * Save the location where we got our resources from, this will help us with
- * fetching assets from the correct location.
- *
- * @type {String}
- * @public
- */
-Page.prototype.directory = '';
+  /**
+   * Save the location where we got our resources from, this will help us with
+   * fetching assets from the correct location.
+   *
+   * @type {String}
+   * @public
+   */
+  directory: {
+    value: '',
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * The environment that we're running this page in. If this is set to
- * `development` It would be verbose.
- *
- * @type {String}
- * @public
- */
-Page.prototype.env = (process.env.NODE_ENV || 'development').toLowerCase();
+  /**
+   * The environment that we're running this page in. If this is set to
+   * `development` It would be verbose.
+   *
+   * @type {String}
+   * @public
+   */
+  env: {
+    value: (process.env.NODE_ENV || 'development').toLowerCase(),
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * The pagelets that need to be loaded on this page.
- *
- * @type {Object}
- * @public
- */
-Page.prototype.pagelets = {};
+  /**
+   * The pagelets that need to be loaded on this page.
+   *
+   * @type {Object}
+   * @public
+   */
+  pagelets: {
+    value: {},
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * Parameter parsers, key is the name of param and value the function that
- * parsers it.
- *
- * @type {Object}
- * @public
- */
-Page.prototype.parsers = {};
+  /**
+   * Parameter parsers, key is the name of param and value the function that
+   * parsers it.
+   *
+   * @type {Object}
+   * @public
+   */
+  parsers: {
+    value: {},
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
-/**
- * List of resources that can be used by the pagelets.
- *
- * @type {object}
- * @public
- */
-Page.prototype.resources = {};
-
-/**
- * Simple emit wrapper that returns a function that emits an event once it's
- * called
- *
- * @param {String} event Name of the event that we should emit.
- * @param {Function} parser Argument parser.
- * @api public
- */
-Page.prototype.emits = function emits(event, parser) {
-  var self = this;
-
-  return function emit(arg) {
-    self.emit(event, parser ? parser.apply(self, arguments) : arg);
-  };
-};
-
-/**
- * Discover pagelets that we're allowed to use.
- *
- * @api private
- */
-Page.prototype.discover = function discover() {
-  var req = this.req
-    , page = this
-    , pagelets;
-
-  pagelets = this.pagelets.map(function allocate(Pagelet) {
-    return Pagelet.freelist.alloc().configure(page);
-  });
+  /**
+   * List of resources that can be used by the pagelets.
+   *
+   * @type {object}
+   * @public
+   */
+  resources: {
+    value: {},
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
 
   //
-  // The Pipe#transform has transformed our pagelets object in to an array so we
-  // can easily iternate over them.
+  // !IMPORTANT
   //
-  async.filter(pagelets, function rejection(pagelet, done) {
-    //
-    // Check if the given pagelet has a custom authorization method which we
-    // need to call and figure out if the pagelet is available.
-    //
-    if ('function' === typeof pagelet.authorize) {
-      pagelet.authorize(req, done);
-    } else {
-      done(true);
+  // Function's should never overriden as we might depend on them internally,
+  // that's why they are configured with writable: false and configurable: false
+  // by default.
+  //
+  // !IMPORTANT
+  //
+
+  /**
+   * Simple emit wrapper that returns a function that emits an event once it's
+   * called
+   *
+   * @param {String} event Name of the event that we should emit.
+   * @param {Function} parser Argument parser.
+   * @api public
+   */
+  emits: {
+    enumerable: false,
+    value: function emits(event, parser) {
+      var self = this;
+
+      return function emit(arg) {
+        self.emit(event, parser ? parser.apply(self, arguments) : arg);
+      };
     }
-  }, function acceptance(allowed) {
-    page.enabled = allowed;
+  },
 
-    page.disabled = pagelets.filter(function disabled(pagelet) {
-      return !!allowed.indexOf(pagelet);
-    });
-  });
-};
+  /**
+   * Discover pagelets that we're allowed to use.
+   *
+   * @api private
+   */
+  discover: {
+    enumerable: false,
+    value: function discover() {
+      var req = this.req
+        , page = this
+        , pagelets;
 
-/**
- * Mode: Render
- * Output the pagelets fully rendered in the HTML template.
- *
- * @api private
- */
-Page.prototype.render = function render() {
+      pagelets = this.pagelets.map(function allocate(Pagelet) {
+        return Pagelet.freelist.alloc().configure(page);
+      });
 
-};
+      //
+      // The Pipe#transform has transformed our pagelets object in to an array
+      // so we can easily iternate over them.
+      //
+      async.filter(pagelets, function rejection(pagelet, done) {
+        //
+        // Check if the given pagelet has a custom authorization method which we
+        // need to call and figure out if the pagelet is available.
+        //
+        if ('function' === typeof pagelet.authorize) {
+          pagelet.authorize(req, done);
+        } else {
+          done(true);
+        }
+      }, function acceptance(allowed) {
+        page.enabled = allowed;
 
-/**
- * Mode: Async
- * Output the pagelets as fast as possible.
- *
- * @api private
- */
-Page.prototype.async = function asyncmode() {
+        page.disabled = pagelets.filter(function disabled(pagelet) {
+          return !!allowed.indexOf(pagelet);
+        });
+      });
+    }
+  },
 
-};
+  /**
+   * Mode: Render
+   * Output the pagelets fully rendered in the HTML template.
+   *
+   * @api private
+   */
+  render: {
+    enumerable: false,
+    value: function render() {
 
-/**
- * Mode: pipeline
- * Output the pagelets as fast as possible but in order.
- *
- * @api private
- */
-Page.prototype.pipeline = function pipeline() {
+    }
+  },
 
-};
+  /**
+   * Mode: Async
+   * Output the pagelets as fast as possible.
+   *
+   * @api private
+   */
+  async: {
+    enumerable: false,
+    value: function render() {
 
-/**
- * The bootstrap method generates a string that needs to be included in the
- * template in order for pagelets to function.
- *
- * - It includes the pipe.js JavaScript client and initialises it.
- * - It includes "core" library files for the page.
- * - It includes "core" css for the page.
- * - It adds a <noscript> meta refresh for force a sync method.
- *
- * @param {String} mode The rendering mode that's used to output the pagelets.
- * @api private
- */
-Page.prototype.bootstrap = function bootstrap(mode) {
-  var view = this.pipe.temper.fetch(this.view).server
-    , library = this.pipe.library.lend(this)
-    , path = this.req.uri.pathname
-    , head;
+    }
+  },
 
-  head = [
-    '<meta charset="utf-8" />',
-    '<noscript>',
-      '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1" />',
-    '</noscript>'
-  ];
+  /**
+   * Mode: pipeline
+   * Output the pagelets as fast as possible but in order.
+   *
+   * @api private
+   */
+  pipeline: {
+    enumerable: false,
+    value: function render() {
 
-  if (library.css) library.css.forEach(function inject(url) {
-    head += '<link rel="stylesheet" href="'+ url +'" />';
-  });
+    }
+  },
 
-  if (library.js) library.js.forEach(function inject(url) {
-    head += '<link rel="stylesheet" href="'+ url +'" />';
-  });
+  /**
+   * The bootstrap method generates a string that needs to be included in the
+   * template in order for pagelets to function.
+   *
+   * - It includes the pipe.js JavaScript client and initialises it.
+   * - It includes "core" library files for the page.
+   * - It includes "core" css for the page.
+   * - It adds a <noscript> meta refresh for force a sync method.
+   *
+   * @param {String} mode The rendering mode that's used to output the pagelets.
+   * @api private
+   */
+  bootstrap: {
+    enumerable: false,
+    value: function bootstrap(mode) {
+      var view = this.pipe.temper.fetch(this.view).server
+        , library = this.pipe.library.lend(this)
+        , path = this.req.uri.pathname
+        , head;
 
-  // @TODO rel prefetch for resources that are used on the next page?
-  // @TODO cache manifest.
-  // @TODO rel dns prefetch.
+      head = [
+        '<meta charset="utf-8" />',
+        '<noscript>',
+          '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1" />',
+        '</noscript>'
+      ];
 
-  this.res.write(view({
-    bootstrap: head
-  }));
+      if (library.css) library.css.forEach(function inject(url) {
+        head += '<link rel="stylesheet" href="'+ url +'" />';
+      });
 
-  return this;
-};
+      if (library.js) library.js.forEach(function inject(url) {
+        head += '<link rel="stylesheet" href="'+ url +'" />';
+      });
 
-/**
- * Reset the instance to it's orignal state and initialise it.
- *
- * @param {ServerRequest} req HTTP server request.
- * @param {ServerResponse} res HTTP server response.
- * @api private
- */
-Page.prototype.configure = function configure(req, res) {
-  var key;
+      // @TODO rel prefetch for resources that are used on the next page?
+      // @TODO cache manifest.
+      // @TODO rel dns prefetch.
 
-  for (key in this.connections) {
-    delete this.connections[key];
+      this.res.write(view({
+        bootstrap: head
+      }));
+
+      return this;
+    }
+  },
+
+  /**
+   * Reset the instance to it's orignal state and initialise it.
+   *
+   * @param {ServerRequest} req HTTP server request.
+   * @param {ServerResponse} res HTTP server response.
+   * @api private
+   */
+  configure: {
+    enumerable: false,
+    value: function configure(req, res) {
+      var key;
+
+      for (key in this.connections) {
+        delete this.connections[key];
+      }
+
+      for (key in this.enabled) {
+        delete this.enabled[key];
+      }
+
+      for (key in this.disabled) {
+        delete this.enabled[key];
+      }
+
+      this.conditional.length = 0;
+      this.removeAllListeners();
+
+      this.req = req;
+      this.res = res;
+
+      //
+      // Start rendering as fast as possible so the browser can start download the
+      // resources as fast as possible.
+      //
+      this.bootstrap();
+      this.discover();
+
+      return this;
+    }
   }
-
-  for (key in this.enabled) {
-    delete this.enabled[key];
-  }
-
-  for (key in this.disabled) {
-    delete this.enabled[key];
-  }
-
-  this.conditional.length = 0;
-  this.removeAllListeners();
-
-  this.req = req;
-  this.res = res;
-
-  //
-  // Start rendering as fast as possible so the browser can start download the
-  // resources as fast as possible.
-  //
-  this.bootstrap();
-  this.discover();
-
-  return this;
-};
+});
 
 //
 // Make's the Page extendable.
