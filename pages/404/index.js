@@ -6,5 +6,7 @@ var Page = require('../../page');
 // Default 404, not found page.
 //
 Page.extend({
-  statusCode: 404
+  path: '/pagelet/404',
+  statusCode: 404,
+  view: '404.jade'
 }).on(module);
