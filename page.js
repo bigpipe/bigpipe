@@ -309,11 +309,12 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   /**
    * Discover pagelets that we're allowed to use.
    *
+   * @param {String} mode The render mode for the pagelets.
    * @api private
    */
   discover: {
     enumerable: false,
-    value: function discover() {
+    value: function discover(mode) {
       if (!this.pagelets.length) return false;
 
       var incoming = this.incoming
@@ -344,6 +345,12 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         page.disabled = pagelets.filter(function disabled(pagelet) {
           return !!allowed.indexOf(pagelet);
         });
+
+        //
+        // Render the pagelets using the specified render mode. If they
+        // specified an incorrect render mode, it will just throw.
+        //
+        page[mode]();
       });
 
       return true;
@@ -376,7 +383,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
       async.forEach(this.enabled, function each(pagelet, next) {
         pagelet.render(function rendering(err, data) {
-          page.write(data);
+          page.write(pagelet, data);
           next();
         });
       }, function done() {
@@ -411,9 +418,9 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       var view = this.temper.fetch(pagelet.view).server;
 
       this.outgoing.write(fragment
-        .replace('{pagelet::name}', pagelet.name)
-        .replace('{pagelet::template}', view(data).replace('-->', ''))
-        .replace('{pagelet::data}', JSON.stringify({
+        .replace(/\{pagelet::name\}/g, pagelet.name)
+        .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
+        .replace(/\{pagelet::data\}/g, JSON.stringify({
           data: data
         }))
       );
@@ -528,7 +535,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   configure: {
     enumerable: false,
     value: function configure(req, res) {
-      var mode, key;
+      var mode = this.mode
+        , key;
 
       this.removeAllListeners();
       for (key in this.enabled) {
@@ -556,7 +564,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // resources as fast as possible.
       //
       this.bootstrap(mode);
-      this.discover();
+      this.discover(mode);
 
       return this;
     }
