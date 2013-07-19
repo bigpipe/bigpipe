@@ -314,6 +314,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   discover: {
     enumerable: false,
     value: function discover() {
+      if (!this.pagelets.length) return false;
+
       var incoming = this.incoming
         , page = this
         , pagelets;
@@ -343,6 +345,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           return !!allowed.indexOf(pagelet);
         });
       });
+
+      return true;
     }
   },
 
@@ -406,7 +410,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     value: function write(pagelet, data) {
       var view = this.temper.fetch(pagelet.view).server;
 
-      this.res.write(fragment
+      this.outgoing.write(fragment
         .replace('{pagelet::name}', pagelet.name)
         .replace('{pagelet::template}', view(data).replace('-->', ''))
         .replace('{pagelet::data}', JSON.stringify({
@@ -505,7 +509,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // @TODO cache manifest.
       // @TODO rel dns prefetch.
 
-      this.res.write(view({
+      this.outgoing.setHeader('Content-Type', 'text/html');
+      this.outgoing[this.pagelets.length ? 'write' : 'end'](view({
         bootstrap: head.join('\n')
       }));
 
