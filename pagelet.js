@@ -186,7 +186,9 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   enabled: {
     enumerable: false,
     value: function enabled(name) {
-      return name in this.page.enabled;
+      return this.page.enabled.some(function some(pagelet) {
+        return pagelet.name === name;
+      });
     }
   },
 
@@ -199,7 +201,9 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   disabled: {
     enumerable: false,
     value: function disabled(name) {
-      return name in this.page.disabled;
+      return this.page.disabled.some(function some(pagelet) {
+        return pagelet.name === name;
+      });
     }
   },
 
