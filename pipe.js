@@ -75,6 +75,34 @@ Pagelet.prototype.configure = function configure(name, data) {
 };
 
 /**
+ * Find the element based on the attribute and value.
+ *
+ * @returns {Array|NodeList}
+ * @api private
+ */
+Pagelet.prototype.$ = function $(attribute, value) {
+  if (document && 'querySelectorAll' in document) {
+    return document.querySelectorAll('['+ attribute +'="'+ value +'"]');
+  }
+
+  //
+  // No querySelectorAll support, so we're going to do a full DOM scan.
+  //
+  var all = document.getElementsByTagName('*')
+    , length = all.length
+    , results = []
+    , i = 0;
+
+  for (; i < length; i++) {
+    if (all[i].getAttribute(attribute) === value) {
+      results.push(all[i]);
+    }
+  }
+
+  return results;
+};
+
+/**
  * Create a sandboxed container for the pagelet to run in.
  *
  * @param {String} code The client side code that needs to be sandboxed.
@@ -138,6 +166,7 @@ Pagelet.prototype.prepare = function prepare(code) {
     // The actual client-side code that needs to be evaluated.
     //
     code,
+
     '})(this, ["alert", "prompt", "confirm"]);'
   ].join('\n');
 };
