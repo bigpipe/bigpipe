@@ -157,7 +157,7 @@ Librarian.prototype.meta = function metagenerator() {
  * @api public
  */
 Librarian.prototype.lend = function lend(page) {
-
+  return {};
 };
 
 /**
