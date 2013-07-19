@@ -40,6 +40,7 @@ catch (e) {}
  * - pages: String or array of pages we serve.
  * - threshold: Percentag of pages where a pagelet needs to be included in order
  *   to be bundled in to a core file.
+ * - domain: Use domains to handle requests.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -205,11 +206,17 @@ Pipe.prototype.resolve = function resolve(files, transform) {
   }
 
   files = files.filter(function jsonly(file) {
+    var extname = path.extname(file)
+      , type = typeof file;
+
     //
     // Make sure we only use valid JavaScript files as sources. We want to
     // ignore stuff like potential .log files. Also include Page constructors.
+    // If there's no extension name we assume that it's a folder with an
+    // `index.js` file.
     //
-    return path.extname(file) === '.js' || file.constructor.name === 'Function';
+    return 'string' === type && (!extname || extname === '.js')
+    || 'function' === type;
   }).map(function map(constructor) {
     constructor = init(constructor);
 
@@ -343,10 +350,12 @@ Pipe.prototype.transform = function transform(Page) {
     Page.prototype.pagelets = pagelets;
   }
 
-  if (Page.prototype.view) {
-    Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
-    pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
+  if (!Page.prototype.view) {
+    throw new Error('The page for path '+ Page.prototype.path +' should have a .view property');
   }
+
+  Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
+  pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
 
   //
   // Add the properties to the page.
