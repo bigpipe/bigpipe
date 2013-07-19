@@ -20,15 +20,92 @@ var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8');
  * @api public
  */
 function Page(pipe) {
-  this.pipe = pipe;                         // Pipe wrapper.
-  this.connections = Object.create(null);   // Stores active real-time connections.
-  this.conditional = [];                    // Pagelets that are conditional.
-  this.disabled = {};                       // Disabled pagelets.
-  this.enabled = {};                        // Enabled pagelets.
-  this._events = {};                        // Allow events to be registered.
+  Object.defineProperties(this, {
+    /**
+     * Reference to our template compiler and caching engine.
+     *
+     * @type {Temper}
+     * @private
+     */
+    temper: {
+      enumerable: false,
+      value: pipe.temper
+    },
 
-  this.req = null;                          // Reference to HTTP request.
-  this.res = null;                          // Reference to HTTP response.
+    /**
+     * Reference to the asset management.
+     *
+     * @type {Librarian}
+     * @private
+     */
+    library: {
+      enumerable: false,
+      value: pipe.library
+    },
+
+    /**
+     * Contains all disabled pagelets.
+     *
+     * @type {Array}
+     * @private
+     */
+    disabled: {
+      value: [],
+      writable: true,
+      enumerable: false,
+      configurable: true
+    },
+
+    /**
+     * Contains all enabled pagelets.
+     *
+     * @type {Array}
+     * @private
+     */
+    enabled: {
+      value: [],
+      writable: true,
+      enumerable: false,
+      configurable: true
+    },
+
+    /**
+     * Required for EventEmiiter, stores the listeners.
+     *
+     * @type {Object}
+     * @private
+     */
+    _events: {
+      enumerable: false,
+      value: Object.create(null),
+    },
+
+    /**
+     * The incoming HTTP request.
+     *
+     * @type {Request}
+     * @private
+     */
+    incoming: {
+      value: null,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    },
+
+    /**
+     * The outgoing HTTP response.
+     *
+     * @type {Response}
+     * @private
+     */
+    outgoing: {
+      value: null,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    }
+  });
 
   //
   // Don't allow any further extensions of the object. This improves performance
@@ -237,7 +314,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   discover: {
     enumerable: false,
     value: function discover() {
-      var req = this.req
+      var incoming = this.incoming
         , page = this
         , pagelets;
 
@@ -255,7 +332,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         // need to call and figure out if the pagelet is available.
         //
         if ('function' === typeof pagelet.authorize) {
-          pagelet.authorize(req, done);
+          pagelet.authorize(incoming, done);
         } else {
           done(true);
         }
@@ -291,7 +368,16 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   async: {
     enumerable: false,
     value: function render() {
+      var page = this;
 
+      async.forEach(this.enabled, function each(pagelet, next) {
+        pagelet.render(function rendering(err, data) {
+          page.write(data);
+          next();
+        });
+      }, function done() {
+        page.outgoing.end();
+      });
     }
   },
 
@@ -347,7 +433,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     value: function bootstrap(mode) {
       var view = this.pipe.temper.fetch(this.view).server
         , library = this.pipe.library.lend(this)
-        , path = this.req.uri.pathname
+        , path = this.incoming.uri.pathname
         , head;
 
       head = [
@@ -387,12 +473,9 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   configure: {
     enumerable: false,
     value: function configure(req, res) {
+      this.removeAllListeners();
+
       var key;
-
-      for (key in this.connections) {
-        delete this.connections[key];
-      }
-
       for (key in this.enabled) {
         delete this.enabled[key];
       }
@@ -401,11 +484,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         delete this.enabled[key];
       }
 
-      this.conditional.length = 0;
-      this.removeAllListeners();
-
-      this.req = req;
-      this.res = res;
+      this.incoming = req;
+      this.outgoing = res;
 
       //
       // Start rendering as fast as possible so the browser can start download the
