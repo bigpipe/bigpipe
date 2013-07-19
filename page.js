@@ -417,6 +417,48 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Inject the output of a template directly in to view's pagelet placeholder
+   * element.
+   *
+   * @param {String} base The template where we need to inject in to.
+   * @param {String} name Name of the pagelet.
+   * @param {String} view The generated pagelet view.
+   * @returns {String} updated base template
+   * @api private
+   */
+  inject: {
+    enumerable: false,
+    value: function inject(base, name, view) {
+      [
+        "data-pagelet='"+ name +"'",
+        'data-pagelet="'+ name +'"',
+        'data-pagelet='+ name,
+      ].forEach(function locate(attribute) {
+        var index = base.indexOf(attribute)
+          , end;
+
+        //
+        // As multiple versions of the pagelet can be included in to one single
+        // page we need to search for multiple occurances of the `data-pagelet`
+        // attribute.
+        //
+        while (~index) {
+          end = base.indexOf('>', index);
+
+          if (~end) {
+            base = base.slice(0, end + 1) + view + base.slice(end + 1);
+            index = end + 1 + view.length;
+          }
+
+          index = base.indexOf(attribute, index + 1);
+        }
+      });
+
+      return base;
+    }
+  },
+
+  /**
    * The bootstrap method generates a string that needs to be included in the
    * template in order for pagelets to function.
    *
@@ -432,23 +474,31 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     enumerable: false,
     value: function bootstrap(mode) {
       var view = this.temper.fetch(this.view).server
+        , head = ['<meta charset="utf-8" />']
         , library = this.library.lend(this)
-        , path = this.incoming.uri.pathname
-        , head;
+        , path = this.incoming.uri.pathname;
 
-      head = [
-        '<meta charset="utf-8" />',
-        '<noscript>',
+      if (mode !== 'render') {
+        head.push(
+          '<noscript>',
           '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1" />',
-        '</noscript>'
-      ];
+          '</noscript>'
+        );
+      } else {
+        head.push(
+          '<script>',
+          'if (location.search.indexOf("no_pagelet_js=1"))',
+          'location.href = location.href.replace(location.search, "")',
+          '</script>'
+        );
+      }
 
       if (library.css) library.css.forEach(function inject(url) {
-        head += '<link rel="stylesheet" href="'+ url +'" />';
+        head.push('<link rel="stylesheet" href="'+ url +'" />');
       });
 
       if (library.js) library.js.forEach(function inject(url) {
-        head += '<link rel="stylesheet" href="'+ url +'" />';
+        head.push('<link rel="stylesheet" href="'+ url +'" />');
       });
 
       // @TODO rel prefetch for resources that are used on the next page?
@@ -456,7 +506,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // @TODO rel dns prefetch.
 
       this.res.write(view({
-        bootstrap: head
+        bootstrap: head.join('\n')
       }));
 
       return this;
@@ -473,9 +523,9 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   configure: {
     enumerable: false,
     value: function configure(req, res) {
-      this.removeAllListeners();
+      var mode, key;
 
-      var key;
+      this.removeAllListeners();
       for (key in this.enabled) {
         delete this.enabled[key];
       }
@@ -488,10 +538,19 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       this.outgoing = res;
 
       //
+      // If we have a `no_pagelet_js` flag, we should force a different
+      // rendering mode. This paramater is automatically added when we've
+      // detected that someone is browsing the site without JavaScript enabled.
+      //
+      if ('no_pagelet_js' in req.uri.query) {
+        mode = 'render';
+      }
+
+      //
       // Start rendering as fast as possible so the browser can start download the
       // resources as fast as possible.
       //
-      this.bootstrap();
+      this.bootstrap(mode);
       this.discover();
 
       return this;
