@@ -8,5 +8,8 @@ var Page = require('../../page');
 Page.extend({
   path: '/pagelet/404',
   statusCode: 404,
-  view: '404.jade'
+  view: '404.jade',
+  pagelets: {
+    'diagnostics': '../../pagelets/diagnostics'
+  }
 }).on(module);
