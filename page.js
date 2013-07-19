@@ -404,7 +404,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   write: {
     enumerable: false,
     value: function write(pagelet, data) {
-      var view = this.pipe.temper.fetch(pagelet.view).server;
+      var view = this.temper.fetch(pagelet.view).server;
 
       this.res.write(fragment
         .replace('{pagelet::name}', pagelet.name)
@@ -431,8 +431,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   bootstrap: {
     enumerable: false,
     value: function bootstrap(mode) {
-      var view = this.pipe.temper.fetch(this.view).server
-        , library = this.pipe.library.lend(this)
+      var view = this.temper.fetch(this.view).server
+        , library = this.library.lend(this)
         , path = this.incoming.uri.pathname
         , head;
 
