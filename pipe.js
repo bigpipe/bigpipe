@@ -11,10 +11,14 @@
 function Pipe(server, options) {
   options = options || {};
 
-  this.stream = null;     // Reference to the connected Primus socket.
-  this.pagelets = {};     // Collection of different pagelets.
+  this.stream = null;                   // Reference to the connected Primus socket.
+  this.pagelets = {};                   // Collection of different pagelets.
+  this.styleSheets = {};                // StyleSheet cache.
+  this.root = document.documentElement; // The <html> element.
 
   Primus.EventEmitter.call(this);
+
+  this.configure(options);
   this.connect(server, options.primus);
 }
 
@@ -23,6 +27,169 @@ function Pipe(server, options) {
 //
 Pipe.prototype = new Primus.EventEmitter();
 Pipe.prototype.constructor = Pipe;
+
+Pipe.prototype.configure = function configure() {
+  if (this.root.className.indexOf('no_js')) {
+    this.root.className = this.root.className.replace('no_js', '');
+  }
+};
+
+(function horror() {
+  /**
+   * Try to detect if this browser supports the onload events on the link tag.
+   * It's a known cross browser bug that can affect WebKit, FireFox and Opera.
+   * Internet Explorer is the only browser that supports the onload event
+   * consistenly but it has other bigger issues that prevents us from using this
+   * method.
+   *
+   * @param {Element} target
+   * @api private
+   */
+  function detect(target) {
+    if (detect.ran) return;
+    detect.ran = true;
+
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'data:text/css;base64,';
+
+    link.onload = function loaded() {
+      link.parentNode.removeChild(link);
+      link.onload = false;
+      detect.onload = true;
+    };
+
+    target.appendChild(link);
+  }
+
+  /**
+   * Start polling for Stylesheet changes to detect if a stylesheet has been
+   * loaded.
+   *
+   * @api private
+   */
+  function poll(url, root, fn) {
+    var meta = document.createElement('meta');
+
+    //
+    // This id attribute is automatically inject at the server side when the
+    // stylesheet is compiled. It's basically the generated filename of the CSS.
+    //
+    meta.id = 'pagelet_'+ url.split('/').pop().replace('.css').toLowerCase();
+    root.appendChild(meta);
+
+    metaqueue[url] = {
+      meta: meta,
+      fn: fn
+    };
+
+    if (!poll.interval) poll.interval(function interval() {
+
+    });
+  }
+
+  //
+  // Internet Explorer can only have 31 style tags on a single page. One single
+  // style tag is also limited to 31 @import statements so this gives us room to
+  // have 961 stylesheets totally. So we should queue stylesheets.
+  //
+  // @see http://support.microsoft.com/kb/262161
+  //
+  var styleSheets = []
+    , metaqueue = {};
+
+  /**
+   * Load a new stylesheet.
+   *
+   * @param {String} url The stylesheet url that needs to be loaded.
+   * @param {Function} fn Completion callback.
+   * @api private
+   */
+  Pipe.prototype.loadStyleSheet = function loadStyleSheet(url, fn) {
+    if (url in this.styleSheets) return;
+
+    if (document.styleSheet) {
+      for (var sheet, i = 0; i < styleSheets.length; i++) {
+        if (styleSheets[i].imports.length < 31) {
+          sheet = i;
+          break;
+        }
+      }
+
+      //
+      // We didn't find suitable styleSheet to add another @import statement,
+      // create a new one so we can leverage that instead.
+      //
+      if (sheet === undefined) {
+        styleSheets.push(document.createStyleSheet());
+        sheet = styleSheets.length - 1;
+      }
+
+      styleSheets[sheet].addImport(url);
+      this.styleSheets[url] = styleSheets[sheet];
+      return poll(url, this.root, fn);
+    }
+
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = url;
+
+    //
+    // Only add the onload/onerror listeners when we've detected that's it's
+    // supported in the browser.
+    //
+    if (detect.onload) {
+      link.onerror = function onerror() {
+        link.onerror = link.onload = null;
+        fn(new Error('Failed to load the stylesheet'));
+      };
+
+      link.onload = function onload() {
+        link.onerror = link.onload = null;
+        fn();
+      };
+    } else {
+      poll(url, this.root, fn);
+
+      //
+      // We don't have a detect.onload, make sure we've started our feature
+      // detection.
+      //
+      if (!detect.ran) detect(this.root);
+    }
+
+    this.styleSheets[url] = link;
+    this.root.appendChild(link);
+  };
+
+  /**
+   * Remove a stylesheet again.
+   *
+   * @param {String} url The stylesheet url that needs to be unloaded.
+   * @api private
+   */
+  Pipe.prototype.unloadStyleSheet = function unloadStyleSheet(url) {
+    if (!(url in this.styleSheets)) return;
+
+    var styleSheet = this.styleSheets[url];
+
+    if (!styleSheet.imports) {
+      styleSheet.onload = styleSheet.onerror = null;
+      styleSheet.parentNode.removeChild(styleSheet);
+    } else {
+      for (var i = 0, length = styleSheet.imports.length; i < length; i++) {
+        if (styleSheet.imports[i].href === url) {
+          styleSheet.removeImport(i);
+          break;
+        }
+      }
+    }
+
+    delete this.styleSheets[url];
+    delete metaqueue[url];
+  };
+}());
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
@@ -51,11 +218,14 @@ Pipe.prototype.connect = function connect(url, options) {
 /**
  * Representation of a single pagelet.
  *
+ * @param {Pipe} pipe The pipe.
  * @param {String} name The given name of the pagelet.
  * @param {Object} data The data of the pagelet.
  */
-function Pagelet(name, data) {
+function Pagelet(pipe, name, data) {
   Primus.EventEmitter.call(this);
+
+  this.pipe = pipe;
   this.configure(name, data);
 }
 
