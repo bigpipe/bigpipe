@@ -5,6 +5,8 @@ and the module to be broken until 1.0 has been released.
 
 # Pagelets
 
+[![Build Status](https://travis-ci.org/3rd-Eden/pagelets.png?branch=master)](https://travis-ci.org/3rd-Eden/pagelets)
+
 Pagelets is inspired by Facebooks BigPipe implementation. The general idea is to
 decompose web pages into small chunks called pagelets, and pipeline them through
 several execution stages inside web servers and browsers. Pagelets exploit the
