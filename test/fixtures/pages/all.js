@@ -7,5 +7,6 @@ var Page = require('../../../').Page;
 //
 Page.extend({
   method: '',
-  path: '/all'
+  path: '/all',
+  view: '../view/all.jade'
 }).on(module);

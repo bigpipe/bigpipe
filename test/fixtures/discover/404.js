@@ -10,5 +10,6 @@ Page.extend({
   path: '/404',
   pagelets: {
     hero: '../pagelets/hero'
-  }
+  },
+  view: '../view/all.jade'
 }).on(module);
