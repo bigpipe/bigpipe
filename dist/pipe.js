@@ -80,7 +80,8 @@ exports.each = each;
 'use strict';
 
 var collection = require('./collection')
-  , Pagelet = require('./pagelet');
+  , Pagelet = require('./pagelet')
+  , loader = require('./loader');
 
 /**
  * Pipe.
@@ -123,273 +124,14 @@ Pipe.prototype.configure = function configure() {
   }
 };
 
-(function horror() {
-  /**
-   * Try to detect if this browser supports the onload events on the link tag.
-   * It's a known cross browser bug that can affect WebKit, FireFox and Opera.
-   * Internet Explorer is the only browser that supports the onload event
-   * consistenly but it has other bigger issues that prevents us from using this
-   * method.
-   *
-   * @param {Element} target
-   * @api private
-   */
-  function detect(target) {
-    if (detect.ran) return;
-    detect.ran = true;
-
-    var link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'data:text/css;base64,';
-
-    link.onload = function loaded() {
-      link.parentNode.removeChild(link);
-      link.onload = false;
-      detect.onload = true;
-    };
-
-    target.appendChild(link);
-  }
-
-  /**
-   * Check if all stylesheets have been correctly injected.
-   *
-   * @returns {Boolean}
-   * @api private
-   */
-  function loaded() {
-    var meta, url, style;
-
-    for (url in metaqueue) {
-      meta = metaqueue[url];
-
-      if (new Date() - meta.start > timeout) {
-        meta.fn(new Error('The styleSheet has timed out'));
-        delete meta.fn;
-      } else {
-        style = window.getComputedStyle
-          ? getComputedStyle(meta.tag, null)
-          : meta.tag.currentStyle;
-
-        //
-        // We assume that the CSS set the height property of the for given id
-        // selector.
-        //
-        if (style && meta.fn && parseInt(style.height, 10) > 1) {
-          meta.fn();
-          delete meta.fn;
-        }
-      }
-
-      if (!meta.fn) {
-        meta.tag.parentNode.removeChild(meta.tag);
-        delete metaqueue[url];
-      }
-    }
-
-    return collection.empty(metaqueue);
-  }
-
-  /**
-   * Start polling for StyleSheet changes to detect if a StyleSheet has been
-   * loaded. This is done by injecting a <meta> tag in to the page with
-   * a dedicated `id` attribute that matches a selector that we've added in the
-   * server side for example:
-   *
-   * ```css
-   * #pagelet_af3f399qu { height: 45px }
-   * ```
-   *
-   * @api private
-   */
-  function poll(url, root, fn) {
-    var meta = document.createElement('meta');
-    meta.id = 'pagelet_'+ url.split('/').pop().replace('.css').toLowerCase();
-    root.appendChild(meta);
-
-    metaqueue[url] = {
-      now: +new Date(),
-      tag: meta,
-      fn: fn
-    };
-
-    if (loaded()) return;
-    if (!poll.interval) poll.interval = setInterval(function interval() {
-      if (loaded()) clearInterval(poll.interval);
-    }, 20);
-  }
-
-  //
-  // Internet Explorer can only have 31 style tags on a single page. One single
-  // style tag is also limited to 31 @import statements so this gives us room to
-  // have 961 stylesheets totally. So we should queue stylesheets.
-  //
-  // @see http://john.albin.net/ie-css-limits/two-style-test.html
-  // @see http://support.microsoft.com/kb/262161
-  //
-  var styleSheets = []
-    , metaqueue = {}
-    , timeout = 5000;
-
-  /**
-   * Load a new stylesheet.
-   *
-   * @param {String} url The stylesheet url that needs to be loaded.
-   * @param {Function} fn Completion callback.
-   * @api private
-   */
-  Pipe.prototype.loadStyleSheet = function loadStyleSheet(url, fn) {
-    if (url in this.assets) return;
-
-    if (document.styleSheet) {
-      for (var sheet, i = 0; i < styleSheets.length; i++) {
-        if (styleSheets[i].imports.length < 31) {
-          sheet = i;
-          break;
-        }
-      }
-
-      //
-      // We didn't find suitable styleSheet to add another @import statement,
-      // create a new one so we can leverage that instead.
-      //
-      // @TODO we should probably check the amount of document.styleSheets.length
-      //       to check if we're allowed to add more stylesheets.
-      //
-      if (sheet === undefined) {
-        styleSheets.push(document.createStyleSheet());
-        sheet = styleSheets.length - 1;
-      }
-
-      styleSheets[sheet].addImport(url);
-      this.assets[url] = styleSheets[sheet];
-      return poll(url, this.root, fn);
-    }
-
-    var link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.type = 'text/css';
-    link.href = url;
-
-    //
-    // Only add the onload/onerror listeners when we've detected that's it's
-    // supported in the browser.
-    //
-    if (detect.onload) {
-      link.onerror = function onerror() {
-        link.onerror = link.onload = null;
-        fn(new Error('Failed to load the stylesheet'));
-      };
-
-      link.onload = function onload() {
-        link.onerror = link.onload = null;
-        fn();
-      };
-    } else {
-      poll(url, this.root, fn);
-
-      //
-      // We don't have a detect.onload, make sure we've started our feature
-      // detection.
-      //
-      if (!detect.ran) detect(this.root);
-    }
-
-    this.assets[url] = link;
-    this.root.appendChild(link);
-  };
-
-  /**
-   * Remove a stylesheet again.
-   *
-   * @param {String} url The stylesheet url that needs to be unloaded.
-   * @api private
-   */
-  Pipe.prototype.unloadStyleSheet = function unloadStyleSheet(url) {
-    if (!(url in this.assets)) return;
-
-    var asset = this.assets[url];
-
-    if (!asset.imports) {
-      asset.onload = asset.onerror = null;
-      asset.parentNode.removeChild(asset);
-    } else {
-      for (var i = 0, length = asset.imports.length; i < length; i++) {
-        if (asset.imports[i].href === url) {
-          asset.removeImport(i);
-          break;
-        }
-      }
-    }
-
-    delete this.assets[url];
-    delete metaqueue[url];
-  };
-}());
-
 /**
- * Load a new Script.
+ * Horrible hack, but needed to prevent memory leaks while maintaing sublime
+ * performance. See Pagelet.prototype.IEV for more information.
  *
- * @param {String} url The script file that needs to be loaded in to the page.
- * @param {Function} fn The completion callback.
- * @api private
+ * @type {Number}
+ * @private
  */
-Pipe.prototype.loadJavaScript = function loadJavaScript(url, fn) {
-  if (url in this.assets) return;
-
-  var script = document.createElement('script');
-  script.async = true; // Required for FireFox 3.6 / Opera async loading.
-
-  //
-  // onerror is not triggered by all browsers, but should give us a clean
-  // indication of failures.
-  //
-  script.onerror = function onerror() {
-    script.onerror = script.onload = script.onreadystatechange = null;
-    fn(new Error('Failed to load the script'));
-  };
-
-  //
-  // All "latest" browser seem to support the onload event for detecting full
-  // script loading. Internet Explorer 11 no longer needs to use the
-  // onreadystatechange method for completion indication.
-  //
-  script.onload = function onload() {
-    script.onerror = script.onload = script.onreadystatechange = null;
-    fn();
-  };
-
-  //
-  // Fallback for older IE versions, they do not support the onload event on the
-  // script tag and we need to check the script readyState to see if it's
-  // successfully loaded.
-  //
-  script.onreadystatechange = function onreadystatechange() {
-    if (this.readyState in { loaded: 1, complete: 1 }) {
-      script.onerror = script.onload = script.onreadystatechange = null;
-      fn();
-    }
-  };
-
-  //
-  // The src needs to be set after the element has been added to the document.
-  // If I remember correctly it had to do something with an IE8 bug.
-  //
-  this.root.appendChild(script);
-  script.src = url;
-
-  this.assets[url] = script;
-};
-
-/**
- * Remove the loaded script source again.
- *
- * @param {String} url The script url that needs to be unloaded
- * @api private
- */
-Pipe.prototype.unloadJavaScript = function unloadJavaScript(url) {
-
-};
+Pipe.prototype.IEV = Pagelet.prototype.IEV;
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
@@ -400,11 +142,63 @@ Pipe.prototype.unloadJavaScript = function unloadJavaScript(url) {
  * @api public
  */
 Pipe.prototype.arrive = function arrive(name, data) {
+  if (!this.has(name)) this.create(name, data);
+  return this;
+};
+
+/**
+ * Create a new Pagelet instance.
+ *
+ * @api private
+ */
+Pipe.prototype.create = function create(name, data) {
   var pagelet = this.pagelets[name] = this.alloc();
   pagelet.configure(name, data);
+};
+
+/**
+ * Check if the pagelet has already been loaded.
+ *
+ * @param {String} name The name of the pagelet.
+ * @returns {Boolean}
+ * @api public
+ */
+Pipe.prototype.has = function has(name) {
+  return name in this.pagelets;
+};
+
+/**
+ * Remove the pagelet.
+ *
+ * @param {String} name The name of the pagelet that needs to be removed.
+ * @api public
+ */
+Pipe.prototype.remove = function remove(name) {
+  if (this.has(name)) {
+    this.pagelets[name].destroy();
+    delete this.pagelets[name];
+  }
 
   return this;
 };
+
+/**
+ * Load a new resource.
+ *
+ * @param {Element} root The root node where we should insert stuff in.
+ * @param {String} url The location of the asset.
+ * @param {Function} fn Completion callback.
+ * @api private
+ */
+Pipe.prototype.load = loader.load;
+
+/**
+ * Unload a new resource.
+ *
+ * @param {String} url The location of the asset.
+ * @api private
+ */
+Pipe.prototype.unload = loader.unload;
 
 /**
  * Allocate a new Pagelet instance.
@@ -440,9 +234,318 @@ Pipe.prototype.connect = function connect(url, options) {
 };
 
 
-},{"./collection":1,"./pagelet":3}],3:[function(require,module,exports){
+},{"./collection":1,"./loader":3,"./pagelet":4}],3:[function(require,module,exports){
+'use strict';
+
+var collection = require('./collection')
+  , styleSheets = []
+  , metaQueue = {}
+  , timeout = 5000
+  , assets = {};
+
+/**
+ * Check if all stylesheets have been correctly injected by looping over the
+ * metaQueue.
+ *
+ * @returns {Boolean} All stylesheets have been loaded.
+ * @api private
+ */
+function loaded() {
+  var meta, url, style;
+
+  for (url in metaQueue) {
+    meta = metaQueue[url];
+
+    if (new Date() - meta.start > timeout) {
+      meta.fn(new Error('The styleSheet has timed out'));
+      delete meta.fn;
+    } else {
+      style = window.getComputedStyle
+        ? getComputedStyle(meta.tag, null)
+        : meta.tag.currentStyle;
+
+      //
+      // We assume that the CSS set the height property of the for given id
+      // selector.
+      //
+      if (style && meta.fn && parseInt(style.height, 10) > 1) {
+        meta.fn();
+        delete meta.fn;
+      }
+    }
+
+    if (!meta.fn) {
+      meta.tag.parentNode.removeChild(meta.tag);
+      delete metaQueue[url];
+    }
+  }
+
+  return collection.empty(metaQueue);
+}
+
+/**
+ * Start polling for StyleSheet changes to detect if a StyleSheet has been
+ * loaded. This is done by injecting a <meta> tag in to the page with
+ * a dedicated `id` attribute that matches a selector that we've added in the
+ * server side for example:
+ *
+ * ```css
+ * #pagelet_af3f399qu { height: 45px }
+ * ```
+ *
+ * @api private
+ */
+function poll(url, root, fn) {
+  var meta = document.createElement('meta');
+  meta.id = 'pagelet_'+ url.split('/').pop().replace('.css').toLowerCase();
+  root.appendChild(meta);
+
+  metaQueue[url] = {
+    start: +new Date(),
+    tag: meta,
+    fn: fn
+  };
+
+  //
+  // Do a quick check before trying to poll, it could be that stylesheet was
+  // cached and was loaded instantly on the page.
+  //
+  if (loaded()) return;
+
+  if (!poll.interval) poll.interval = setInterval(function interval() {
+    if (loaded()) clearInterval(poll.interval);
+  }, 20);
+}
+
+/**
+ * Try to detect if this browser supports the onload events on the link tag.
+ * It's a known cross browser bug that can affect WebKit, FireFox and Opera.
+ * Internet Explorer is the only browser that supports the onload event
+ * consistenly but it has other bigger issues that prevents us from using this
+ * method.
+ *
+ * @param {Element} target
+ * @api private
+ */
+function detect(target) {
+  if (detect.ran) return;
+  detect.ran = true;
+
+  var link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'data:text/css;base64,';
+
+  link.onload = function loaded() {
+    link.parentNode.removeChild(link);
+    link.onload = false;
+    detect.onload = true;
+  };
+
+  target.appendChild(link);
+}
+
+/**
+ * Load a new stylesheet.
+ *
+ * @param {String} url The stylesheet url that needs to be loaded.
+ * @param {Function} fn Completion callback.
+ * @api private
+ */
+function loadStyleSheet(root, url, fn) {
+  if (url in assets) return;
+
+  //
+  // Internet Explorer can only have 31 style tags on a single page. One single
+  // style tag is also limited to 31 @import statements so this gives us room to
+  // have 961 stylesheets totally. So we should queue stylesheets.
+  //
+  // @see http://john.albin.net/ie-css-limits/two-style-test.html
+  // @see http://support.microsoft.com/kb/262161
+  //
+  if (document.styleSheet) {
+    for (var sheet, i = 0; i < styleSheets.length; i++) {
+      if (styleSheets[i].imports.length < 31) {
+        sheet = i;
+        break;
+      }
+    }
+
+    //
+    // We didn't find suitable styleSheet to add another @import statement,
+    // create a new one so we can leverage that instead.
+    //
+    // @TODO we should probably check the amount of document.styleSheets.length
+    //       to check if we're allowed to add more stylesheets.
+    //
+    if (sheet === undefined) {
+      styleSheets.push(document.createStyleSheet());
+      sheet = styleSheets.length - 1;
+    }
+
+    styleSheets[sheet].addImport(url);
+    assets[url] = styleSheets[sheet];
+    return poll(url, root, fn);
+  }
+
+  var link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.type = 'text/css';
+  link.href = url;
+
+  //
+  // Only add the onload/onerror listeners when we've detected that's it's
+  // supported in the browser.
+  //
+  if (detect.onload) {
+    link.onerror = function onerror() {
+      link.onerror = link.onload = null;
+      fn(new Error('Failed to load the stylesheet.'));
+    };
+
+    link.onload = function onload() {
+      link.onerror = link.onload = null;
+      fn();
+    };
+  } else {
+    poll(url, root, fn);
+
+    //
+    // We don't have a detect.onload, make sure we've started our feature
+    // detection.
+    //
+    if (!detect.ran) detect(root);
+  }
+
+  assets[url] = link;
+  root.appendChild(link);
+}
+
+/**
+ * Remove a stylesheet again.
+ *
+ * @param {String} url The stylesheet url that needs to be unloaded.
+ * @api private
+ */
+function unloadStyleSheet(url) {
+  if (!(url in assets)) return;
+
+  var asset = assets[url];
+
+  if (!asset.imports) {
+    asset.onload = asset.onerror = null;
+    asset.parentNode.removeChild(asset);
+  } else {
+    for (var i = 0, length = asset.imports.length; i < length; i++) {
+      if (asset.imports[i].href === url) {
+        asset.removeImport(i);
+        break;
+      }
+    }
+  }
+
+  delete assets[url];
+  delete metaQueue[url];
+}
+
+/**
+ * Load a new Script.
+ *
+ * @param {String} url The script file that needs to be loaded in to the page.
+ * @param {Function} fn The completion callback.
+ * @api private
+ */
+function loadJavaScript(root, url, fn) {
+  if (url in assets) return;
+
+  var script = document.createElement('script');
+  script.async = true; // Required for FireFox 3.6 / Opera async loading.
+
+  //
+  // onerror is not triggered by all browsers, but should give us a clean
+  // indication of failures.
+  //
+  script.onerror = function onerror() {
+    script.onerror = script.onload = script.onreadystatechange = null;
+    fn(new Error('Failed to load the script.'));
+  };
+
+  //
+  // All "latest" browser seem to support the onload event for detecting full
+  // script loading. Internet Explorer 11 no longer needs to use the
+  // onreadystatechange method for completion indication.
+  //
+  script.onload = function onload() {
+    script.onerror = script.onload = script.onreadystatechange = null;
+    fn();
+  };
+
+  //
+  // Fallback for older IE versions, they do not support the onload event on the
+  // script tag and we need to check the script readyState to see if it's
+  // successfully loaded.
+  //
+  script.onreadystatechange = function onreadystatechange() {
+    if (this.readyState in { loaded: 1, complete: 1 }) {
+      script.onerror = script.onload = script.onreadystatechange = null;
+      fn();
+    }
+  };
+
+  //
+  // The src needs to be set after the element has been added to the document.
+  // If I remember correctly it had to do something with an IE8 bug.
+  //
+  root.appendChild(script);
+  script.src = url;
+
+  assets[url] = script;
+}
+
+/**
+ * Remove the loaded script source again.
+ *
+ * @param {String} url The script url that needs to be unloaded
+ * @api private
+ */
+function unloadJavaScript(url) {
+  if (!(url in assets)) return;
+
+  var asset = assets[url];
+  asset.onload = asset.onerror = asset.onreadystatechange = null;
+  asset.parentNode.removeChild(asset);
+
+  delete assets[url];
+}
+
+/**
+ * Load a new resource.
+ *
+ * @param {Element} root The root node where we should insert stuff in.
+ * @param {String} url The location of the asset.
+ * @param {Function} fn Completion callback.
+ * @api public
+ */
+exports.load = function load(root, url, fn) {
+  if ('js' === url.split('.').pop()) return loadStyleSheet(root, url, fn);
+  loadJavaScript(root, url, fn);
+};
+
+/**
+ * Unload a new resource.
+ *
+ * @param {String} url The location of the asset.
+ * @api public
+ */
+exports.unload = function unload(url) {
+  if ('js' === url.split('.').pop()) return unloadStyleSheet(url);
+  unloadJavaScript(url);
+};
+
+},{"./collection":1}],4:[function(require,module,exports){
 /*globals Primus, ActiveXObject, CollectGarbage */
 'use strict';
+
+var collection = require('./collection');
 
 /**
  * Representation of a single pagelet.
@@ -471,6 +574,7 @@ Pagelet.prototype.constructor = Pagelet;
  * @api private
  */
 Pagelet.prototype.configure = function configure(name, data) {
+  this.placeholders = this.$('data-pagelet', name);
   this.name = name;
 };
 
@@ -573,6 +677,64 @@ Pagelet.prototype.prepare = function prepare(code) {
 };
 
 /**
+ * Render the HTML template in to the placeholders.
+ *
+ * @param {String} html The HTML that needs to be added in the placeholders.
+ * @api private
+ */
+Pagelet.prototype.render = function render(html) {
+  collection.each(this.placeholders, function (root) {
+    var div = document.createElement('div')
+      , borked = this.IEV < 7
+      , fragment;
+
+    if (borked) root.appendChild(div);
+
+    div.innerHTML = html;
+
+    while (div.firstChild) {
+      fragment.appendChild(div.firstChild);
+    }
+
+    root.appendChild(fragment);
+    if (borked) root.removeChild(div);
+  }, this);
+};
+
+/**
+ * Horrible hack, but needed to prevent memory leaks and other issues in Internet
+ * Explorer that's caused by the use of document.createDocumentFragment()
+ *
+ * @type {Number}
+ * @private
+ */
+Pagelet.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
+
+/**
+ * Parse the included template from the comment node so it can be injected in to
+ * the page as initial rendered view.
+ *
+ * @returns {String} View.
+ * @api private
+ */
+Pagelet.prototype.parse = function parse() {
+  var node = this.$('data-pagelet-fragment', this.name)[0]
+    , comment;
+
+  //
+  // The firstChild of the fragment should have been a HTML comment, this is to
+  // prevent the browser from rendering and parsing the template.
+  //
+  if (!node.firstChild || node.firstChild.nodeType !== 8) return;
+
+  comment = node.firstChild.nodeValue;
+
+  return comment
+    .substring(1, comment.length -1)
+    .replace(/\\([\s\S]|$)/g, '$1');
+};
+
+/**
  * Does this browser support HTMLfile's. It's build upon the ActiveXObject and
  * allows us to embed a page within a page without triggering any loading
  * indicators. The added benefit is that it doesn't need to be added to the DOM
@@ -601,6 +763,15 @@ Pagelet.prototype.destroy = function destroy() {
   //
   this.pipe.free(this);
 
+  //
+  // Remove all the HTML from the placeholders.
+  //
+  if (this.placeholders) collection.each(this.placeholders, function (root) {
+    while (root.firstChild) root.removeChild(root.firstChild);
+  });
+
+  this.placeholders = null;
+
   if (!this.htmlfile) {
     this.container.parentNode.removeChild(this.container);
     this.container = null;
@@ -621,5 +792,5 @@ Pagelet.prototype.destroy = function destroy() {
 //
 module.exports = Pagelet;
 
-},{}]},{},[2])
+},{"./collection":1}]},{},[2])
 ;
