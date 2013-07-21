@@ -4,7 +4,7 @@
   "description": "Pagelets is a modular framework for Node.js that's inspired by Facebook's BigPipe and various of real-time frameworks.",
   "main": "index.js",
   "scripts": {
-    "test": "NODE_ENV=testing ./node_modules/.bin/mocha $(find test -name '*.test.js')",
+    "test": "mocha $(find test -name '*.test.js')",
     "build": "browserify pipe/index.js -o dist/pipe.js"
   },
   "dependencies": {
