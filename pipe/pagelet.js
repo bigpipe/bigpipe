@@ -1,6 +1,8 @@
 /*globals Primus, ActiveXObject, CollectGarbage */
 'use strict';
 
+var collection = require('./collection');
+
 /**
  * Representation of a single pagelet.
  *
@@ -28,6 +30,7 @@ Pagelet.prototype.constructor = Pagelet;
  * @api private
  */
 Pagelet.prototype.configure = function configure(name, data) {
+  this.placeholders = this.$('data-pagelet', name);
   this.name = name;
 };
 
@@ -130,6 +133,64 @@ Pagelet.prototype.prepare = function prepare(code) {
 };
 
 /**
+ * Render the HTML template in to the placeholders.
+ *
+ * @param {String} html The HTML that needs to be added in the placeholders.
+ * @api private
+ */
+Pagelet.prototype.render = function render(html) {
+  collection.each(this.placeholders, function (root) {
+    var div = document.createElement('div')
+      , borked = this.IEV < 7
+      , fragment;
+
+    if (borked) root.appendChild(div);
+
+    div.innerHTML = html;
+
+    while (div.firstChild) {
+      fragment.appendChild(div.firstChild);
+    }
+
+    root.appendChild(fragment);
+    if (borked) root.removeChild(div);
+  }, this);
+};
+
+/**
+ * Horrible hack, but needed to prevent memory leaks and other issues in Internet
+ * Explorer that's caused by the use of document.createDocumentFragment()
+ *
+ * @type {Number}
+ * @private
+ */
+Pagelet.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
+
+/**
+ * Parse the included template from the comment node so it can be injected in to
+ * the page as initial rendered view.
+ *
+ * @returns {String} View.
+ * @api private
+ */
+Pagelet.prototype.parse = function parse() {
+  var node = this.$('data-pagelet-fragment', this.name)[0]
+    , comment;
+
+  //
+  // The firstChild of the fragment should have been a HTML comment, this is to
+  // prevent the browser from rendering and parsing the template.
+  //
+  if (!node.firstChild || node.firstChild.nodeType !== 8) return;
+
+  comment = node.firstChild.nodeValue;
+
+  return comment
+    .substring(1, comment.length -1)
+    .replace(/\\([\s\S]|$)/g, '$1');
+};
+
+/**
  * Does this browser support HTMLfile's. It's build upon the ActiveXObject and
  * allows us to embed a page within a page without triggering any loading
  * indicators. The added benefit is that it doesn't need to be added to the DOM
@@ -157,6 +218,15 @@ Pagelet.prototype.destroy = function destroy() {
   // Automatically schedule this Pagelet instance for re-use.
   //
   this.pipe.free(this);
+
+  //
+  // Remove all the HTML from the placeholders.
+  //
+  if (this.placeholders) collection.each(this.placeholders, function (root) {
+    while (root.firstChild) root.removeChild(root.firstChild);
+  });
+
+  this.placeholders = null;
 
   if (!this.htmlfile) {
     this.container.parentNode.removeChild(this.container);
