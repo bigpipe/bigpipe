@@ -43,6 +43,8 @@ function Pipe(server, options) {
 
   this.stream = null;                   // Reference to the connected Primus socket.
   this.pagelets = {};                   // Collection of different pagelets.
+  this.freelist = [];                   // Collection of unused Pagelet instances.
+  this.maximum = 20;                    // Max Pagelet instances we can reuse.
   this.styleSheets = {};                // StyleSheet cache.
   this.root = document.documentElement; // The <html> element.
 
@@ -282,8 +284,32 @@ Pipe.prototype.configure = function configure() {
  * @api public
  */
 Pipe.prototype.arrive = function arrive(name, data) {
-  this.pagelets[name] = new Pagelet(name, data);
+  var pagelet = this.pagelets[name] = this.alloc();
+  pagelet.configure(name, data);
+
   return this;
+};
+
+/**
+ * Allocate a new Pagelet instance.
+ *
+ * @returns {Pagelet}
+ */
+Pipe.prototype.alloc = function alloc() {
+  return this.freelist.length
+    ? this.freelist.shift()
+    : new Pagelet(this);
+};
+
+/**
+ * Free an allocated Pagelet instance which can be re-used again to reduce
+ * garbage collection.
+ *
+ * @param {Pagelet} pagelet The pagelet instance.
+ * @api private
+ */
+Pipe.prototype.free = function free(pagelet) {
+  if (this.freelist.length < this.maximum) this.freelist.push(pagelet);
 };
 
 /**
@@ -300,15 +326,14 @@ Pipe.prototype.connect = function connect(url, options) {
 /**
  * Representation of a single pagelet.
  *
+ * @constructor
  * @param {Pipe} pipe The pipe.
- * @param {String} name The given name of the pagelet.
- * @param {Object} data The data of the pagelet.
+ * @api public
  */
 function Pagelet(pipe, name, data) {
   Primus.EventEmitter.call(this);
 
   this.pipe = pipe;
-  this.configure(name, data);
 }
 
 //
@@ -320,6 +345,8 @@ Pagelet.prototype.constructor = Pagelet;
 /**
  * Configure the Pagelet.
  *
+ * @param {String} name The given name of the pagelet.
+ * @param {Object} data The data of the pagelet.
  * @api private
  */
 Pagelet.prototype.configure = function configure(name, data) {
@@ -380,8 +407,9 @@ Pagelet.prototype.sandbox = function sandbox(code) {
     // The iframe needs to be added in to the DOM before we can modify it, make
     // sure it's remains unseen.
     //
-    container.style.display = 'none';
+    container.style.top = container.style.left = -10000;
     container.style.position = 'absolute';
+    container.style.display = 'none';
     script.parentNode.insertBefore(this.container, script);
 
     this.container = container.contentDocument || container.contentWindow.document;
@@ -443,9 +471,15 @@ catch (e) {}
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
+ * @TODO remove unused CSS files
  * @api public
  */
 Pagelet.prototype.destroy = function destroy() {
+  //
+  // Automatically schedule this Pagelet instance for re-use.
+  //
+  this.pipe.free(this);
+
   if (!this.htmlfile) {
     this.container.parentNode.removeChild(this.container);
     this.container = null;
