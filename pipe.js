@@ -2,6 +2,36 @@
 'use strict';
 
 /**
+ * Get an accurate type check for the given Object.
+ *
+ * @param {Mixed} obj The object that needs to be detected.
+ * @returns {String} The object type
+ * @api private
+ */
+function type(obj) {
+  return Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
+}
+
+/**
+ * Checks if the given object is empty. The only edge case here would be
+ * objects. Most object's have a `length` attribute that indicate if there's
+ * anything inside the object.
+ *
+ * @returns {Boolean}
+ * @api private
+ */
+function empty(obj) {
+  if (!obj) return false;
+
+  if ('object' === type(obj)) {
+    for (var key in obj) return false;
+    return true;
+  }
+
+  return obj.length === 0;
+}
+
+/**
  *
  * @constructor
  * @param {String} server The server address we need to connect to.
@@ -28,6 +58,11 @@ function Pipe(server, options) {
 Pipe.prototype = new Primus.EventEmitter();
 Pipe.prototype.constructor = Pipe;
 
+/**
+ * Configure the Pipe.
+ *
+ * @api private
+ */
 Pipe.prototype.configure = function configure() {
   if (this.root.className.indexOf('no_js')) {
     this.root.className = this.root.className.replace('no_js', '');
@@ -63,29 +98,71 @@ Pipe.prototype.configure = function configure() {
   }
 
   /**
-   * Start polling for Stylesheet changes to detect if a stylesheet has been
-   * loaded.
+   * Check if all stylesheets have been correctly injected.
+   *
+   * @returns {Boolean}
+   * @api private
+   */
+  function loaded() {
+    var meta, url, style;
+
+    for (url in metaqueue) {
+      meta = metaqueue[url];
+
+      if (new Date() - meta.start > timeout) {
+        meta.fn(new Error('The styleSheet has timed out'));
+        delete meta.fn;
+      } else {
+        style = window.getComputedStyle
+          ? getComputedStyle(meta.tag, null)
+          : meta.tag.currentStyle;
+
+        //
+        // We assume that the CSS set the height property of the for given id
+        // selector.
+        //
+        if (style && meta.fn && parseInt(style.height, 10) > 1) {
+          meta.fn();
+          delete meta.fn;
+        }
+      }
+
+      if (!meta.fn) {
+        meta.tag.parentNode.removeChild(meta.tag);
+        delete metaqueue[url];
+      }
+    }
+
+    return empty(metaqueue);
+  }
+
+  /**
+   * Start polling for StyleSheet changes to detect if a StyleSheet has been
+   * loaded. This is done by injecting a <meta> tag in to the page with
+   * a dedicated `id` attribute that matches a selector that we've added in the
+   * server side for example:
+   *
+   * ```css
+   * #pagelet_af3f399qu { height: 45px }
+   * ```
    *
    * @api private
    */
   function poll(url, root, fn) {
     var meta = document.createElement('meta');
-
-    //
-    // This id attribute is automatically inject at the server side when the
-    // stylesheet is compiled. It's basically the generated filename of the CSS.
-    //
     meta.id = 'pagelet_'+ url.split('/').pop().replace('.css').toLowerCase();
     root.appendChild(meta);
 
     metaqueue[url] = {
-      meta: meta,
+      now: +new Date(),
+      tag: meta,
       fn: fn
     };
 
-    if (!poll.interval) poll.interval(function interval() {
-
-    });
+    if (loaded()) return;
+    if (!poll.interval) poll.interval = setInterval(function interval() {
+      if (loaded()) clearInterval(poll.interval);
+    }, 20);
   }
 
   //
@@ -93,10 +170,12 @@ Pipe.prototype.configure = function configure() {
   // style tag is also limited to 31 @import statements so this gives us room to
   // have 961 stylesheets totally. So we should queue stylesheets.
   //
+  // @see http://john.albin.net/ie-css-limits/two-style-test.html
   // @see http://support.microsoft.com/kb/262161
   //
   var styleSheets = []
-    , metaqueue = {};
+    , metaqueue = {}
+    , timeout = 5000;
 
   /**
    * Load a new stylesheet.
@@ -119,6 +198,9 @@ Pipe.prototype.configure = function configure() {
       //
       // We didn't find suitable styleSheet to add another @import statement,
       // create a new one so we can leverage that instead.
+      //
+      // @TODO we should probably check the amount of document.styleSheets.length
+      //       to check if we're allowed to add more stylesheets.
       //
       if (sheet === undefined) {
         styleSheets.push(document.createStyleSheet());
