@@ -46,6 +46,14 @@ Pipe.prototype.configure = function configure() {
   }
 };
 
+/**
+ * Horrible hack, but needed to prevent memory leaks while maintaing sublime
+ * performance. See Pagelet.prototype.IEV for more information.
+ *
+ * @type {Number}
+ * @private
+ */
+Pipe.prototype.IEV = Pagelet.prototype.IEV;
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
@@ -56,8 +64,42 @@ Pipe.prototype.configure = function configure() {
  * @api public
  */
 Pipe.prototype.arrive = function arrive(name, data) {
+  if (!this.has(name)) this.create(name, data);
+  return this;
+};
+
+/**
+ * Create a new Pagelet instance.
+ *
+ * @api private
+ */
+Pipe.prototype.create = function create(name, data) {
   var pagelet = this.pagelets[name] = this.alloc();
   pagelet.configure(name, data);
+};
+
+/**
+ * Check if the pagelet has already been loaded.
+ *
+ * @param {String} name The name of the pagelet.
+ * @returns {Boolean}
+ * @api public
+ */
+Pipe.prototype.has = function has(name) {
+  return name in this.pagelets;
+};
+
+/**
+ * Remove the pagelet.
+ *
+ * @param {String} name The name of the pagelet that needs to be removed.
+ * @api public
+ */
+Pipe.prototype.remove = function remove(name) {
+  if (this.has(name)) {
+    this.pagelets[name].destroy();
+    delete this.pagelets[name];
+  }
 
   return this;
 };
