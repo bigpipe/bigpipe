@@ -45,7 +45,7 @@ function Pipe(server, options) {
   this.pagelets = {};                   // Collection of different pagelets.
   this.freelist = [];                   // Collection of unused Pagelet instances.
   this.maximum = 20;                    // Max Pagelet instances we can reuse.
-  this.styleSheets = {};                // StyleSheet cache.
+  this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
 
   Primus.EventEmitter.call(this);
@@ -187,7 +187,7 @@ Pipe.prototype.configure = function configure() {
    * @api private
    */
   Pipe.prototype.loadStyleSheet = function loadStyleSheet(url, fn) {
-    if (url in this.styleSheets) return;
+    if (url in this.assets) return;
 
     if (document.styleSheet) {
       for (var sheet, i = 0; i < styleSheets.length; i++) {
@@ -210,7 +210,7 @@ Pipe.prototype.configure = function configure() {
       }
 
       styleSheets[sheet].addImport(url);
-      this.styleSheets[url] = styleSheets[sheet];
+      this.assets[url] = styleSheets[sheet];
       return poll(url, this.root, fn);
     }
 
@@ -243,7 +243,7 @@ Pipe.prototype.configure = function configure() {
       if (!detect.ran) detect(this.root);
     }
 
-    this.styleSheets[url] = link;
+    this.assets[url] = link;
     this.root.appendChild(link);
   };
 
@@ -254,26 +254,90 @@ Pipe.prototype.configure = function configure() {
    * @api private
    */
   Pipe.prototype.unloadStyleSheet = function unloadStyleSheet(url) {
-    if (!(url in this.styleSheets)) return;
+    if (!(url in this.assets)) return;
 
-    var styleSheet = this.styleSheets[url];
+    var asset = this.assets[url];
 
-    if (!styleSheet.imports) {
-      styleSheet.onload = styleSheet.onerror = null;
-      styleSheet.parentNode.removeChild(styleSheet);
+    if (!asset.imports) {
+      asset.onload = asset.onerror = null;
+      asset.parentNode.removeChild(asset);
     } else {
-      for (var i = 0, length = styleSheet.imports.length; i < length; i++) {
-        if (styleSheet.imports[i].href === url) {
-          styleSheet.removeImport(i);
+      for (var i = 0, length = asset.imports.length; i < length; i++) {
+        if (asset.imports[i].href === url) {
+          asset.removeImport(i);
           break;
         }
       }
     }
 
-    delete this.styleSheets[url];
+    delete this.assets[url];
     delete metaqueue[url];
   };
 }());
+
+/**
+ * Load a new Script.
+ *
+ * @param {String} url The script file that needs to be loaded in to the page.
+ * @param {Function} fn The completion callback.
+ * @api private
+ */
+Pipe.prototype.loadJavaScript = function loadJavaScript(url, fn) {
+  if (url in this.assets) return;
+
+  var script = document.createElement('script');
+  script.async = true; // Required for FireFox 3.6 / Opera async loading.
+
+  //
+  // onerror is not triggered by all browsers, but should give us a clean
+  // indication of failures.
+  //
+  script.onerror = function onerror() {
+    script.onerror = script.onload = script.onreadystatechange = null;
+    fn(new Error('Failed to load the script'));
+  };
+
+  //
+  // All "latest" browser seem to support the onload event for detecting full
+  // script loading. Internet Explorer 11 no longer needs to use the
+  // onreadystatechange method for completion indication.
+  //
+  script.onload = function onload() {
+    script.onerror = script.onload = script.onreadystatechange = null;
+    fn();
+  };
+
+  //
+  // Fallback for older IE versions, they do not support the onload event on the
+  // script tag and we need to check the script readyState to see if it's
+  // successfully loaded.
+  //
+  script.onreadystatechange = function onreadystatechange() {
+    if (this.readyState in { loaded: 1, complete: 1 }) {
+      script.onerror = script.onload = script.onreadystatechange = null;
+      fn();
+    }
+  };
+
+  //
+  // The src needs to be set after the element has been added to the document.
+  // If I remember correctly it had to do something with an IE8 bug.
+  //
+  this.root.appendChild(script);
+  script.src = url;
+
+  this.assets[url] = script;
+};
+
+/**
+ * Remove the loaded script source again.
+ *
+ * @param {String} url The script url that needs to be unloaded
+ * @api private
+ */
+Pipe.prototype.unloadJavaScript = function unloadJavaScript(url) {
+
+};
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
