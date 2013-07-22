@@ -120,10 +120,12 @@ function loadStyleSheet(root, url, fn) {
   //
   // Internet Explorer can only have 31 style tags on a single page. One single
   // style tag is also limited to 31 @import statements so this gives us room to
-  // have 961 stylesheets totally. So we should queue stylesheets.
+  // have 961 stylesheets totally. So we should queue stylesheets. This
+  // limitation has been removed in Internet Explorer 10.
   //
   // @see http://john.albin.net/ie-css-limits/two-style-test.html
   // @see http://support.microsoft.com/kb/262161
+  // @see http://blogs.msdn.com/b/ieinternals/archive/2011/05/14/internet-explorer-stylesheet-rule-selector-import-sheet-limit-maximum.aspx
   //
   if (document.styleSheet) {
     for (var sheet, i = 0; i < styleSheets.length; i++) {
