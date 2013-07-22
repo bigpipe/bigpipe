@@ -1,7 +1,8 @@
 /*globals Primus, ActiveXObject, CollectGarbage */
 'use strict';
 
-var collection = require('./collection');
+var collection = require('./collection')
+  , async = require('./async');
 
 /**
  * Representation of a single pagelet.
@@ -10,7 +11,7 @@ var collection = require('./collection');
  * @param {Pipe} pipe The pipe.
  * @api public
  */
-function Pagelet(pipe, name, data) {
+function Pagelet(pipe) {
   Primus.EventEmitter.call(this);
 
   this.pipe = pipe;
@@ -32,6 +33,31 @@ Pagelet.prototype.constructor = Pagelet;
 Pagelet.prototype.configure = function configure(name, data) {
   this.placeholders = this.$('data-pagelet', name);
   this.name = name;
+
+  this.css = collection.array(data.css);    // CSS for the Page.
+  this.js = collection.array(data.js);      // Dependencies for the page.
+  this.run = data.run;                      // Pagelet client code.
+
+  var pagelet = this;
+
+  async.each(this.css.concat(this.js), function download(asset, next) {
+    this.load(asset, next);
+  }, function done(err) {
+    if (err) return pagelet.emit('error', err);
+    pagelet.emit('loaded');
+
+    pagelet.render(pagelet.parse());
+    pagelet.initialise();
+  }, { context: this.pipe, timeout: 25 * 1000 });
+};
+
+/**
+ * The pagelet's resource has all been loaded.
+ *
+ * @api private
+ */
+Pagelet.prototype.initialise = function initialise() {
+  this.emit('initialise');
 };
 
 /**
@@ -214,10 +240,8 @@ catch (e) {}
  * @api public
  */
 Pagelet.prototype.destroy = function destroy() {
-  //
-  // Automatically schedule this Pagelet instance for re-use.
-  //
-  this.pipe.free(this);
+  this.pipe.free(this); // Automatically schedule this Pagelet instance for re-use.
+  this.emit('destroy'); // Execute any extra destroy hooks.
 
   //
   // Remove all the HTML from the placeholders.
