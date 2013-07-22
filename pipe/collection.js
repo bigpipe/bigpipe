@@ -32,7 +32,7 @@ function each(collection, iterator, context) {
     }
   } else {
     for (i in collection) {
-      iterator.call(context, i, collection[i]);
+      iterator.call(context, collection[i], i);
     }
   }
 }
@@ -69,6 +69,25 @@ function size(collection) {
   return +collection.length;
 }
 
+/**
+ * Wrap the given object in an array if it's not an array allready.
+ *
+ * @param {Mixed} obj The thing we might need to wrap.
+ * @returns {Array} We promise!
+ * @api private
+ */
+function array(obj) {
+  if ('array' === type(obj)) return obj;
+
+  return obj  // Only transform objects in to an array when they exist.
+    ? [ obj ]
+    : [];
+}
+
+//
+// Expose the collection utilities.
+//
+exports.array = array;
 exports.empty = empty;
 exports.size = size;
 exports.type = type;
