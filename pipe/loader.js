@@ -115,7 +115,7 @@ function detect(target) {
  * @api private
  */
 function loadStyleSheet(root, url, fn) {
-  if (url in assets) return;
+  if (url in assets) return fn();
 
   //
   // Internet Explorer can only have 31 style tags on a single page. One single
@@ -220,7 +220,7 @@ function unloadStyleSheet(url) {
  * @api private
  */
 function loadJavaScript(root, url, fn) {
-  if (url in assets) return;
+  if (url in assets) return fn();
 
   var script = document.createElement('script');
   script.async = true; // Required for FireFox 3.6 / Opera async loading.
