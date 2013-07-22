@@ -58,6 +58,13 @@ Pagelet.prototype.configure = function configure(name, data) {
  */
 Pagelet.prototype.initialise = function initialise() {
   this.emit('initialise');
+
+  //
+  // Only load the client code in a sandbox when it exists. There no point in
+  // spinning up a sandbox if it does nothing
+  //
+  if (!this.code) return;
+  this.sandbox(this.prepare(this.code));
 };
 
 /**
@@ -97,6 +104,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
 Pagelet.prototype.sandbox = function sandbox(code) {
   var script = document.getElementsByTagName('script')[0]
     , unique = this.name + (+new Date())
+    , pagelet = this
     , container;
 
   if (!this.htmlfile) {
@@ -117,7 +125,15 @@ Pagelet.prototype.sandbox = function sandbox(code) {
     container.style.top = container.style.left = -10000;
     container.style.position = 'absolute';
     container.style.display = 'none';
-    script.parentNode.insertBefore(this.container, script);
+    script.parentNode.insertBefore(container, script);
+
+    //
+    // Add an error listener so we can register errors with the client code and
+    // know when the code has gone in a fubar state.
+    //
+    container.contentWindow = onerror = function onerror(err) {
+      pagelet.emit('error', err);
+    };
 
     this.container = container.contentDocument || container.contentWindow.document;
     this.container.open();
@@ -127,6 +143,8 @@ Pagelet.prototype.sandbox = function sandbox(code) {
 
   this.container.write('<html><s'+'cript>'+ code +'</s'+'cript></html>');
   this.container.close();
+
+  this.emit('sandboxed', code, this.container);
 };
 
 /**
@@ -151,6 +169,7 @@ Pagelet.prototype.prepare = function prepare(code) {
 
     //
     // The actual client-side code that needs to be evaluated.
+    // @TODO wrap the client side code with some pagelet references.
     //
     code,
 
