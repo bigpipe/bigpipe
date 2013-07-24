@@ -303,6 +303,20 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     configurable: true
   },
 
+  /**
+   * Dependencies. These are the common, shared files that need to be loaded
+   * globally. This array will be set
+   *
+   * @type {Array}
+   * @private
+   */
+  dependencies: {
+    value: [],
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
+
   //
   // !IMPORTANT
   //

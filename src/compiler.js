@@ -43,10 +43,11 @@ Object.defineProperty(Compiler.prototype, 'client', {
  * Create the BigPipe base front-end framework that's required for the handling
  * of the real-time connections and the initialisation of the arriving pagelets.
  *
+ * @param {String} core Core libraries that need to be loaded on every page.
  * @api private
  */
-Compiler.prototype.bigPipe = function bigPipe() {
-  var library = this.primus.library() + this.client
+Compiler.prototype.bigPipe = function bigPipe(core) {
+  var library = this.primus.library() + this.client + (core || '')
     , name = this.hash(library);
 
   return this.register('pipe.js', this.pathname + name +'.js', library);
@@ -90,13 +91,16 @@ Compiler.prototype.register = function register(alias, pathname, code) {
 };
 
 /**
- * Catalog the pages.
+ * Catalog the pages. As we're not caching the file look ups, this method can be
+ * called when a file changes so we will generate new.
  *
  * @param {Array} pages The array of pages.
  * @api private
  */
 Compiler.prototoype.catalog = function catalog(pages) {
-  var compiler = this;
+  var temper = this.pipe.temper
+    , compiler = this
+    , core = [];
 
   /**
    * Process the dependencies.
@@ -120,17 +124,52 @@ Compiler.prototoype.catalog = function catalog(pages) {
   }
 
   pages.forEach(function each(Page) {
-    var page = Page.prototype;
+    var page = Page.prototype
+      , dependencies = [];
 
     page.pagelets.forEach(function each(Pagelet) {
-      var pagelet = Pagelet.prototype;
+      var pagelet = Pagelet.prototype
+        , view;
 
       if (pagelet.js) prefab(pagelet.js);
       if (pagelet.css) prefab(pagelet.css);
 
-      pagelet.dependencies.forEach(prefab);
+      pagelet.dependencies.forEach(function each(dependency) {
+        prefab(dependency);
+
+        if (!~dependencies.indexOf(dependency)) {
+          dependencies.push(dependency);
+        }
+      });
+
+      if (!pagelet.view) return;
+
+      //
+      // The views can be rendered on the client, but some of them require
+      // a library, this libary should be cached in the core library.
+      //
+      view = temper.fetch(pagelet.view);
+      if (view.library && !~core.indexOf(view.library)) core.push(view.library);
     });
+
+    page.dependencies = dependencies.reduce(function reduce(memo, dependency) {
+      var extname = path.extname(dependency);
+
+      memo[extname] = memo[extname] || [];
+      memo[extname].push(dependency);
+    });
+
+    //
+    // Register the Pipe.js library as first script file that needs to be
+    // loaded.
+    //
+    page.dependencies['.js'].unshift('/pipe.js');
   });
+
+  //
+  // Last, but not least, update the pipe.js library.
+  //
+  this.bigPipe(core.join('\n'));
 };
 
 /**
