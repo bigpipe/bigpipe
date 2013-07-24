@@ -77,6 +77,21 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
+   * Remove the DOM element if we are unauthorized. This will make it easier to
+   * create conditional layouts without having to manage the pointless DOM
+   * elements.
+   *
+   * @type {Boolean}
+   * @public
+   */
+  remove: {
+    value: true,
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
+
+  /**
    * The location of your view template. But just because you've got a view
    * template it doesn't mean we will render it. It depends on how the pagelet is
    * called. If it's called from the client side we will only forward the data to

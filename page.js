@@ -387,6 +387,12 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           next();
         });
       }, function done() {
+        page.disabled.filter(function filter(pagelet) {
+          return !!pagelet.remove;
+        }).forEach(function each(pagelet) {
+          page.write(pagelet);
+        });
+
         page.outgoing.end();
       });
     }
@@ -415,12 +421,15 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   write: {
     enumerable: false,
     value: function write(pagelet, data) {
+      data = data || {};
+
       var view = this.temper.fetch(pagelet.view).server;
 
       this.outgoing.write(fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
         .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
         .replace(/\{pagelet::data\}/g, JSON.stringify({
+          remove: pagelet.remove,
           data: data
         }))
       );
