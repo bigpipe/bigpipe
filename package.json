@@ -1,7 +1,7 @@
 {
-  "name": "pagelets",
+  "name": "bigpipe",
   "version": "0.0.0",
-  "description": "Pagelets is a modular framework for Node.js that's inspired by Facebook's BigPipe and various of real-time frameworks.",
+  "description": "Bigpipe a radical new web framework for Node.js that's inspired by Facebook's bigpipe concept.",
   "main": "index.js",
   "scripts": {
     "test": "mocha $(find test -name '*.test.js')",
@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/3rd-Eden/pagelets.git"
+    "url": "git://github.com/3rd-Eden/bigpipe.git"
   },
   "keywords": [
     "pagelet",

@@ -1,33 +1,46 @@
 ```
-Pagelets is currently under heavy development, expect the internals to change
-and the module to be broken until 1.0 has been released.
+This module is actively being developed. If you are a fearless developer that
+isn't scared for a couple bugs you're more than welcome to go on this adventure.
+If not, please wait until 1.0 has been released.
 ```
 
-# Pagelets
+[![Build Status](https://travis-ci.org/3rd-Eden/bigpipe.png?branch=master)](https://travis-ci.org/3rd-Eden/bigpipe)
 
-[![Build Status](https://travis-ci.org/3rd-Eden/pagelets.png?branch=master)](https://travis-ci.org/3rd-Eden/pagelets)
+# BigPipe
 
-Pagelets is inspired by Facebooks BigPipe implementation. The general idea is to
-decompose web pages into small chunks called pagelets, and pipeline them through
-several execution stages inside web servers and browsers. Pagelets exploit the
-parallelism between web server and browser. The amount of resources send with
-the initial request are kept at a minimum. Each pagelets will get its JS and CSS
-assets by stream.
+BigPipe is a radical new web framework that is inspired by the concept behind
+Facebook's BigPipe. The general idea is to decompose web pages in to small
+re-usable chunks of functionality called `Pagelets` and pipeline them through
+several execution stages inside web servers or browsers. This allows progressive
+rendering at the front-end and results in exceptional front-end performance.
+
+Most web frameworks are based on request and response pattern, a request comes
+in, we process the data and output a template. But before we can output the
+template we have to wait until all data has been received in order for the
+template to be processed. This doesn't make any sense for Node.js applications
+where everything everything is done asynchronous. When received your first batch
+of data, why not send it directly to the browser so it can start downloading the
+required CSS, JavaScript and render it.
 
 ### Installation
 
-To use pagelets as dependency simply use npm to install and save the module to
-*package.json*
+BigPipe is distributed through the node package manager (npm) and is written
+against Node.js 0.10.x.
 
 ```
-npm install --save pagelets
+npm install --save bigpipe
 ```
 
 ### Testing
 
-Tests can be run by calling `npm test`. Make sure the module has its
-dependencies installed.
+Tests are automatically run on [Travis CI] to ensure that everything is
+functioning as intended. For local development we automatically install a
+pre-commit hook that runs the `npm test` command every time you commit changes.
+This ensures that we don't push any broken code in to this project.
 
 ### License
 
-Pagelets is released under the MIT license.
+BigPipe is released under MIT.
+
+[Travis CI]: http://travisci.org
+[pre-commit]: http://github.com/observing/pre-commit
