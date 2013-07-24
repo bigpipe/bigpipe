@@ -35,7 +35,7 @@ npm install --save bigpipe
 
 Tests are automatically run on [Travis CI] to ensure that everything is
 functioning as intended. For local development we automatically install a
-pre-commit hook that runs the `npm test` command every time you commit changes.
+[pre-commit] hook that runs the `npm test` command every time you commit changes.
 This ensures that we don't push any broken code in to this project.
 
 ### License
