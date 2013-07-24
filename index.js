@@ -396,12 +396,17 @@ Pipe.prototype.define = function define(page) {
 /**
  * Find the correct Page constructor based on the given url.
  *
+ * @TODO it should return an array with possible options. So they can be
+ * iterated over for when a page has a authorization method.
+ *
  * @param {String} url The url we need to find.
- * @returns {Mixed} either a Page constructor or undefined;
+ * @returns {Array} Array full of constructors, or nothing.
  * @api public
  */
 Pipe.prototype.find = function find(url, method) {
   if (this.cache && this.cache.has(url)) return this.cache.get(url);
+
+  var routes = [];
 
   for (var i = 0, page, length = this.pages.length; i < length; i++) {
     page = this.pages[i];
@@ -409,11 +414,11 @@ Pipe.prototype.find = function find(url, method) {
     if (!page.router.test(url)) continue;
     if (method && page.method.length && !~page.method.indexOf(method)) continue;
 
-    if (this.cache) this.cache.set(url, page);
-    return page;
+    routes.push(page);
   }
 
-  return undefined;
+  if (this.cache && routes.length) this.cache.set(url, routes);
+  return routes;
 };
 
 /**
@@ -428,30 +433,48 @@ Pipe.prototype.find = function find(url, method) {
 Pipe.prototype.dispatch = function dispatch(req, res) {
   this.decorate(req, res);
 
-  //
-  // Find the page that matches our route, if we don't find anything assume
-  // we've got to send a 404 instead.
-  //
-  var Page = this.find(req.uri.pathname, req.method) || this.statusCodes[404]
-    , page = Page.freelist.alloc();
+  var pages = this.find(req.uri.pathname, req.method)
+    , pipe = this;
 
   //
-  // Release the page again when we receive a `free` event.
+  // Always add the 404 page as last page to check so we always have working
+  // page
   //
-  page.once('free', function free() {
-    Page.freelist.free(page);
-  });
+  pages.push(this.statusCodes[404]);
 
-  res.once('close', page.emits('close'));
+  (function iterate(done) {
+    var freelist = pages.shift().freelist
+      , page = freelist.alloc();
 
-  if (this.domains) {
-    page.domain = domain.create();
-    page.domain.run(function run() {
-      run.configure(req, res);
+    if ('function' === typeof page.authorize) {
+      return page.authorize(req, function authorize(allowed) {
+        if (allowed) return done(page, freelist);
+
+        freelist.free(page);
+        iterate(done);
+      });
+    }
+
+    done(page, freelist);
+  }(function completed(page, freelist) {
+    //
+    // Release the page again when we receive a `free` event.
+    //
+    page.once('free', function free() {
+      freelist.free(page);
     });
-  } else {
-    page.configure(req, res);
-  }
+
+    res.once('close', page.emits('close'));
+
+    if (pipe.domains) {
+      page.domain = domain.create();
+      page.domain.run(function run() {
+        run.configure(req, res);
+      });
+    } else {
+      page.configure(req, res);
+    }
+  }));
 
   return this;
 };

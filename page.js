@@ -165,6 +165,32 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * An authorization handler to see if the request is authorized to interact with
+   * this page. This is set to `null` by default as there isn't any
+   * authorization in place. The authorization function will receive 2 arguments:
+   *
+   * - req, the http request that initialized the pagelet
+   * - done, a callback function that needs to be called with only a boolean.
+   *
+   * ```js
+   * Page.extend({
+   *   authorize: function authorize(req, done) {
+   *     done(true); // True indicates that the request is authorized for access.
+   *   }
+   * });
+   * ```
+   *
+   * @type {Function}
+   * @public
+   */
+  authorize: {
+    value: null,
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
+
+  /**
    * With what kind of generation mode do we need to output the generated
    * pagelets. We're supporting 3 different modes:
    *

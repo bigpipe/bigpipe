@@ -59,17 +59,17 @@ describe('Pipe', function () {
 
   describe('#find', function () {
     it('returns the matching page', function () {
-      expect(app.find('/')).to.be.a('function');
-      expect(app.find('/', 'GET')).to.be.a('function');
-      expect(app.find('/', 'POST')).to.not.be.a('function');
-      expect(app.find('/all')).to.be.a('function');
-      expect(app.find('/all', 'POST')).to.be.a('function');
-      expect(app.find('/all', 'GET')).to.be.a('function');
-      expect(app.find('/all', 'MOO')).to.be.a('function');
+      expect(app.find('/')[0]).to.be.a('function');
+      expect(app.find('/', 'GET')[0]).to.be.a('function');
+      expect(app.find('/', 'POST')[0]).to.not.be.a('function');
+      expect(app.find('/all')[0]).to.be.a('function');
+      expect(app.find('/all', 'POST')[0]).to.be.a('function');
+      expect(app.find('/all', 'GET')[0]).to.be.a('function');
+      expect(app.find('/all', 'MOO')[0]).to.be.a('function');
     });
 
     it('returns undefined when no route is found', function () {
-      expect(app.find('/bananananananaanaanananan')).to.be.a('undefined');
+      expect(app.find('/bananananananaanaanananan')).to.have.length(0);
     });
 
     it('adds and retrieves pages from a provided cache', function () {
@@ -81,7 +81,7 @@ describe('Pipe', function () {
         },
         set: function (url, page) {
           expect(url).to.equal('/');
-          expect(page).to.be.a('function');
+          expect(page).to.be.a('array');
           pattern.push('set');
           cache.page = page;
         },
@@ -99,8 +99,8 @@ describe('Pipe', function () {
         , cache: cache
       });
 
-      expect(app.find('/')).to.be.a('function');
-      expect(app.find('/')).to.be.a('function');
+      expect(app.find('/')[0]).to.be.a('function');
+      expect(app.find('/')[0]).to.be.a('function');
       expect(pattern.join()).to.equal('has,set,has,get');
     });
   });
@@ -170,8 +170,8 @@ describe('Pipe', function () {
 
   describe('#discover', function () {
     it('provides default pages if no /404 or /500 is found', function () {
-      expect(app.find('/404')).to.equal(undefined);
-      expect(app.find('/500')).to.equal(undefined);
+      expect(app.find('/404')).to.have.length(0);
+      expect(app.find('/500')).to.have.length(0);
 
       expect(app.statusCodes[404]).to.equal(require('../pages/404'));
       expect(app.statusCodes[500]).to.equal(require('../pages/500'));
@@ -184,8 +184,8 @@ describe('Pipe', function () {
       expect(app.find('/404')).to.not.equal(undefined);
       expect(app.find('/500')).to.not.equal(undefined);
 
-      expect(app.statusCodes[404]).to.equal(app.find('/404'));
-      expect(app.statusCodes[500]).to.equal(app.find('/500'));
+      expect(app.statusCodes[404]).to.equal(app.find('/404')[0]);
+      expect(app.statusCodes[500]).to.equal(app.find('/500')[0]);
     });
   });
 
