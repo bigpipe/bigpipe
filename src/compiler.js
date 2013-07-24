@@ -67,11 +67,12 @@ Compiler.prototype.hash = function hash(code) {
 /**
  * Register a new library with the compiler.
  *
+ * @param {String} alias How we know this dependency.
  * @param {String} pathname The exact matching pathname to serve the given code.
  * @param {Mixed} code The library that needs to be transferd.
  * @api private
  */
-Compiler.prototype.register = function register(name, pathname, code) {
+Compiler.prototype.register = function register(alias, pathname, code) {
   var filename = path.basename(pathname)
     , extname = path.extname(pathname)
     , file;
@@ -82,10 +83,54 @@ Compiler.prototype.register = function register(name, pathname, code) {
   if (!Buffer.isBuffer(code)) code = new Buffer(code);
 
   file = this.buffer[pathname] = new File(code, extname);
-  this.alias[name] = this.buffer[pathname];
-  this.emit('register', file, name, pathname);
+  this.alias[alias] = this.buffer[pathname];
+  this.emit('register', file, alias, pathname);
 
   return this.save(filename, file);
+};
+
+/**
+ * Catalog the pages.
+ *
+ * @param {Array} pages The array of pages.
+ * @api private
+ */
+Compiler.prototoype.catalog = function catalog(pages) {
+  var compiler = this;
+
+  /**
+   * Process the dependencies.
+   *
+   * @api private
+   */
+  function prefab(filepath) {
+    var code = fs.readFileSync(filepath, 'utf-8')
+      , extname = path.extname(filepath)
+      , filename = compiler.hash(code);
+
+    //
+    // Update the CSS with a selector that contains the filename which is
+    // required for async loading of CSS.
+    //
+    if ('.css' === extname) {
+      code = code + '#pagelet_'+ filename + '{ height: 45px }';
+    }
+
+    compiler.register(filepath, compiler.pathname +'/'+ filename + extname, code);
+  }
+
+  pages.forEach(function each(Page) {
+    var page = Page.prototype;
+
+    page.pagelets.forEach(function each(Pagelet) {
+      var pagelet = Pagelet.prototype;
+
+      if (pagelet.js) prefab(pagelet.js);
+      if (pagelet.css) prefab(pagelet.css);
+
+      pagelet.dependencies.forEach(prefab);
+    });
+  });
 };
 
 /**
