@@ -70,7 +70,7 @@ function Page(pipe) {
     },
 
     /**
-     * Required for EventEmiiter, stores the listeners.
+     * Required for EventEmitter, stores the listeners.
      *
      * @type {Object}
      * @private
@@ -320,7 +320,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   //
   // !IMPORTANT
   //
-  // Function's should never overriden as we might depend on them internally,
+  // Function's should never overridden as we might depend on them internally,
   // that's why they are configured with writable: false and configurable: false
   // by default.
   //
@@ -367,7 +367,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
       //
       // The Pipe#transform has transformed our pagelets object in to an array
-      // so we can easily iternate over them.
+      // so we can easily iterate over them.
       //
       async.filter(pagelets, function rejection(pagelet, done) {
         //
@@ -500,7 +500,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
         //
         // As multiple versions of the pagelet can be included in to one single
-        // page we need to search for multiple occurances of the `data-pagelet`
+        // page we need to search for multiple occurrences of the `data-pagelet`
         // attribute.
         //
         while (~index) {
@@ -578,7 +578,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
-   * Reset the instance to it's orignal state and initialise it.
+   * Reset the instance to it's original state and initialise it.
    *
    * @param {ServerRequest} req HTTP server request.
    * @param {ServerResponse} res HTTP server response.
@@ -604,7 +604,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
       //
       // If we have a `no_pagelet_js` flag, we should force a different
-      // rendering mode. This paramater is automatically added when we've
+      // rendering mode. This parameter is automatically added when we've
       // detected that someone is browsing the site without JavaScript enabled.
       //
       if ('no_pagelet_js' in req.uri.query) {
@@ -624,7 +624,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 });
 
 //
-// Make's the Page extendable.
+// Make the Page extendable.
 //
 Page.extend = require('extendable');
 
