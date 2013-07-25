@@ -8,7 +8,8 @@
     "build": "browserify pipe/index.js -o dist/pipe.js --standalone BigPipe"
   },
   "pre-commit": [
-    "build", "test"
+    "build",
+    "test"
   ],
   "dependencies": {
     "async": "0.2.x",
@@ -19,7 +20,8 @@
     "expirable": "0.0.x",
     "colors": "0.6.x",
     "temper": "0.0.x",
-    "jade": "0.33.x"
+    "jade": "0.33.x",
+    "square": "git://github.com/observing/square.git#development"
   },
   "devDependencies": {
     "chai": "1.7.x",

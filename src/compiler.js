@@ -1,6 +1,7 @@
 'use strict';
 
-var crypto = require('crypto')
+var Square = require('square')
+  , crypto = require('crypto')
   , File = require('./file')
   , path = require('path')
   , fs = require('fs');
@@ -24,6 +25,16 @@ function Compiler(directory, pipe, options) {
 
   this.buffer = Object.create(null);
   this.alias = Object.create(null);
+
+  this.square = new Square({
+    'log notification level': 0,
+    'writable': false,
+    'log level': 0
+  });
+
+  this.square.plugin('minify', {
+    metrics: false
+  });
 }
 
 Compiler.prototype.__proto__ = require('events').EventEmitter.prototype;
@@ -51,6 +62,86 @@ Compiler.prototype.bigPipe = function bigPipe(core) {
     , name = this.hash(library);
 
   return this.register('/pipe.js', this.pathname + name +'.js', library);
+};
+
+/**
+ * Merge in objects.
+ *
+ * @param {Object} target The object that receives the props
+ * @param {Object} additional Extra object that needs to be merged in the target
+ * @api private
+ */
+Compiler.prototype.merge = function merge(target, additional) {
+  var result = target
+    , compiler = this
+    , undefined;
+
+  if (Array.isArray(target)) {
+    compiler.forEach(additional, function arrayForEach(index) {
+      if (JSON.stringify(target).indexOf(JSON.stringify(additional[index])) === -1) {
+        result.push(additional[index]);
+      }
+    });
+  } else if ('object' === typeof target) {
+    compiler.forEach(additional, function objectForEach(key, value) {
+      if (target[key] === undefined) {
+        result[key] = value;
+      } else {
+        result[key] = compiler.merge(target[key], additional[key]);
+      }
+    });
+  } else {
+    result = additional;
+  }
+
+  return result;
+};
+
+/**
+ * Iterate over a collection. When you return false, it will stop the iteration.
+ *
+ * @param {Mixed} collection Either an Array or Object.
+ * @param {Function} iterator Function to be called for each item
+ * @api private
+ */
+Compiler.prototype.forEach = function forEach(collection, iterator, context) {
+  if (arguments.length === 1) {
+    iterator = collection;
+    collection = this;
+  }
+
+  var isArray = Array.isArray(collection || this)
+    , length = collection.length
+    , i = 0
+    , value;
+
+  if (context) {
+    if (isArray) {
+      for (; i < length; i++) {
+        value = iterator.apply(collection[ i ], context);
+        if (value === false) break;
+      }
+    } else {
+      for (i in collection) {
+        value = iterator.apply(collection[ i ], context);
+        if (value === false) break;
+      }
+    }
+  } else {
+    if (isArray) {
+      for (; i < length; i++) {
+        value = iterator.call(collection[i], i, collection[i]);
+        if (value === false) break;
+      }
+    } else {
+      for (i in collection) {
+        value = iterator.call(collection[i], i, collection[i]);
+        if (value === false) break;
+      }
+    }
+  }
+
+  return this;
 };
 
 /**
@@ -252,7 +343,7 @@ Compiler.prototype.save = function save(name, file) {
 
   fs.writeFileSync(path.resolve(directory, name), file.code);
 
-  this.list = fs.readdirSync(directory).reduce(function (memo, file) {
+  this.list = fs.readdirSync(directory).reduce(function reduce(memo, file) {
     var extname = path.extname(file);
 
     if (extname) memo[pathname + file] = path.resolve(directory, file);
