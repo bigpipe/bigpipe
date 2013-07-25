@@ -7,10 +7,10 @@ var collection = require('./collection')
   , assets = {};
 
 /**
- * Check if all stylesheets have been correctly injected by looping over the
+ * Check if all style sheets have been correctly injected by looping over the
  * metaQueue.
  *
- * @returns {Boolean} All stylesheets have been loaded.
+ * @returns {Boolean} All style sheets have been loaded.
  * @api private
  */
 function loaded() {
@@ -47,7 +47,7 @@ function loaded() {
 }
 
 /**
- * Start polling for StyleSheet changes to detect if a StyleSheet has been
+ * Start polling for Style Sheet changes to detect if a Style Sheet has been
  * loaded. This is done by injecting a <meta> tag in to the page with
  * a dedicated `id` attribute that matches a selector that we've added in the
  * server side for example:
@@ -70,7 +70,7 @@ function poll(url, root, fn) {
   };
 
   //
-  // Do a quick check before trying to poll, it could be that stylesheet was
+  // Do a quick check before trying to poll, it could be that style sheet was
   // cached and was loaded instantly on the page.
   //
   if (loaded()) return;
@@ -84,7 +84,7 @@ function poll(url, root, fn) {
  * Try to detect if this browser supports the onload events on the link tag.
  * It's a known cross browser bug that can affect WebKit, FireFox and Opera.
  * Internet Explorer is the only browser that supports the onload event
- * consistenly but it has other bigger issues that prevents us from using this
+ * consistency but it has other bigger issues that prevents us from using this
  * method.
  *
  * @param {Element} target
@@ -108,9 +108,9 @@ function detect(target) {
 }
 
 /**
- * Load a new stylesheet.
+ * Load a new style sheet.
  *
- * @param {String} url The stylesheet url that needs to be loaded.
+ * @param {String} url The style sheet URL that needs to be loaded.
  * @param {Function} fn Completion callback.
  * @api private
  */
@@ -120,7 +120,7 @@ function loadStyleSheet(root, url, fn) {
   //
   // Internet Explorer can only have 31 style tags on a single page. One single
   // style tag is also limited to 31 @import statements so this gives us room to
-  // have 961 stylesheets totally. So we should queue stylesheets. This
+  // have 961 style sheets totally. So we should queue style sheets. This
   // limitation has been removed in Internet Explorer 10.
   //
   // @see http://john.albin.net/ie-css-limits/two-style-test.html
@@ -136,11 +136,11 @@ function loadStyleSheet(root, url, fn) {
     }
 
     //
-    // We didn't find suitable styleSheet to add another @import statement,
+    // We didn't find suitable style Sheet to add another @import statement,
     // create a new one so we can leverage that instead.
     //
-    // @TODO we should probably check the amount of document.styleSheets.length
-    //       to check if we're allowed to add more stylesheets.
+    // @TODO we should probably check the amount of `document.styleSheets.length`
+    //       to check if we're allowed to add more style sheets.
     //
     if (sheet === undefined) {
       styleSheets.push(document.createStyleSheet());
@@ -186,9 +186,9 @@ function loadStyleSheet(root, url, fn) {
 }
 
 /**
- * Remove a stylesheet again.
+ * Remove a style sheet again.
  *
- * @param {String} url The stylesheet url that needs to be unloaded.
+ * @param {String} url The style sheet URL that needs to be unloaded.
  * @api private
  */
 function unloadStyleSheet(url) {
@@ -245,7 +245,7 @@ function loadJavaScript(root, url, fn) {
   };
 
   //
-  // Fallback for older IE versions, they do not support the onload event on the
+  // Fall-back for older IE versions, they do not support the onload event on the
   // script tag and we need to check the script readyState to see if it's
   // successfully loaded.
   //
@@ -269,7 +269,7 @@ function loadJavaScript(root, url, fn) {
 /**
  * Remove the loaded script source again.
  *
- * @param {String} url The script url that needs to be unloaded
+ * @param {String} url The script URL that needs to be unloaded
  * @api private
  */
 function unloadJavaScript(url) {
@@ -291,7 +291,7 @@ function unloadJavaScript(url) {
  * @api public
  */
 exports.load = function load(root, url, fn) {
-  if ('js' === url.split('.').pop()) return loadStyleSheet(root, url, fn);
+  if ('js' !== url.split('.').pop()) return loadStyleSheet(root, url, fn);
   loadJavaScript(root, url, fn);
 };
 
@@ -302,6 +302,6 @@ exports.load = function load(root, url, fn) {
  * @api public
  */
 exports.unload = function unload(url) {
-  if ('js' === url.split('.').pop()) return unloadStyleSheet(url);
+  if ('js' !== url.split('.').pop()) return unloadStyleSheet(url);
   unloadJavaScript(url);
 };
