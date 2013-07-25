@@ -14,7 +14,8 @@ describe('Pipe', function () {
     });
 
     app = new Pipe(server, {
-        pages: __dirname + '/fixtures/pages'
+        pages: __dirname +'/fixtures/pages'
+      , directory: __dirname +'/dist'
       , domains: true
     });
 
@@ -96,6 +97,7 @@ describe('Pipe', function () {
 
       app = new Pipe(server, {
           pages: __dirname + '/fixtures/pages'
+        , directory: __dirname +'/dist'
         , cache: cache
       });
 
@@ -129,6 +131,7 @@ describe('Pipe', function () {
     it('doesnt write to stdout if we dont provide a stream', function (done) {
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/pages',
+        directory: __dirname +'/dist',
         domains: true,
         stream: null
       });
@@ -160,6 +163,7 @@ describe('Pipe', function () {
 
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/pages',
+        directory: __dirname +'/dist',
         domains: true,
         stream: stream
       });
@@ -178,9 +182,12 @@ describe('Pipe', function () {
     });
 
     it('uses user provided 404 and 500 pages based on routes', function () {
-      app = new Pipe(server, { pages: __dirname + '/fixtures/discover' });
-      expect(app.pages).to.have.length(2);
+      app = new Pipe(server, {
+        pages: __dirname + '/fixtures/discover',
+        directory: __dirname +'/dist'
+      });
 
+      expect(app.pages).to.have.length(2);
       expect(app.find('/404')).to.not.equal(undefined);
       expect(app.find('/500')).to.not.equal(undefined);
 
