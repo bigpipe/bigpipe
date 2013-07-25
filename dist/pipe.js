@@ -1,4 +1,58 @@
-;(function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
+(function(e){if("function"==typeof bootstrap)bootstrap("bigpipe",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeBigPipe=e}else"undefined"!=typeof window?window.BigPipe=e():global.BigPipe=e()})(function(){var define,ses,bootstrap,module,exports;
+return (function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
+'use strict';
+
+var collection = require('./collection');
+
+//
+// Pointless function that will replace callbacks once they are executed to
+// prevent double execution from ever happening.
+//
+function noop() {}
+
+/**
+ * Asyncronously iterate over the given data.
+ *
+ * @param {Mixed} data The data we need to iterate over
+ * @param {Function} iterator Function that's called for each item.
+ * @param {Function} fn The completion callback
+ * @param {Object} options Async options.
+ * @api public
+ */
+exports.each = function each(data, iterator, fn, options) {
+  options = options || {};
+
+  var size = collection.size(data)
+    , completed = 0
+    , timeout;
+
+  if (!size) return fn();
+
+  collection.each(data, function iterating(item) {
+    iterator.call(options.context, item, function done(err) {
+      if (err) {
+        fn(err);
+        return fn = noop;
+      }
+
+      if (++completed === size) {
+        fn();
+        if (timeout) clearTimeout(timeout);
+        return fn = noop;
+      }
+    });
+  });
+
+  //
+  // Optional timeout for when the operation takes to long.
+  //
+  if (options.timeout) timeout = setTimeout(function kill() {
+    fn(new Error('Operation timed out'));
+    fn = noop;
+  }, options.timeout);
+};
+
+},{"./collection":2}],2:[function(require,module,exports){
 'use strict';
 
 /**
@@ -33,7 +87,7 @@ function each(collection, iterator, context) {
     }
   } else {
     for (i in collection) {
-      iterator.call(context, i, collection[i]);
+      iterator.call(context, collection[i], i);
     }
   }
 }
@@ -70,12 +124,31 @@ function size(collection) {
   return +collection.length;
 }
 
+/**
+ * Wrap the given object in an array if it's not an array allready.
+ *
+ * @param {Mixed} obj The thing we might need to wrap.
+ * @returns {Array} We promise!
+ * @api private
+ */
+function array(obj) {
+  if ('array' === type(obj)) return obj;
+
+  return obj  // Only transform objects in to an array when they exist.
+    ? [ obj ]
+    : [];
+}
+
+//
+// Expose the collection utilities.
+//
+exports.array = array;
 exports.empty = empty;
 exports.size = size;
 exports.type = type;
 exports.each = each;
 
-},{}],2:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 /*globals Primus */
 'use strict';
 
@@ -92,6 +165,8 @@ var collection = require('./collection')
  * @api public
  */
 function Pipe(server, options) {
+  if (!(this instanceof Pipe)) return new Pipe(server, options);
+
   options = options || {};
 
   this.stream = null;                   // Reference to the connected Primus socket.
@@ -233,8 +308,12 @@ Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
 };
 
+//
+// Expose the pipe
+//
+module.exports = Pipe;
 
-},{"./collection":1,"./loader":3,"./pagelet":4}],3:[function(require,module,exports){
+},{"./collection":2,"./loader":4,"./pagelet":5}],4:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection')
@@ -352,15 +431,17 @@ function detect(target) {
  * @api private
  */
 function loadStyleSheet(root, url, fn) {
-  if (url in assets) return;
+  if (url in assets) return fn();
 
   //
   // Internet Explorer can only have 31 style tags on a single page. One single
   // style tag is also limited to 31 @import statements so this gives us room to
-  // have 961 stylesheets totally. So we should queue stylesheets.
+  // have 961 stylesheets totally. So we should queue stylesheets. This
+  // limitation has been removed in Internet Explorer 10.
   //
   // @see http://john.albin.net/ie-css-limits/two-style-test.html
   // @see http://support.microsoft.com/kb/262161
+  // @see http://blogs.msdn.com/b/ieinternals/archive/2011/05/14/internet-explorer-stylesheet-rule-selector-import-sheet-limit-maximum.aspx
   //
   if (document.styleSheet) {
     for (var sheet, i = 0; i < styleSheets.length; i++) {
@@ -455,7 +536,7 @@ function unloadStyleSheet(url) {
  * @api private
  */
 function loadJavaScript(root, url, fn) {
-  if (url in assets) return;
+  if (url in assets) return fn();
 
   var script = document.createElement('script');
   script.async = true; // Required for FireFox 3.6 / Opera async loading.
@@ -541,11 +622,12 @@ exports.unload = function unload(url) {
   unloadJavaScript(url);
 };
 
-},{"./collection":1}],4:[function(require,module,exports){
+},{"./collection":2}],5:[function(require,module,exports){
 /*globals Primus, ActiveXObject, CollectGarbage */
 'use strict';
 
-var collection = require('./collection');
+var collection = require('./collection')
+  , async = require('./async');
 
 /**
  * Representation of a single pagelet.
@@ -554,7 +636,7 @@ var collection = require('./collection');
  * @param {Pipe} pipe The pipe.
  * @api public
  */
-function Pagelet(pipe, name, data) {
+function Pagelet(pipe) {
   Primus.EventEmitter.call(this);
 
   this.pipe = pipe;
@@ -576,6 +658,38 @@ Pagelet.prototype.constructor = Pagelet;
 Pagelet.prototype.configure = function configure(name, data) {
   this.placeholders = this.$('data-pagelet', name);
   this.name = name;
+
+  this.css = collection.array(data.css);    // CSS for the Page.
+  this.js = collection.array(data.js);      // Dependencies for the page.
+  this.run = data.run;                      // Pagelet client code.
+
+  var pagelet = this;
+
+  async.each(this.css.concat(this.js), function download(asset, next) {
+    this.load(asset, next);
+  }, function done(err) {
+    if (err) return pagelet.emit('error', err);
+    pagelet.emit('loaded');
+
+    pagelet.render(pagelet.parse());
+    pagelet.initialise();
+  }, { context: this.pipe, timeout: 25 * 1000 });
+};
+
+/**
+ * The pagelet's resource has all been loaded.
+ *
+ * @api private
+ */
+Pagelet.prototype.initialise = function initialise() {
+  this.emit('initialise');
+
+  //
+  // Only load the client code in a sandbox when it exists. There no point in
+  // spinning up a sandbox if it does nothing
+  //
+  if (!this.code) return;
+  this.sandbox(this.prepare(this.code));
 };
 
 /**
@@ -615,6 +729,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
 Pagelet.prototype.sandbox = function sandbox(code) {
   var script = document.getElementsByTagName('script')[0]
     , unique = this.name + (+new Date())
+    , pagelet = this
     , container;
 
   if (!this.htmlfile) {
@@ -635,7 +750,15 @@ Pagelet.prototype.sandbox = function sandbox(code) {
     container.style.top = container.style.left = -10000;
     container.style.position = 'absolute';
     container.style.display = 'none';
-    script.parentNode.insertBefore(this.container, script);
+    script.parentNode.insertBefore(container, script);
+
+    //
+    // Add an error listener so we can register errors with the client code and
+    // know when the code has gone in a fubar state.
+    //
+    container.contentWindow = onerror = function onerror(err) {
+      pagelet.emit('error', err);
+    };
 
     this.container = container.contentDocument || container.contentWindow.document;
     this.container.open();
@@ -645,6 +768,8 @@ Pagelet.prototype.sandbox = function sandbox(code) {
 
   this.container.write('<html><s'+'cript>'+ code +'</s'+'cript></html>');
   this.container.close();
+
+  this.emit('sandboxed', code, this.container);
 };
 
 /**
@@ -669,6 +794,7 @@ Pagelet.prototype.prepare = function prepare(code) {
 
     //
     // The actual client-side code that needs to be evaluated.
+    // @TODO wrap the client side code with some pagelet references.
     //
     code,
 
@@ -758,10 +884,8 @@ catch (e) {}
  * @api public
  */
 Pagelet.prototype.destroy = function destroy() {
-  //
-  // Automatically schedule this Pagelet instance for re-use.
-  //
-  this.pipe.free(this);
+  this.pipe.free(this); // Automatically schedule this Pagelet instance for re-use.
+  this.emit('destroy'); // Execute any extra destroy hooks.
 
   //
   // Remove all the HTML from the placeholders.
@@ -792,5 +916,6 @@ Pagelet.prototype.destroy = function destroy() {
 //
 module.exports = Pagelet;
 
-},{"./collection":1}]},{},[2])
+},{"./async":1,"./collection":2}]},{},[3])(3)
+});
 ;
