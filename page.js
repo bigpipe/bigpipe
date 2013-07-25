@@ -464,15 +464,15 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       data = data || {};
 
       var view = this.temper.fetch(pagelet.view).server
-        , compiler = this.compiler;
+        , frag = this.compiler.pagelet(pagelet);
+
+      frag.remove = pagelet.remove;
+      frag.data = data;
 
       this.outgoing.write(fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
+        .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
         .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
-        .replace(/\{pagelet::data\}/g, JSON.stringify({
-          remove: pagelet.remove,
-          data: data
-        }))
       );
     }
   },
