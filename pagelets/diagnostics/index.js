@@ -7,6 +7,8 @@ Pagelet.extend({
   css: 'diagnostic.styl',
 
   render: function render(done) {
-    done();
+    setTimeout(function () {
+      done();
+    }, 100);
   }
 }).on(module);
