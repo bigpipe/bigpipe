@@ -41,7 +41,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   var pagelet = this;
 
   async.each(this.css.concat(this.js), function download(asset, next) {
-    this.load(asset, next);
+    this.load(document.body, asset, next);
   }, function done(err) {
     if (err) return pagelet.emit('error', err);
     pagelet.emit('loaded');
