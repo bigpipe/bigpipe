@@ -29,12 +29,12 @@ try { domain = require('domain'); }
 catch (e) {}
 
 /**
- * Our pagelet managment.
+ * Our pagelet management.
  *
  * The following options are available:
  *
  * - transport: The transport engine we should use for real-time.
- * - cache: A object were we store our url->page mapping.
+ * - cache: A object were we store our URL->page mapping.
  * - stream: Where we should write our logs to.
  * - parser: Which parser should be used to send data in real-time.
  * - pages: String or array of pages we serve.
@@ -59,7 +59,7 @@ function Pipe(server, options) {
   this.acl = new ACL(this);                         // Access Control List.
 
   //
-  // Now that everything is procesed, we can setup our internals.
+  // Now that everything is processed, we can setup our internals.
   //
   this.server = server;
   this.primus = new Primus(this.server, {
@@ -328,7 +328,7 @@ Pipe.prototype.transform = function transform(Page) {
 
       //
       // Make sure that all our dependencies are also directly mapped to an
-      // absolute url.
+      // absolute URL.
       //
       if (prototype.dependencies) {
         Pagelet.prototype.dependencies = prototype.dependencies.map(function (dep) {
@@ -400,12 +400,12 @@ Pipe.prototype.define = function define(page) {
 };
 
 /**
- * Find the correct Page constructor based on the given url.
+ * Find the correct Page constructor based on the given URL.
  *
  * @TODO it should return an array with possible options. So they can be
  * iterated over for when a page has a authorization method.
  *
- * @param {String} url The url we need to find.
+ * @param {String} url The URL we need to find.
  * @returns {Array} Array full of constructors, or nothing.
  * @api public
  */
@@ -497,12 +497,12 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
  * @param {Response} res HTTP response.
  * @api private
  */
-Pipe.prototype.decorate = function decorate(req) {
+Pipe.prototype.decorate = function decorate(req, res) {
   req.uri = req.uri || url.parse(req.url, true);
   req.query = req.query || req.uri.query;
 
   //
-  // Add some silly HTTP properties for connect.js compatiblity.
+  // Add some silly HTTP properties for connect.js compatibility.
   //
   req.originalUrl = req.url;
 };
