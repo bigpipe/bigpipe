@@ -60,7 +60,7 @@ function loaded() {
  */
 function poll(url, root, fn) {
   var meta = document.createElement('meta');
-  meta.id = 'pagelet_'+ url.split('/').pop().replace('.css').toLowerCase();
+  meta.id = 'pagelet_'+ url.split('/').pop().replace('.css', '').toLowerCase();
   root.appendChild(meta);
 
   metaQueue[url] = {
