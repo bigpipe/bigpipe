@@ -106,9 +106,12 @@ Compiler.prototype.catalog = function catalog(pages) {
   /**
    * Process the dependencies.
    *
+   * @param {String} filepath The location of a file.
    * @api private
    */
   function prefab(filepath) {
+    if (/^(http:|https:)?\/\//.test(filepath)) return;
+
     var code = fs.readFileSync(filepath, 'utf-8')
       , extname = path.extname(filepath)
       , filename = compiler.hash(code);
@@ -147,7 +150,7 @@ Compiler.prototype.catalog = function catalog(pages) {
 
       //
       // The views can be rendered on the client, but some of them require
-      // a library, this libary should be cached in the core library.
+      // a library, this library should be cached in the core library.
       //
       view = temper.fetch(pagelet.view);
       if (view.library && !~core.indexOf(view.library)) core.push(view.library);
@@ -187,7 +190,7 @@ Compiler.prototype.page = function find(page) {
    * @api private
    */
   function alias(original) {
-    return compiler.alias[original];
+    return compiler.alias[original] || original;
   }
 
   return {
