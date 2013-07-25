@@ -558,9 +558,11 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         head.push('<link rel="stylesheet" href="'+ url +'" />');
       });
 
-      if (library.js) library.js.forEach(function inject(url) {
+      library.js.forEach(function inject(url) {
         head.push('<script type="text/javascript" src="'+ url +'"></script>');
       });
+
+      head.push('<script>pipe = new BigPipe();</script>');
 
       // @TODO rel prefetch for resources that are used on the next page?
       // @TODO cache manifest.
