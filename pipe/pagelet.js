@@ -75,7 +75,7 @@ Pagelet.prototype.initialise = function initialise() {
  */
 Pagelet.prototype.$ = function $(attribute, value) {
   if (document && 'querySelectorAll' in document) {
-    return document.querySelectorAll('['+ attribute +'="'+ value +'"]');
+    return Array.prototype.slice.call(document.querySelectorAll('['+ attribute +'="'+ value +'"]'), 0);
   }
 
   //
@@ -181,13 +181,16 @@ Pagelet.prototype.prepare = function prepare(code) {
  * Render the HTML template in to the placeholders.
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
+ * @returns {Boolean} Successfully rendered a pagelet.
  * @api private
  */
 Pagelet.prototype.render = function render(html) {
+  if (!this.placeholders.length || !html) return false;
+
   collection.each(this.placeholders, function (root) {
-    var div = document.createElement('div')
-      , borked = this.IEV < 7
-      , fragment;
+    var fragment = document.createDocumentFragment()
+      , div = document.createElement('div')
+      , borked = this.IEV < 7;
 
     if (borked) root.appendChild(div);
 
@@ -200,6 +203,8 @@ Pagelet.prototype.render = function render(html) {
     root.appendChild(fragment);
     if (borked) root.removeChild(div);
   }, this);
+
+  return true;
 };
 
 /**
