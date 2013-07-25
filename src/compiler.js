@@ -55,7 +55,7 @@ Compiler.prototype.bigPipe = function bigPipe(core) {
 
 /**
  * Create a hash of the code which can be used a filename. This allows us to
- * agressively cache the data.
+ * aggressively cache the data.
  *
  * @param {String} code The code that is send to the client.
  * @returns {String} The compiled hash.
@@ -70,7 +70,7 @@ Compiler.prototype.hash = function hash(code) {
  *
  * @param {String} alias How we know this dependency.
  * @param {String} pathname The exact matching pathname to serve the given code.
- * @param {Mixed} code The library that needs to be transferd.
+ * @param {Mixed} code The library that needs to be transfered.
  * @api private
  */
 Compiler.prototype.register = function register(alias, pathname, code) {
@@ -121,7 +121,7 @@ Compiler.prototype.catalog = function catalog(pages) {
     // required for async loading of CSS.
     //
     if ('.css' === extname) {
-      code = code + '#pagelet_'+ filename + '{ height: 45px }';
+      code = code + '#pagelet_'+ filename + ' { height: 45px }';
     }
 
     compiler.register(filepath, compiler.pathname + filename + extname, code);
@@ -154,6 +154,12 @@ Compiler.prototype.catalog = function catalog(pages) {
       //
       view = temper.fetch(pagelet.view);
       if (view.library && !~core.indexOf(view.library)) core.push(view.library);
+
+      compiler.register(
+        pagelet.view,
+        compiler.pathname + compiler.hash(view.client) +'.js',
+        view.client
+      );
     });
 
     page.dependencies = dependencies.reduce(function reduce(memo, dependency) {
@@ -200,10 +206,41 @@ Compiler.prototype.page = function find(page) {
 };
 
 /**
+ * A list of resources that need to be loaded for the given pagelet.
+ *
+ * @param {Pagelet} pagelet The initialised pagelet.
+ * @param {Boolean} streaming The pagelet is streaming, so include the view.
+ * @returns {Object}
+ * @api private
+ */
+Compiler.prototype.pagelet = function find(pagelet, streaming) {
+  var compiler = this
+    , css = []
+    , js = [];
+
+  /**
+   * Resolve all dependencies to their hashed versions.
+   *
+   * @param {String} original The original file path.
+   * @returns {String} The hashed version.
+   * @api private
+   */
+  function alias(original) {
+    return compiler.alias[original] || original;
+  }
+
+  if (pagelet.js) js.push(alias(pagelet.js));
+  if (pagelet.css) css.push(alias(pagelet.css));
+  if (streaming && pagelet.view) js.push(alias(pagelet.view));
+
+  return { css: css, js: js };
+};
+
+/**
  * Store the compiled files to disk. This a vital part of the compiler as we're
  * changing the file names every single time there is a change. But these files
  * can still be cached on the client and it would result in 404's and or broken
- * functionaility.
+ * functionality.
  *
  * @param {String} name The file name that we're serving.
  * @param {File} file The file instance.
