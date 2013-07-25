@@ -3,3 +3,5 @@ pagelets.sublime-project
 pagelets.sublime-workspace
 .tern-port
 npm-debug.log
+example/dist/*
+test/dist/*
