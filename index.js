@@ -331,7 +331,7 @@ Pipe.prototype.transform = function transform(Page) {
       // absolute URL.
       //
       if (prototype.dependencies) {
-        Pagelet.prototype.dependencies = prototype.dependencies.map(function (dep) {
+        Pagelet.prototype.dependencies = prototype.dependencies.map(function each(dep) {
           if (/^(http:|https:)?\/\//.test(dep)) return dep;
           return path.resolve(dir, dep);
         });
@@ -343,7 +343,7 @@ Pipe.prototype.transform = function transform(Page) {
       // Setup a FreeList for the pagelets so we can re-use the pagelet
       // instances and reduce garbage collection.
       //
-      Pagelet.freelist = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function () {
+      Pagelet.freelist = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function allocate() {
         return new Pagelet();
       });
 
@@ -375,7 +375,7 @@ Pipe.prototype.transform = function transform(Page) {
   // Setup a FreeList for the page so we can re-use the page instances and
   // reduce garbage collection to a bare minimum.
   //
-  Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function () {
+  Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function allocate() {
     return new Page(pipe);
   });
 

@@ -111,7 +111,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
-   * The location of the StyleSheet for this pagelet. It should contain all the
+   * The location of the Style Sheet for this pagelet. It should contain all the
    * CSS that's needed to render this pagelet.
    *
    * @type {String}
@@ -140,7 +140,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
 
   /**
    * An array with dependencies that your pagelet depends on. This can be CSS or
-   * JavaScript files/frameworks what evers. It should be an array of strings
+   * JavaScript files/frameworks whatever. It should be an array of strings
    * which represent the location of these files.
    *
    * @type {Array}
@@ -185,7 +185,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   //
   // !IMPORTANT
   //
-  // Function's should never overriden as we might depend on them internally,
+  // Function's should never overridden as we might depend on them internally,
   // that's why they are configured with writable: false and configurable: false
   // by default.
   //
@@ -246,7 +246,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
-   * Reset the instance to it's orignal state.
+   * Reset the instance to it's original state.
    *
    * @param {Page} page The page instance which created this pagelet.
    * @api private
