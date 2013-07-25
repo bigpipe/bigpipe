@@ -5,24 +5,27 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha $(find test -name '*.test.js')",
-    "build": "browserify pipe/index.js -o dist/pipe.js"
+    "build": "browserify pipe/index.js -o dist/pipe.js --standalone BigPipe"
   },
+  "pre-commit": [
+    "build", "test"
+  ],
   "dependencies": {
     "async": "0.2.x",
     "extendable": "0.0.x",
-    "ws": "0.4.27",
+    "ws": "0.4.x",
     "routable": "0.0.x",
-    "primus": "1.0.x",
+    "primus": "1.1.x",
     "expirable": "0.0.x",
     "colors": "0.6.x",
-    "temper": "0.0.0"
+    "temper": "0.0.x",
+    "jade": "0.33.x"
   },
   "devDependencies": {
     "chai": "1.7.x",
     "mocha": "1.12.x",
     "pre-commit": "0.0.x",
-    "jade": "~0.33.0",
-    "browserify": "~2.25.0"
+    "browserify": "2.25.x"
   },
   "repository": {
     "type": "git",
