@@ -332,6 +332,7 @@ Pipe.prototype.transform = function transform(Page) {
       //
       if (prototype.dependencies) {
         Pagelet.prototype.dependencies = prototype.dependencies.map(function (dep) {
+          if (/^(http:|https:)?\/\//.test(dep)) return dep;
           return path.resolve(dir, dep);
         });
       }
