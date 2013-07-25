@@ -38,9 +38,9 @@ function Page(pipe) {
      * @type {Librarian}
      * @private
      */
-    library: {
+    compiler: {
       enumerable: false,
-      value: pipe.library
+      value: pipe.compiler
     },
 
     /**
@@ -311,7 +311,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * @private
    */
   dependencies: {
-    value: [],
+    value: {},
     writable: true,
     enumerable: false,
     configurable: true
@@ -463,7 +463,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     value: function write(pagelet, data) {
       data = data || {};
 
-      var view = this.temper.fetch(pagelet.view).server;
+      var view = this.temper.fetch(pagelet.view).server
+        , compiler = this.compiler;
 
       this.outgoing.write(fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
@@ -535,7 +536,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     value: function bootstrap(mode) {
       var view = this.temper.fetch(this.view).server
         , head = ['<meta charset="utf-8" />']
-        , library = this.library.lend(this)
+        , library = this.compiler.page(this)
         , path = this.incoming.uri.pathname;
 
       if (mode !== 'render') {
@@ -558,7 +559,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       });
 
       if (library.js) library.js.forEach(function inject(url) {
-        head.push('<link rel="stylesheet" href="'+ url +'" />');
+        head.push('<script type="text/javascript" src="'+ url +'"></script>');
       });
 
       // @TODO rel prefetch for resources that are used on the next page?

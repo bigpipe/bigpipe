@@ -12,7 +12,7 @@ var FreeList = require('freelist').FreeList
 //
 // Library internals.
 //
-var Librarian = require('./librarian')
+var Compiler = require('./src/compiler')
   , Resource = require('./resource')
   , Pagelet = require('./pagelet')
   , Pool = require('./pool')
@@ -38,9 +38,9 @@ catch (e) {}
  * - stream: Where we should write our logs to.
  * - parser: Which parser should be used to send data in real-time.
  * - pages: String or array of pages we serve.
- * - threshold: Percentag of pages where a pagelet needs to be included in order
- *   to be bundled in to a core file.
  * - domain: Use domains to handle requests.
+ * - pathname: The pathname we use for Primus requests
+ * - static: The pathname for our static assets
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -55,26 +55,8 @@ function Pipe(server, options) {
   this.domains = !!options('domain') && domain;     // Call all requests in a domain.
   this.statusCodes = Object.create(null);           // Stores error pages.
   this.cache = options('cache', null);              // Enable URL lookup caching.
-
-  //
-  // Setup our CSS/JS librarian, Access Control List and Template compiler.
-  //
-  this.acl = new ACL(this);
-  this.temper = new Temper();
-  this.library = new Librarian(this, {
-    threshold: options('threshold', 80)
-  });
-
-  //
-  // Process the pages.
-  //
-  this.pages = [];
-  this.define(options('pages'));
-
-  //
-  // Find error pages.
-  //
-  this.discover(this.pages);
+  this.temper = new Temper();                       // Template parser.§
+  this.acl = new ACL(this);                         // Access Control List.
 
   //
   // Now that everything is procesed, we can setup our internals.
@@ -85,6 +67,20 @@ function Pipe(server, options) {
     pathname: options('pathname', '/pagelets'),
     parser: options('parser', 'json')
   });
+
+  //
+  // Compile the Page's assets.
+  //
+  this.compiler = new Compiler(options('directory', __dirname), this, {
+    pathname: options('static', '/')
+  });
+
+  //
+  // Process the pages.
+  //
+  this.pages = [];
+  this.define(options('pages'));
+  this.discover(this.pages);
 
   //
   // Start listening for incoming requests.
@@ -246,7 +242,8 @@ Pipe.prototype.resolve = function resolve(files, transform) {
  * @api private
  */
 Pipe.prototype.discover = function discover(pages) {
-  var fivehundered
+  var catalog = []
+    , fivehundered
     , fourofour;
 
   pages.forEach(function each(page) {
@@ -259,12 +256,20 @@ Pipe.prototype.discover = function discover(pages) {
   // provided by us. But as these page are not processed yet, we need to kick
   // them through our transform process.
   //
-  if (!fivehundered) fivehundered = this.transform(require('./pages/500'));
-  if (!fourofour) fourofour = this.transform(require('./pages/404'));
+  if (!fivehundered) {
+    fivehundered = this.transform(require('./pages/500'));
+    catalog.push(fivehundered);
+  }
+
+  if (!fourofour) {
+    fourofour = this.transform(require('./pages/404'));
+    catalog.push(fourofour);
+  }
 
   this.statusCodes[500] = fivehundered;
   this.statusCodes[404] = fourofour;
 
+  if (catalog.length) this.compiler.catalog(catalog);
   return this;
 };
 
@@ -389,7 +394,8 @@ Pipe.prototype.define = function define(page) {
   if ('function' === typeof page) page = [ page ];
 
   this.pages.push.apply(this.pages, this.resolve(page, this.transform));
-  this.library.catalog();
+
+  if (this.compiler) this.compiler.catalog(this.pages);
   return this;
 };
 
@@ -432,6 +438,11 @@ Pipe.prototype.find = function find(url, method) {
  */
 Pipe.prototype.dispatch = function dispatch(req, res) {
   this.decorate(req, res);
+
+  //
+  // Check if these are assets that need to be served from the compiler.
+  //
+  if (this.compiler.serve(req, res)) return;
 
   var pages = this.find(req.uri.pathname, req.method)
     , pipe = this;

@@ -10,17 +10,17 @@ var crypto = require('crypto')
  *
  * @constructor
  * @param {String} directory The directory where we save our static files.
- * @param {Primus} primus The configured primus instance.
+ * @param {Pipe} pipe The configured Pipe instance.
  * @param {Object} options Configuration.
  * @api private
  */
-function Compiler(directory, primus, options) {
+function Compiler(directory, pipe, options) {
   options = options || {};
 
-  this.primus = primus;
-  this.dir = directory;
-  this.list = [];
   this.pathname = options.pathname || '/';
+  this.dir = directory;
+  this.pipe = pipe;
+  this.list = [];
 
   this.buffer = Object.create(null);
   this.alias = Object.create(null);
@@ -34,7 +34,7 @@ Compiler.prototype.__proto__ = require('events').EventEmitter.prototype;
 //
 Object.defineProperty(Compiler.prototype, 'client', {
   get: function read() {
-    read.pipe = read.pipe || fs.readFileSync(__dirname + '/dist/pipe.js', 'utf-8');
+    read.pipe = read.pipe || fs.readFileSync(path.resolve(__dirname, '../dist/pipe.js'), 'utf-8');
     return read.pipe;
   }
 });
@@ -47,10 +47,10 @@ Object.defineProperty(Compiler.prototype, 'client', {
  * @api private
  */
 Compiler.prototype.bigPipe = function bigPipe(core) {
-  var library = this.primus.library() + this.client + (core || '')
+  var library = this.pipe.primus.library() + this.client + (core || '')
     , name = this.hash(library);
 
-  return this.register('pipe.js', this.pathname + name +'.js', library);
+  return this.register('/pipe.js', this.pathname + name +'.js', library);
 };
 
 /**
@@ -62,7 +62,7 @@ Compiler.prototype.bigPipe = function bigPipe(core) {
  * @api private
  */
 Compiler.prototype.hash = function hash(code) {
-  return crypto.createHash('sha1').update(code).digest().toString('hex');
+  return crypto.createHash('sha1').update(code).digest('hex').toString('hex');
 };
 
 /**
@@ -84,7 +84,8 @@ Compiler.prototype.register = function register(alias, pathname, code) {
   if (!Buffer.isBuffer(code)) code = new Buffer(code);
 
   file = this.buffer[pathname] = new File(code, extname);
-  this.alias[alias] = this.buffer[pathname];
+
+  this.alias[alias] = pathname;
   this.emit('register', file, alias, pathname);
 
   return this.save(filename, file);
@@ -97,7 +98,7 @@ Compiler.prototype.register = function register(alias, pathname, code) {
  * @param {Array} pages The array of pages.
  * @api private
  */
-Compiler.prototoype.catalog = function catalog(pages) {
+Compiler.prototype.catalog = function catalog(pages) {
   var temper = this.pipe.temper
     , compiler = this
     , core = [];
@@ -120,12 +121,12 @@ Compiler.prototoype.catalog = function catalog(pages) {
       code = code + '#pagelet_'+ filename + '{ height: 45px }';
     }
 
-    compiler.register(filepath, compiler.pathname +'/'+ filename + extname, code);
+    compiler.register(filepath, compiler.pathname + filename + extname, code);
   }
 
   pages.forEach(function each(Page) {
-    var page = Page.prototype
-      , dependencies = [];
+    var dependencies = ['/pipe.js']
+      , page = Page.prototype;
 
     page.pagelets.forEach(function each(Pagelet) {
       var pagelet = Pagelet.prototype
@@ -157,19 +158,42 @@ Compiler.prototoype.catalog = function catalog(pages) {
 
       memo[extname] = memo[extname] || [];
       memo[extname].push(dependency);
-    });
 
-    //
-    // Register the Pipe.js library as first script file that needs to be
-    // loaded.
-    //
-    page.dependencies['.js'].unshift('/pipe.js');
+      return memo;
+    }, Object.create(null));
   });
 
   //
   // Last, but not least, update the pipe.js library.
   //
   this.bigPipe(core.join('\n'));
+};
+
+/**
+ * Find all required dependencies for given page constructor.
+ *
+ * @param {Page} page The initialised page.
+ * @returns {Object}
+ * @api private
+ */
+Compiler.prototype.page = function find(page) {
+  var compiler = this;
+
+  /**
+   * Resolve all dependencies to their hashed versions.
+   *
+   * @param {String} original The original file path.
+   * @returns {String} The hashed version.
+   * @api private
+   */
+  function alias(original) {
+    return compiler.alias[original];
+  }
+
+  return {
+    css: (page.dependencies['.css'] || []).map(alias),
+    js: (page.dependencies['.js'] || []).map(alias)
+  };
 };
 
 /**
@@ -189,7 +213,11 @@ Compiler.prototype.save = function save(name, file) {
   fs.writeFileSync(path.resolve(directory, name), file.code);
 
   this.list = fs.readdirSync(directory).reduce(function (memo, file) {
-    memo[pathname + file] = path.resolve(directory, file);
+    var extname = path.extname(file);
+
+    if (extname) memo[pathname + file] = path.resolve(directory, file);
+
+    return memo;
   }, {});
 
   return this;
@@ -214,3 +242,8 @@ Compiler.prototype.serve = function serve(req, res) {
 
   return true;
 };
+
+//
+// Expose the module.
+//
+module.exports = Compiler;
