@@ -14,6 +14,8 @@ var collection = require('./collection')
  * @api public
  */
 function Pipe(server, options) {
+  if (!(this instanceof Pipe)) return new Pipe(server, options);
+
   options = options || {};
 
   this.stream = null;                   // Reference to the connected Primus socket.
@@ -155,3 +157,7 @@ Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
 };
 
+//
+// Expose the pipe
+//
+module.exports = Pipe;
