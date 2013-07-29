@@ -350,11 +350,12 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * Discover pagelets that we're allowed to use.
    *
    * @param {String} mode The render mode for the pagelets.
+   * @param {Object} data The POST data, if any
    * @api private
    */
   discover: {
     enumerable: false,
-    value: function discover(mode) {
+    value: function discover(mode, data) {
       if (!this.pagelets.length) return false;
 
       var incoming = this.incoming
@@ -384,6 +385,10 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
         page.disabled = pagelets.filter(function disabled(pagelet) {
           return !!allowed.indexOf(pagelet);
+        });
+
+        if (data) page.enabled.forEach(function process(pagelet) {
+          if (pagelet.incoming) pagelet.incoming(data);
         });
 
         //
@@ -582,11 +587,12 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    *
    * @param {ServerRequest} req HTTP server request.
    * @param {ServerResponse} res HTTP server response.
+   * @param {Object} data POST data.
    * @api private
    */
   configure: {
     enumerable: false,
-    value: function configure(req, res) {
+    value: function configure(req, res, data) {
       var mode = this.mode
         , key;
 
@@ -616,7 +622,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // resources as fast as possible.
       //
       this.bootstrap(mode);
-      this.discover(mode);
+      this.discover(mode, data);
 
       return this;
     }
