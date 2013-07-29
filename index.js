@@ -5,6 +5,7 @@ var FreeList = require('freelist').FreeList
   , Primus = require('primus')
   , Temper = require('temper')
   , colors = require('colors')
+  , async = require('async')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
@@ -326,6 +327,10 @@ Pipe.prototype.transform = function transform(Page) {
         throw new Error('Pagelet('+ prototype.name + ') is missing a `render` method');
       }
 
+      if (prototype.incoming && 'function' !== typeof prototype.incoming) {
+        throw new Error('Pagelet('+ prototype.name + ')\'s incoming property should be a function');
+      }
+
       //
       // Make sure that all our dependencies are also directly mapped to an
       // absolute URL.
@@ -431,7 +436,7 @@ Pipe.prototype.find = function find(url, method) {
 /**
  * Dispatch incoming requests.
  *
- * @TODO handle POST requests.
+ * @TODO cancel POST requests, when we don't accept them
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
  * @returns {Pipe} fluent interface
@@ -454,26 +459,43 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   //
   pages.push(this.statusCodes[404]);
 
-  (function iterate(done) {
+  /**
+   * Iterates over the different pages that matched this route to figure out
+   * which one of them we're allowed to process.
+   *
+   * @param {Function} done Completion callback
+   * @api private
+   */
+  function iterate(done) {
     var freelist = pages.shift().freelist
       , page = freelist.alloc();
 
     if ('function' === typeof page.authorize) {
       return page.authorize(req, function authorize(allowed) {
-        if (allowed) return done(page, freelist);
+        if (allowed) return done(undefined, page);
 
         freelist.free(page);
         iterate(done);
       });
     }
 
-    done(page, freelist);
-  }(function completed(page, freelist) {
+    done(undefined, page);
+  }
+
+  /**
+   * We've found a matching route, process the page.
+   *
+   * @param {Error} err We've encoutered an error while generating shizzle.
+   * @param {Page} page The page instance.
+   * @param {Object} data Optional incoming data.
+   * @api private
+   */
+  function completed(err, page, data) {
     //
     // Release the page again when we receive a `free` event.
     //
     page.once('free', function free() {
-      freelist.free(page);
+      page.constructor.freelist.free(page);
     });
 
     res.once('close', page.emits('close'));
@@ -481,14 +503,62 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
     if (pipe.domains) {
       page.domain = domain.create();
       page.domain.run(function run() {
-        run.configure(req, res);
+        run.configure(req, res, data);
       });
     } else {
-      page.configure(req, res);
+      page.configure(req, res, data);
     }
-  }));
+  }
 
+  if (req.method === 'POST') {
+    async.parallel({
+      data: this.post.bind(this, req),
+      page: iterate
+    }, function processed(err, result) {
+      result = result || {};
+      completed(err, result.page, result.data);
+    });
+  } else {
+    iterate(completed);
+  }
   return this;
+};
+
+/**
+ * Process incoming POST requests.
+ *
+ * @param {Request} rea HTTP request
+ * @param {Fucntion} fn Completion callback.
+ * @api private
+ */
+Pipe.prototype.post = function post(req, fn) {
+  var bytes = this.bytes
+    , received = 0
+    , buffers = []
+    , err;
+
+  req.on('data', function data(buffer) {
+    received += buffer.length;
+
+    buffers.push(buffer);
+
+    if (bytes && received > bytes) {
+      req.removeListener('data', data);
+      req.destroy(err = new Error('Request was too large'));
+    }
+  });
+
+  req.once('end', function end() {
+    if (err) return fn(err);
+
+    //
+    // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
+    // broken.
+    //
+    fn(undefined, Buffer.concat(buffers));
+
+    buffers.length = 0;
+  });
 };
 
 /**
