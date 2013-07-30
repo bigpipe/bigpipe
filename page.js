@@ -438,6 +438,13 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           page.write(pagelet);
         });
 
+        //
+        // Send the remaining trailer headers if we have them queued.
+        //
+        if (page.outgoing.trailer) {
+          page.outgoing.addTrailers(page.outgoing.trailers);
+        }
+
         page.outgoing.end();
       });
     }
@@ -539,7 +546,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   bootstrap: {
     enumerable: false,
     value: function bootstrap(mode) {
-      var view = this.temper.fetch(this.view).server
+      var method = this.pagelets.length ? 'write' : 'end'
+        , view = this.temper.fetch(this.view).server
         , head = ['<meta charset="utf-8" />']
         , library = this.compiler.page(this)
         , path = this.incoming.uri.pathname;
@@ -574,9 +582,27 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // @TODO rel dns prefetch.
 
       this.outgoing.setHeader('Content-Type', 'text/html');
-      this.outgoing[this.pagelets.length ? 'write' : 'end'](view({
+      this.outgoing.setHeader('Trailer', 'cakeface');
+      this.outgoing[method](view({
         bootstrap: head.join('\n')
       }));
+
+      //
+      // Hack: As we've already send out our initial headers, all other headers
+      // need to be send as "trailing" headers. But none of the modules in the
+      // node's eco system are written in a way that they support trailing
+      // headers. They are all focused on a simple request/response pattern so
+      // we need to override the `setHeader` method so it sends trailer headers
+      // instead.
+      //
+      this.outgoing.trailers = {};
+      this.outgoing.trailer = false;
+      this.outgoing.setHeader = function setHeader(key, value) {
+        this.trailers[key] = value;
+        this.trailer = true;
+
+        return this;
+      };
 
       return this;
     }
