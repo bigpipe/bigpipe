@@ -582,7 +582,6 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // @TODO rel dns prefetch.
 
       this.outgoing.setHeader('Content-Type', 'text/html');
-      this.outgoing.setHeader('Trailer', 'cakeface');
       this.outgoing[method](view({
         bootstrap: head.join('\n')
       }));
