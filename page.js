@@ -613,7 +613,14 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // rendering mode. This parameter is automatically added when we've
       // detected that someone is browsing the site without JavaScript enabled.
       //
-      if ('no_pagelet_js' in req.uri.query) {
+      // In addition to that, the other render modes only work if your browser
+      // supports trailing headers which where introduced in HTTP 1.1 so we need
+      // to make sure that this is something that the browser understands.
+      // Instead of checking just for `1.1` we want to make sure that it just
+      // tests for every http version above 1.0 as http 2.0 is just around the
+      // corner.
+      //
+      if ('no_pagelet_js' in req.uri.query || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)) {
         mode = 'render';
       }
 
