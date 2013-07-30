@@ -246,6 +246,26 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
+   * Access a resource.
+   *
+   * @TODO re-use
+   * @param {String} name The resource
+   * @api public
+   */
+  resource: {
+    enumerable: false,
+    value: function get(name) {
+      var resource;
+
+      if (name in this.resources) resource = new this.resources[name];
+      else resource = new this.page.resources[name];
+
+      resource.configure(this.page.incoming, this.page.outgoing);
+      return resource;
+    }
+  },
+
+  /**
    * Reset the instance to it's original state.
    *
    * @param {Page} page The page instance which created this pagelet.
