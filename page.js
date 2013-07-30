@@ -351,11 +351,12 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    *
    * @param {String} mode The render mode for the pagelets.
    * @param {Object} data The POST data, if any
+   * @param {String} template The generated base template.
    * @api private
    */
   discover: {
     enumerable: false,
-    value: function discover(mode, data) {
+    value: function discover(mode, data, template) {
       if (!this.pagelets.length) return false;
 
       var incoming = this.incoming
@@ -395,7 +396,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         // Render the pagelets using the specified render mode. If they
         // specified an incorrect render mode, it will just throw.
         //
-        page[mode]();
+        page[mode](template);
       });
 
       return true;
@@ -406,12 +407,26 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * Mode: Render
    * Output the pagelets fully rendered in the HTML template.
    *
+   * @param {String} base The generated base template.
    * @api private
    */
   render: {
     enumerable: false,
-    value: function render() {
+    value: function render(base) {
+      var page = this;
 
+      async.forEach(this.enabled, function each(pagelet, next) {
+        pagelet.render(next);
+      }, function done(err, data) {
+        page.enabled.forEach(function forEach(pagelet, index) {
+          var view = page.temper.fetch(pagelet.view).server;
+
+          // @TODO also write the css and javascript.
+          base = page.inject(base, pagelet.name, view(data[index]));
+        });
+
+        page.outgoing.end(base);
+      });
     }
   },
 
@@ -428,8 +443,9 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
       async.forEach(this.enabled, function each(pagelet, next) {
         pagelet.render(function rendering(err, data) {
+          if (err) return next(err);
+
           page.write(pagelet, data);
-          next();
         });
       }, function done() {
         page.disabled.filter(function filter(pagelet) {
@@ -541,16 +557,19 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * - It adds a <noscript> meta refresh for force a sync method.
    *
    * @param {String} mode The rendering mode that's used to output the pagelets.
+   * @param {Object} data The incoming data.
+   * @param {Function} fn Processes the pagelets when called.
    * @api private
    */
   bootstrap: {
     enumerable: false,
-    value: function bootstrap(mode) {
+    value: function bootstrap(mode, data, fn) {
       var method = this.pagelets.length ? 'write' : 'end'
         , view = this.temper.fetch(this.view).server
         , head = ['<meta charset="utf-8" />']
         , library = this.compiler.page(this)
-        , path = this.incoming.uri.pathname;
+        , path = this.incoming.uri.pathname
+        , output;
 
       if (mode !== 'render') {
         head.push(
@@ -581,10 +600,18 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // @TODO cache manifest.
       // @TODO rel dns prefetch.
 
+      this.outgoing.statusCode = this.statusCode;
       this.outgoing.setHeader('Content-Type', 'text/html');
-      this.outgoing[method](view({
-        bootstrap: head.join('\n')
-      }));
+      output = view({ bootstrap: head.join('\n') });
+
+      if ('render' === mode) {
+        fn(output);
+        return this;
+      }
+
+      this.outgoing[method](output);
+
+      if ('end' === method) return this;
 
       //
       // Hack: As we've already send out our initial headers, all other headers
@@ -603,6 +630,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         return this;
       };
 
+      fn();
       return this;
     }
   },
@@ -653,8 +681,13 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // Start rendering as fast as possible so the browser can start download the
       // resources as fast as possible.
       //
-      this.bootstrap(mode);
-      this.discover(mode, data);
+      // @TODO we might want to asyncly process the pagelets while we're
+      // creating our initial body of the page. But not when we have received
+      // a POST request.
+      //
+      this.bootstrap(mode, data, function pagelet(template) {
+        this.discover(mode, data, template);
+      });
 
       return this;
     }
