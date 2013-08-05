@@ -227,4 +227,17 @@ describe('Pipe', function () {
       expect(req.query.bar).to.equal('baz');
     });
   });
+
+  describe('#resolve', function () {
+    it('omits any directories from the read of the pages directory', function () {
+      app = new Pipe(server, {
+        pages: __dirname + '/fixtures/pages',
+        directory: __dirname + '/dist'
+      });
+
+      app.pages.forEach(function (page) {
+        expect(page.id).to.not.match(/^dummy/);
+      });
+    });
+  });
 });
