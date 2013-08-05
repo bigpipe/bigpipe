@@ -347,6 +347,22 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Redirect the user.
+   *
+   * @param {String} location Where should we redirect to.
+   * @param {Number} status The status number.
+   * @api public
+   */
+  redirect: {
+    enumerable: false,
+    value: function redirect(location, status) {
+      this.res.statusCode = +status || 301;
+      this.res.setHeader('Location', location);
+      this.res.end();
+    }
+  },
+
+  /**
    * Discover pagelets that we're allowed to use.
    *
    * @param {String} template The generated base template.
