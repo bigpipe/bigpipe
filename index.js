@@ -184,7 +184,12 @@ Pipe.prototype.resolve = function resolve(files, transform) {
 
   if ('string' === typeof files) {
     files = fs.readdirSync(files).map(function locate(file) {
-      return path.resolve(files, file);
+      file = path.resolve(files, file);
+
+      //
+      // Only read files and no subdirectories.
+      //
+      if (fs.statSync(file).isFile()) return file;
     });
   } else if (!Array.isArray(files)) {
     files = Object.keys(files).map(function merge(name) {
@@ -202,7 +207,10 @@ Pipe.prototype.resolve = function resolve(files, transform) {
     });
   }
 
-  files = files.filter(function jsonly(file) {
+  //
+  // Filter out falsy values from above array maps.
+  //
+  files = files.filter(Boolean).filter(function jsonly(file) {
     var extname = path.extname(file)
       , type = typeof file;
 
