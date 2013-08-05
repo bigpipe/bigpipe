@@ -86,7 +86,7 @@ function Page(pipe) {
      * @type {Request}
      * @private
      */
-    incoming: {
+    req: {
       value: null,
       writable: true,
       enumerable: false,
@@ -99,7 +99,7 @@ function Page(pipe) {
      * @type {Response}
      * @private
      */
-    outgoing: {
+    res: {
       value: null,
       writable: true,
       enumerable: false,
@@ -349,17 +349,15 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   /**
    * Discover pagelets that we're allowed to use.
    *
-   * @param {String} mode The render mode for the pagelets.
-   * @param {Object} data The POST data, if any
    * @param {String} template The generated base template.
    * @api private
    */
   discover: {
     enumerable: false,
-    value: function discover(mode, data, template) {
+    value: function discover(template) {
       if (!this.pagelets.length) return false;
 
-      var incoming = this.incoming
+      var req = this.req
         , page = this
         , pagelets;
 
@@ -377,7 +375,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         // need to call and figure out if the pagelet is available.
         //
         if ('function' === typeof pagelet.authorize) {
-          pagelet.authorize(incoming, done);
+          pagelet.authorize(req, done);
         } else {
           done(true);
         }
@@ -388,18 +386,36 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           return !!allowed.indexOf(pagelet);
         });
 
-        if (data) page.enabled.forEach(function process(pagelet) {
-          if (pagelet.incoming) pagelet.incoming(data);
-        });
-
-        //
-        // Render the pagelets using the specified render mode. If they
-        // specified an incorrect render mode, it will just throw.
-        //
-        page[mode](template);
+        page.emit('discovered');
+        if (template) page.emit('render', template);
       });
 
       return true;
+    }
+  },
+
+  /**
+   * Process the incoming data. Run it over the pagelets to see if they need to
+   * handle it.
+   *
+   * @param {Mixed} data The data structure.
+   * @param {Function} fn Callbck
+   * @api private
+   */
+  post: {
+    enumerable: false,
+    value: function post(data, fn) {
+      var page = this;
+
+      async.reduce(this.enabled, data, function post(data, pagelet, next) {
+        if (!pagelet.incoming) return next(undefined, data);
+
+        pagelet.incoming(data, next);
+      }, function done(err, data) {
+          if (page.incoming) return page.incoming(err, data, fn);
+
+          fn(err, data);
+      });
     }
   },
 
@@ -425,7 +441,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           base = page.inject(base, pagelet.name, view(data[index]));
         });
 
-        page.outgoing.end(base);
+        page.res.end(base);
       });
     }
   },
@@ -446,6 +462,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           if (err) return next(err);
 
           page.write(pagelet, data);
+          next();
         });
       }, function done() {
         page.disabled.filter(function filter(pagelet) {
@@ -457,11 +474,11 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         //
         // Send the remaining trailer headers if we have them queued.
         //
-        if (page.outgoing.trailer) {
-          page.outgoing.addTrailers(page.outgoing.trailers);
+        if (page.res.trailer) {
+          page.res.addTrailers(page.res.trailers);
         }
 
-        page.outgoing.end();
+        page.res.end();
       });
     }
   },
@@ -497,7 +514,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       frag.remove = pagelet.remove;
       frag.data = data;
 
-      this.outgoing.write(fragment
+      this.res.write(fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
         .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
         .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
@@ -557,18 +574,16 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * - It adds a <noscript> meta refresh for force a sync method.
    *
    * @param {String} mode The rendering mode that's used to output the pagelets.
-   * @param {Object} data The incoming data.
-   * @param {Function} fn Processes the pagelets when called.
    * @api private
    */
   bootstrap: {
     enumerable: false,
-    value: function bootstrap(mode, data, fn) {
+    value: function bootstrap(mode, data) {
       var method = this.pagelets.length ? 'write' : 'end'
         , view = this.temper.fetch(this.view).server
         , head = ['<meta charset="utf-8" />']
         , library = this.compiler.page(this)
-        , path = this.incoming.uri.pathname
+        , path = this.req.uri.pathname
         , output;
 
       if (mode !== 'render') {
@@ -600,18 +615,18 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // @TODO cache manifest.
       // @TODO rel dns prefetch.
 
-      this.outgoing.statusCode = this.statusCode;
-      this.outgoing.setHeader('Content-Type', 'text/html');
+      this.res.statusCode = this.statusCode;
+      this.res.setHeader('Content-Type', 'text/html');
       output = view({ bootstrap: head.join('\n') });
 
-      if ('render' === mode) {
-        fn(output);
-        return this;
-      }
+      if ('render' === mode) return this.emit('bootstrapped', output);
 
-      this.outgoing[method](output);
+      this.res[method](output);
 
       if ('end' === method) return this;
+      if (this.listeners('discover').length) this.emit('discover', output);
+
+      this.emit('bootstrapped');
 
       //
       // Hack: As we've already send out our initial headers, all other headers
@@ -621,16 +636,15 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // we need to override the `setHeader` method so it sends trailer headers
       // instead.
       //
-      this.outgoing.trailers = {};
-      this.outgoing.trailer = false;
-      this.outgoing.setHeader = function setHeader(key, value) {
+      this.res.trailers = {};
+      this.res.trailer = false;
+      this.res.setHeader = function setHeader(key, value) {
         this.trailers[key] = value;
         this.trailer = true;
 
         return this;
       };
 
-      fn();
       return this;
     }
   },
@@ -647,6 +661,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     enumerable: false,
     value: function configure(req, res, data) {
       var mode = this.mode
+        , page = this
         , key;
 
       this.removeAllListeners();
@@ -658,8 +673,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         delete this.enabled[key];
       }
 
-      this.incoming = req;
-      this.outgoing = res;
+      this.req = req;
+      this.res = res;
 
       //
       // If we have a `no_pagelet_js` flag, we should force a different
@@ -673,21 +688,34 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // tests for every http version above 1.0 as http 2.0 is just around the
       // corner.
       //
-      if ('no_pagelet_js' in req.uri.query || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)) {
+      if (
+           'no_pagelet_js' in req.uri.query
+        || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
+      ) {
         mode = 'render';
       }
 
+      this.once('render', this[mode]);
+      this.once('discover', this.discover);
+
       //
-      // Start rendering as fast as possible so the browser can start download the
-      // resources as fast as possible.
+      // There are two distinct ways of rendering the page.
       //
-      // @TODO we might want to asyncly process the pagelets while we're
-      // creating our initial body of the page. But not when we have received
-      // a POST request.
-      //
-      this.bootstrap(mode, data, function pagelet(template) {
-        this.discover(mode, data, template);
-      });
+      // 1. We receive a GET request and want to render the page as fast as
+      //    possible as we need to output the template and load the pagelets.
+      // 2. We receive a POST request and we need to check if we have a `data`
+      //    hook on the page that can handle POST processing "failures" for when
+      //    a pagelet denies it etc. The `data` method should be able
+      if (undefined !== data) {
+        this.once('bootstrapped', this.emits('render'));
+        this.once('discovered', function discovered() {
+          this.post(data, function posted(err, data) {
+            page.bootstrap(mode, data);
+          });
+        }).emit('discover');
+      } else {
+        this.bootstrap(mode, data);
+      }
 
       return this;
     }

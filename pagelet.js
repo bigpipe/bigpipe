@@ -260,7 +260,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
       if (name in this.resources) resource = new this.resources[name];
       else resource = new this.page.resources[name];
 
-      resource.configure(this.page.incoming, this.page.outgoing);
+      resource.configure(this.page.req, this.page.res);
       return resource;
     }
   },
