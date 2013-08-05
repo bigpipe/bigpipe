@@ -286,6 +286,19 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
 
       return this.removeAllListeners();
     }
+  },
+
+  /**
+   * Default render function.
+   *
+   * @param {Function} done callback for async rendering
+   * @api public
+   */
+  render: {
+    enumerable: false,
+    value: function render(done) {
+      setImmediate(done);
+    }
   }
 });
 

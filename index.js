@@ -331,10 +331,6 @@ Pipe.prototype.transform = function transform(Page) {
       if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
       if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
 
-      if (!prototype.render || 'function' !== typeof prototype.render) {
-        throw new Error('Pagelet('+ prototype.name + ') is missing a `render` method');
-      }
-
       if (prototype.incoming && 'function' !== typeof prototype.incoming) {
         throw new Error('Pagelet('+ prototype.name + ')\'s incoming property should be a function');
       }
