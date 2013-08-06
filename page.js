@@ -44,6 +44,17 @@ function Page(pipe) {
     },
 
     /**
+     * The actual Pipe instance.
+     *
+     * @type {Pipe}
+     * @private
+     */
+    pipe: {
+      enumerable: false,
+      value: pipe
+    },
+
+    /**
      * Contains all disabled pagelets.
      *
      * @type {Array}
@@ -363,6 +374,37 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Well, actually, never mind, we shouldn't accept this page so we should
+   * render our 404 page instead.
+   *
+   * @api public
+   */
+  notFound: {
+    enumerable: false,
+    value: function notFound() {
+      this.emit('free').pipe.status(this.req, this.res, 404);
+
+      return this;
+    }
+  },
+
+  /**
+   * We've gotten a captured error and we should show a error page.
+   *
+   * @param {Error} err The error message.
+   * @api public
+   */
+  error: {
+    enumerable: false,
+    value: function error(err) {
+      err = err || new Error('Internal Server Error');
+      this.emit('free').pipe.status(this.req, this.res, 500, err);
+
+      return this;
+    }
+  },
+
+  /**
    * Discover pagelets that we're allowed to use.
    *
    * @param {String} template The generated base template.
@@ -415,7 +457,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * handle it.
    *
    * @param {Mixed} data The data structure.
-   * @param {Function} fn Callbck
+   * @param {Function} fn Callback.
    * @api private
    */
   post: {

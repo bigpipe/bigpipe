@@ -283,6 +283,30 @@ Pipe.prototype.discover = function discover(pages) {
 };
 
 /**
+ * Render a page from our StatusCodes collection.
+ *
+ * @param {Request} req HTTP request>
+ * @param {Response} res HTTP response.
+ * @param {Number} code The status we should handle.
+ * @param {Mixed} data Nothing or something :D
+ * @api private
+ */
+Pipe.prototype.status = function status(req, res, code, data) {
+  if (!(code in this.statusCodes)) throw new Error('Unsupported HTTP code: '+ code);
+
+  var Page = this.statusCodes[code]
+    , page = Page.freelist.alloc();
+
+  page.once('free', function free() {
+    Page.freelist.free(page);
+  });
+
+  page.configure(req, res);
+
+  return this;
+};
+
+/**
  * We need to extract items from the Page prototype and transform it in to
  * something useful.
  *
