@@ -297,7 +297,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   render: {
     enumerable: false,
     value: function render(done) {
-      setImmediate(done);
+      done();
     }
   }
 });
