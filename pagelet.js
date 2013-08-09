@@ -246,9 +246,52 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
+   * Default render function.
+   *
+   * @param {Function} done callback for async rendering
+   * @api public
+   */
+  render: {
+    enumerable: false,
+    value: function render(done) {
+      done();
+    }
+  },
+
+  /**
+   * Mixin objects.
+   *
+   * @param {Object} target Mix all other object in to this object.
+   * @returns {Object} target
+   * @api public
+   */
+  mixin: {
+    enumerable: false,
+    value: function mixin(target) {
+      Array.prototype.slice.call(arguments, 1).forEach(function forEach(o) {
+        Object.getOwnPropertyNames(o).forEach(function eachAttr(attr) {
+          var getter = Object.getOwnPropertyDescriptor(o, attr).get
+            , setter = Object.getOwnPropertyDescriptor(o, attr).set;
+
+          if (!getter && !setter) {
+            target[attr] = o[attr];
+          } else {
+            Object.defineProperty(target, attr, {
+              get: getter,
+              set: setter
+            });
+          }
+        });
+      });
+
+      return target;
+    }
+  },
+
+  /**
    * Access a resource.
    *
-   * @TODO re-use
+   * @TODO re-use previous initialised resources.
    * @param {String} name The resource
    * @api public
    */
@@ -289,15 +332,17 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
-   * Default render function.
+   * Renderer takes care of all the data merging and `render` invocation.
    *
-   * @param {Function} done callback for async rendering
-   * @api public
+   * @param {Function} fn Completion callback.
+   * @api private
    */
-  render: {
+  renderer: {
     enumerable: false,
-    value: function render(done) {
-      done();
+    value: function renderer(fn) {
+      this.render(function receive(err, data) {
+        if (err) return fn(err);
+      });
     }
   }
 });
