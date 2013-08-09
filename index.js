@@ -289,7 +289,7 @@ Pipe.prototype.discover = function discover(pages) {
 /**
  * Render a page from our StatusCodes collection.
  *
- * @param {Request} req HTTP request>
+ * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
  * @param {Number} code The status we should handle.
  * @param {Mixed} data Nothing or something :D
