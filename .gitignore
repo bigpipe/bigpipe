@@ -5,3 +5,4 @@ pagelets.sublime-workspace
 npm-debug.log
 example/dist/*
 test/dist/*
+.DS_Store
