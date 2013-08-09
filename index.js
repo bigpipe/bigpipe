@@ -86,8 +86,10 @@ function Pipe(server, options) {
   //
   // Start listening for incoming requests.
   //
-  this.server.on('request', this.dispatch.bind(this));
   this.primus.on('connection', this.connection.bind(this));
+  this.server.on('request', this.dispatch.bind(this));
+  this.server.on('listening', this.emits('listening'));
+  this.server.on('error', this.emits('error'));
 }
 
 Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
@@ -104,6 +106,8 @@ Pipe.prototype.emits = function emits(event, parser) {
   var self = this;
 
   return function emit(arg) {
+    if (!self.listeners(event).length) return;
+
     self.emit(event, parser ? parser.apply(self, arguments) : arg);
   };
 };

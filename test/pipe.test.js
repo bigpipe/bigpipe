@@ -240,4 +240,17 @@ describe('Pipe', function () {
       });
     });
   });
+
+  describe('.createServer', function () {
+    it('proxies event listeners', function (done) {
+      var pipe = Pipe.createServer(common.port, {
+          pages: __dirname +'/fixtures/pages'
+        , directory: __dirname +'/dist'
+      });
+
+      pipe.once('listening', function () {
+        pipe.server.close(done);
+      });
+    });
+  });
 });
