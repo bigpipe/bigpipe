@@ -485,12 +485,14 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * @api private
    */
   render: {
+    writable: true,
     enumerable: false,
+    configurable: true,
     value: function render(base) {
       var page = this;
 
       async.forEach(this.enabled, function each(pagelet, next) {
-        pagelet.render(next);
+        pagelet.renderer(next);
       }, function done(err, data) {
         page.enabled.forEach(function forEach(pagelet, index) {
           var view = page.temper.fetch(pagelet.view).server;
