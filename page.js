@@ -275,6 +275,21 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Provide dynamic data to the view. The function will be called by onset
+   * and supplied with an callback.
+   *
+   * @type {Function}
+   * @public
+   */
+  data: {
+    enumerable: false,
+    configurable: true,
+    set: function set(fn) {
+      if ('function' === typeof fn) this.data = fn;
+    }
+  },
+
+  /**
    * The pagelets that need to be loaded on this page.
    *
    * @type {Object}
@@ -326,6 +341,19 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     writable: true,
     enumerable: false,
     configurable: true
+  },
+
+  /**
+   * Keep track of rendered pagelets.
+   *
+   * @type {Array}
+   * @private
+   */
+  queue: {
+    value: [],
+    writable: true,
+    enumerable: false,
+    configurable: false
   },
 
   //
@@ -407,12 +435,11 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   /**
    * Discover pagelets that we're allowed to use.
    *
-   * @param {String} template The generated base template.
    * @api private
    */
   discover: {
     enumerable: false,
-    value: function discover(template) {
+    value: function discover() {
       if (!this.pagelets.length) return false;
 
       var req = this.req
@@ -445,7 +472,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         });
 
         page.emit('discovered');
-        if (template) page.emit('render', template);
+        page.emit('render');
       });
 
       return true;
@@ -531,15 +558,30 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           page.write(pagelet);
         });
 
-        //
-        // Send the remaining trailer headers if we have them queued.
-        //
-        if (page.res.trailer) {
-          page.res.addTrailers(page.res.trailers);
-        }
-
-        page.res.end();
+        page.done();
       });
+    }
+  },
+
+  /**
+   * Close the connection once the main page was sent.
+   *
+   * @api private
+   */
+  done: {
+    enumerable: false,
+    value: function done() {
+      //
+      // Send the remaining trailer headers if we have them queued.
+      //
+      if (this.res.trailer) {
+        this.res.addTrailers(this.res.trailers);
+      }
+
+      //
+      // Do not close the connection before the main page has sent headers.
+      //
+      if (this.res._headerSent) this.res.end();
     }
   },
 
@@ -569,15 +611,47 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       data = data || {};
 
       var view = this.temper.fetch(pagelet.view).server
-        , frag = this.compiler.pagelet(pagelet);
+        , frag = this.compiler.pagelet(pagelet)
+        , output;
 
       frag.remove = pagelet.remove;
       frag.data = data;
 
-      this.res.write(fragment
+      output = fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
         .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
-        .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
+        .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''));
+
+      //
+      // If headers are not send yet, enlist the processed fragment to remain
+      // queued until the main page is rendered and sent to the client.
+      //
+      if (!this.res._headerSent) return this.queue.push(output);
+      this.res.write(output);
+    }
+  },
+
+  /**
+   * Dispatch any pagelets that were queued up, keep pushing them out while
+   * there are pagelets queued. Only loop the queue if there is an actual queue,
+   * otherwise page.done will be called preemptively.
+   *
+   * @api private
+   */
+  dispatch: {
+    enumerable: false,
+    value: function dispatch() {
+      var page = this;
+
+      if (page.queue.length) async.whilst(
+        function test() {
+          return page.queue.length;
+        },
+        function write(next) {
+          page.res.write(page.queue.pop());
+          next();
+        },
+        page.done.bind(page)
       );
     }
   },
@@ -625,6 +699,37 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Supply bootstrap with data before rendering.
+   * @TODO tie in POST data
+   *
+   * @api private
+   */
+  onset: {
+    enumerable: false,
+    value: function onset(mode, data) {
+      var self = this;
+
+      /**
+       * Callback function provided to developer supplied function.
+       *
+       * @param {Error} err
+       * @param {Mixed} data
+       * @api private
+       */
+      function done(err, data) {
+        if (err) self.error(new Error('Providing custom data to Page instance failed'));
+        self.bootstrap(mode, data);
+      }
+
+      //
+      // Check the data provider and supply it with a callback.
+      //
+      if (this.data) return this.data.call(this, done);
+      process.nextTick(done);
+    }
+  },
+
+  /**
    * The bootstrap method generates a string that needs to be included in the
    * template in order for pagelets to function.
    *
@@ -634,6 +739,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * - It adds a <noscript> meta refresh for force a sync method.
    *
    * @param {String} mode The rendering mode that's used to output the pagelets.
+   * @param {Object} data data
    * @api private
    */
   bootstrap: {
@@ -677,15 +783,28 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
       this.res.statusCode = this.statusCode;
       this.res.setHeader('Content-Type', 'text/html');
-      output = view({ bootstrap: head.join('\n') });
+
+      //
+      // Supply data to the view and render after.
+      // @TODO bootstrap should not interfere with user data.
+      //
+      data = data || {};
+      data.bootstrap = head.join('\n');
+      output = view(data);
 
       if ('render' === mode) return this.emit('bootstrapped', output);
 
       this.res[method](output);
 
+      //
+      // Page without pagelets since end is used to write.
+      //
       if ('end' === method) return this;
-      if (this.listeners('discover').length) this.emit('discover', output);
 
+      //
+      // Now that the page is bootstrapped and written to the client, emit that
+      // we are done. This will trigger queued pagelets to be sent.
+      //
       this.emit('bootstrapped');
 
       //
@@ -756,13 +875,14 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       }
 
       this.once('render', this[mode]);
-      this.once('discover', this.discover);
+      this.once('bootstrapped', this.dispatch);
 
       //
       // There are two distinct ways of rendering the page.
       //
       // 1. We receive a GET request and want to render the page as fast as
       //    possible as we need to output the template and load the pagelets.
+      //    The page and pagelets are rendered async alongside each other.
       // 2. We receive a POST request and we need to check if we have a `data`
       //    hook on the page that can handle POST processing "failures" for when
       //    a pagelet denies it etc. The `data` method should be able
@@ -774,7 +894,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           });
         }).emit('discover');
       } else {
-        this.bootstrap(mode, data);
+        this.onset(mode, data);
+        this.discover();
       }
 
       return this;
