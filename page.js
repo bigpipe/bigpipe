@@ -452,7 +452,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   discover: {
     enumerable: false,
     value: function discover() {
-      if (!this.pagelets.length) return false;
+      if (!this.pagelets.length) return page.emit('discovered');
 
       var req = this.req
         , page = this
@@ -486,8 +486,6 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         page.emit('discovered');
         page.emit('render');
       });
-
-      return true;
     }
   },
 
@@ -664,7 +662,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
 
   /**
    * Dispatch any pagelets that were queued up. Pagelet#render provides the data
-   * in the queue, thus everything can be written immediatly.
+   * in the queue, thus everything can be written immediately.
    *
    * @api private
    */
@@ -916,7 +914,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           this.post(data, function posted(err, data) {
             page.bootstrap(mode, data);
           });
-        }).emit('discover');
+        }).discover();
       } else {
         this.onset(mode, data);
         this.discover();
