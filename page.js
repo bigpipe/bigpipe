@@ -282,11 +282,10 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    * @public
    */
   data: {
+    value: null,
+    writable: true,
     enumerable: false,
-    configurable: true,
-    set: function set(fn) {
-      if ('function' === typeof fn) this.data = fn;
-    }
+    configurable: true
   },
 
   /**
@@ -724,7 +723,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       //
       // Check the data provider and supply it with a callback.
       //
-      if (this.data) return this.data.call(this, done);
+      if (this.data && 'function' === typeof this.data) return this.data.call(this, done);
       process.nextTick(done);
     }
   },
