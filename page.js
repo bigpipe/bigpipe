@@ -467,7 +467,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         page.enabled = allowed;
 
         page.disabled = pagelets.filter(function disabled(pagelet) {
-          return !!allowed.indexOf(pagelet);
+          return !~allowed.indexOf(pagelet);
         });
 
         page.emit('discovered');
@@ -842,13 +842,18 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         , page = this
         , key;
 
+      //
+      // Clear any previous listeners and added pagelets.
+      //
       this.removeAllListeners();
+      this.queue.length = 0;
+
       for (key in this.enabled) {
         delete this.enabled[key];
       }
 
       for (key in this.disabled) {
-        delete this.enabled[key];
+        delete this.disabled[key];
       }
 
       this.req = req;
