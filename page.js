@@ -115,6 +115,19 @@ function Page(pipe) {
       writable: true,
       enumerable: false,
       configurable: true
+    },
+
+    /**
+     * Counter for the number of processed pagelets.
+     *
+     * @type {Number}
+     * @api private
+     */
+    n: {
+      value: 0,
+      writable: true,
+      enumerable: false,
+      configurable: true
     }
   });
 
@@ -541,24 +554,31 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   async: {
     enumerable: false,
     value: function render() {
-      var page = this;
+      var page = this
+        , pagelets = this.enabled.map(function mapRendering(pagelet) {
+            return function prepare(callback) {
+              pagelet.render(function rendering(err, data) {
+                if (err) return callback(err);
 
-      async.forEach(this.enabled, function each(pagelet, next) {
-        pagelet.render(function rendering(err, data) {
-          if (err) return next(err);
+                //
+                // If headers are not send yet, enlist the pagelet to remain
+                // queued until the main page is rendered and sent to the client.
+                //
+                if (!page.res._headerSent) {
+                  page.queue.push(page.write.bind(page, pagelet, data));
+                } else {
+                  page.write(pagelet, data);
+                }
 
-          page.write(pagelet, data);
-          next();
-        });
-      }, function done() {
-        page.disabled.filter(function filter(pagelet) {
-          return !!pagelet.remove;
-        }).forEach(function each(pagelet) {
-          page.write(pagelet);
-        });
+                callback();
+              });
+            };
+          });
 
-        page.done();
-      });
+      //
+      // Render (or queue) all pagelets.
+      //
+      async.parallel(pagelets, page.done.bind(page));
     }
   },
 
@@ -570,17 +590,33 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   done: {
     enumerable: false,
     value: function done() {
-      //
-      // Send the remaining trailer headers if we have them queued.
-      //
-      if (this.res.trailer) {
-        this.res.addTrailers(this.res.trailers);
-      }
+      var page = this;
 
       //
       // Do not close the connection before the main page has sent headers.
       //
-      if (this.res._headerSent) this.res.end();
+      if (page.n !== page.pagelets.length) return false;
+
+      //
+      // Write disabled pagelets so the client can remove all empty placeholders.
+      //
+      page.disabled.filter(function filter(pagelet) {
+        return !!pagelet.remove;
+      }).forEach(function each(pagelet) {
+        page.write(pagelet);
+      });
+
+      //
+      // Send the remaining trailer headers if we have them queued.
+      //
+      if (page.res.trailer) {
+        page.res.addTrailers(page.res.trailers);
+      }
+
+      //
+      // Everything is processed, close the connection.
+      //
+      page.res.end();
     }
   },
 
@@ -621,37 +657,21 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
         .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''));
 
-      //
-      // If headers are not send yet, enlist the processed fragment to remain
-      // queued until the main page is rendered and sent to the client.
-      //
-      if (!this.res._headerSent) return this.queue.push(output);
+      this.n++;
       this.res.write(output);
     }
   },
 
   /**
-   * Dispatch any pagelets that were queued up, keep pushing them out while
-   * there are pagelets queued. Only loop the queue if there is an actual queue,
-   * otherwise page.done will be called preemptively.
+   * Dispatch any pagelets that were queued up. Pagelet#render provides the data
+   * in the queue, thus everything can be written immediatly.
    *
    * @api private
    */
   dispatch: {
     enumerable: false,
     value: function dispatch() {
-      var page = this;
-
-      if (page.queue.length) async.whilst(
-        function test() {
-          return page.queue.length;
-        },
-        function write(next) {
-          page.res.write(page.queue.pop());
-          next();
-        },
-        page.done.bind(page)
-      );
+      async.parallel(this.queue, this.done.bind(this));
     }
   },
 
@@ -715,7 +735,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
        * @param {Mixed} data
        * @api private
        */
-      function done(err, data) {
+      function init(err, data) {
         if (err) self.error(new Error('Providing custom data to Page instance failed'));
         self.bootstrap(mode, data);
       }
@@ -723,8 +743,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       //
       // Check the data provider and supply it with a callback.
       //
-      if (this.data && 'function' === typeof this.data) return this.data.call(this, done);
-      process.nextTick(done);
+      if (this.data && 'function' === typeof this.data) return this.data.call(this, init);
+      process.nextTick(init);
     }
   },
 
@@ -843,10 +863,10 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         , key;
 
       //
-      // Clear any previous listeners and added pagelets.
+      // Clear any previous listeners, the counter and added pagelets.
       //
       this.removeAllListeners();
-      this.queue.length = 0;
+      this.queue.length = this.n = 0;
 
       for (key in this.enabled) {
         delete this.enabled[key];

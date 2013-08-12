@@ -182,6 +182,21 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
     configurable: true
   },
 
+  /**
+   * Default render function.
+   *
+   * @param {Function} done callback for async rendering
+   * @api public
+   */
+  render: {
+    value: function render(done) {
+      setImmediate(done);
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  },
+
   //
   // !IMPORTANT
   //
@@ -242,19 +257,6 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
       return function emit(arg) {
         self.emit(event, parser ? parser.apply(self, arguments) : arg);
       };
-    }
-  },
-
-  /**
-   * Default render function.
-   *
-   * @param {Function} done callback for async rendering
-   * @api public
-   */
-  render: {
-    enumerable: false,
-    value: function render(done) {
-      done();
     }
   },
 
