@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Bigpipe a radical new web framework for Node.js that's inspired by Facebook's bigpipe concept.",
   "main": "index.js",
+  "engine": "node >= 0.10.0",
   "scripts": {
     "test": "mocha $(find test -name '*.test.js')",
     "build": "browserify pipe/index.js -o dist/pipe.js --standalone BigPipe"
