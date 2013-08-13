@@ -452,7 +452,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   discover: {
     enumerable: false,
     value: function discover() {
-      if (!this.pagelets.length) return page.emit('discovered');
+      if (!this.pagelets.length) return this.emit('discovered');
 
       var req = this.req
         , page = this
