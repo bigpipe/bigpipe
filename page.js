@@ -534,7 +534,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         page.enabled.forEach(function forEach(pagelet, index) {
           var view = page.temper.fetch(pagelet.view).server;
 
-          // @TODO also write the css and javascript.
+          // @TODO Also write the CSS and JavaScript.
+          // @TODO also remove the pagelets that we're disabled.
           base = page.inject(base, pagelet.name, view(data[index]));
         });
 
@@ -581,6 +582,19 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Mode: pipeline
+   * Output the pagelets as fast as possible but in order.
+   *
+   * @api private
+   */
+  pipeline: {
+    enumerable: false,
+    value: function render() {
+
+    }
+  },
+
+  /**
    * Close the connection once the main page was sent.
    *
    * @api private
@@ -615,19 +629,6 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       // Everything is processed, close the connection.
       //
       page.res.end();
-    }
-  },
-
-  /**
-   * Mode: pipeline
-   * Output the pagelets as fast as possible but in order.
-   *
-   * @api private
-   */
-  pipeline: {
-    enumerable: false,
-    value: function render() {
-
     }
   },
 
@@ -735,6 +736,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
        */
       function init(err, data) {
         if (err) self.error(new Error('Providing custom data to Page instance failed'));
+        if (!data && 'function' !== typeof self.data) data = self.data;
+
         self.bootstrap(mode, data);
       }
 
