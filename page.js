@@ -189,6 +189,21 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Initialization function that is called when the page is activated. This is
+   * done AFTER any of the authorization hooks are handled. So your sure that this
+   * pagelet is allowed for usage.
+   *
+   * @type {Function}
+   * @public
+   */
+  initialize: {
+    value: function initialize() {},
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
+
+  /**
    * An authorization handler to see if the request is authorized to interact with
    * this page. This is set to `null` by default as there isn't any
    * authorization in place. The authorization function will receive 2 arguments:
@@ -483,6 +498,10 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
           return !~allowed.indexOf(pagelet);
         });
 
+        allowed.forEach(function initialize(pagelet) {
+          pagelet.initialize();
+        });
+
         page.emit('discovered');
         page.emit('render');
       });
@@ -502,11 +521,10 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     value: function post(data, fn) {
       var page = this;
 
-      async.reduce(this.enabled, data, function post(data, pagelet, next) {
+      async.forEach(this.enabled, function post(pagelet, next) {
         if (!pagelet.incoming) return next(undefined, data);
-
         pagelet.incoming(data, next);
-      }, function done(err, data) {
+      }, function done(err) {
           if (page.incoming) return page.incoming(err, data, fn);
 
           fn(err, data);
@@ -899,6 +917,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         mode = 'render';
       }
 
+      this.initialize();
       this.once('render', this[mode]);
       this.once('bootstrapped', this.dispatch);
 
