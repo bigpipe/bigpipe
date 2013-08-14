@@ -601,9 +601,9 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
                 //
                 // If the repsonse was closed, finished the async asap.
                 //
-                if (page.res.socket.destroyed) return callback(new Error(
-                  'Response was closed, unable to write Pagelet'
-                ));
+                if (!page.res.socket || page.res.socket.destroyed) {
+                  return callback(new Error('Response was closed, unable to write Pagelet'));
+                }
 
                 //
                 // If headers are not send yet, enlist the pagelet to remain
@@ -962,7 +962,16 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         this.once('bootstrapped', this.emits('render'));
         this.once('discovered', function discovered() {
           this.post(data, function posted(err, data) {
-            page.bootstrap(mode, data);
+
+            //
+            // Only process the bootstapping if we didn't write any output to
+            // the response. Which can happen if people want to .redirect or
+            // just abuse the .req/res directly and have the Page instance serve
+            // a simple wrapper around the request/response pattern.
+            //
+            if (!(!page.res.socket || page.res.socket.destroyed)) {
+              page.bootstrap(mode, data);
+            }
           });
         }).discover();
       } else {
