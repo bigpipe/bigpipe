@@ -377,7 +377,7 @@ Pipe.prototype.transform = function transform(Page) {
       // instances and reduce garbage collection.
       //
       Pagelet.freelist = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function allocate() {
-        return new Pagelet();
+        return new Pagelet;
       });
 
       return Pagelet;
