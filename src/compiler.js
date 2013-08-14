@@ -1,7 +1,6 @@
 'use strict';
 
-var Square = require('square')
-  , crypto = require('crypto')
+var crypto = require('crypto')
   , File = require('./file')
   , path = require('path')
   , fs = require('fs');
@@ -25,16 +24,6 @@ function Compiler(directory, pipe, options) {
 
   this.buffer = Object.create(null);
   this.alias = Object.create(null);
-
-  this.square = new Square({
-    'log notification level': 0,
-    'writable': false,
-    'log level': 0
-  });
-
-  this.square.plugin('minify', {
-    metrics: false
-  });
 }
 
 Compiler.prototype.__proto__ = require('events').EventEmitter.prototype;

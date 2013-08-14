@@ -21,8 +21,7 @@
     "expirable": "0.0.x",
     "colors": "0.6.x",
     "temper": "0.0.x",
-    "jade": "0.33.x",
-    "square": "git://github.com/observing/square.git#development"
+    "jade": "0.33.x"
   },
   "devDependencies": {
     "chai": "1.7.x",
