@@ -8,6 +8,7 @@ chai.Assertion.includeStack = true;
 //
 exports.Pipe = require('../');
 exports.Pagelet = require('../pagelet');
+exports.Page = require('../page');
 
 //
 // Expose our assertations.
