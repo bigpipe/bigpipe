@@ -82,6 +82,28 @@ Resource.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
+   * Receive the data once and remove it.
+   *
+   * @param {Mixed} data The data that we want to retrieve and delete.
+   * @param {Function} fn The callback.
+   * @api public
+   */
+  once: {
+    enumerable: false,
+    value: function once(data, fn) {
+      var resource = this;
+
+      this.get(data, function get(err, found) {
+        if (!found) return fn(err, found);
+
+        resource.del(data, function deleted(fail) {
+          fn(err || fail, found);
+        });
+      });
+    }
+  },
+
+  /**
    * Update a value in the resource.
    *
    * @param {Mixed} data The data that needs to be updated.
