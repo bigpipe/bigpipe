@@ -33,4 +33,11 @@ describe('Pagelet', function () {
     expect(pagelet.enabled('test')).to.equal(true);
     expect(pagelet.enabled('some random name')).to.equal(false);
   });
+
+  it('disabled checks if the pagelet is disabled on the page', function () {
+    page.disabled = [ pagelet ];
+
+    expect(pagelet.disabled('test')).to.equal(true);
+    expect(pagelet.disabled('some random name')).to.equal(false);
+  });
 });
