@@ -11,6 +11,7 @@ describe('Pagelet', function () {
   });
 
   it ('rendering is asynchronously', function (done) {
-    pagelet.render(done);
+    pagelet.render(pagelet.emit.bind(pagelet, 'called'));
+    pagelet.on('called', done);
   });
 });
