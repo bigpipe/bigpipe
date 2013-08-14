@@ -581,6 +581,13 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
                 if (err) return callback(err);
 
                 //
+                // If the repsonse was closed, finished the async asap.
+                //
+                if (page.res.socket.destroyed) return callback(new Error(
+                  'Response was closed, unable to write Pagelet'
+                ));
+
+                //
                 // If headers are not send yet, enlist the pagelet to remain
                 // queued until the main page is rendered and sent to the client.
                 //
