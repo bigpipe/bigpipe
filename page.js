@@ -528,7 +528,16 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       async.forEach(this.enabled, function post(pagelet, next) {
         if (!pagelet.listeners('data').length) return next(undefined, data);
 
-        pagelet.once('end', next);
+        function process(data) {
+          pagelet.removeListener('error', process);
+          pagelet.removeListener('end', process);
+
+          if (data instanceof Error) return next(data);
+          next(undefined, data);
+        }
+
+        pagelet.once('end', process);
+        pagelet.once('error', process);
         pagelet.emit('data', data);
       }, function done(err) {
         if (!page.listeners('data').length) return fn(err, data);
