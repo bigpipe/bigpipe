@@ -40,4 +40,17 @@ describe('Pagelet', function () {
     expect(pagelet.disabled('test')).to.equal(true);
     expect(pagelet.disabled('some random name')).to.equal(false);
   });
+
+  it('emits returns emit function for flow control', function (done) {
+    var fn = pagelet.emits('test');
+
+    expect(fn).to.be.a('function');
+
+    pagelet.on('test', function(argument) {
+      expect(argument).to.equal('argument');
+      done();
+    });
+
+    fn('argument');
+  });
 });
