@@ -425,6 +425,8 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       this.res.statusCode = +status || 301;
       this.res.setHeader('Location', location);
       this.res.end();
+
+      if (this.listeners('end').length) this.emit('end');
     }
   },
 
@@ -439,6 +441,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
     value: function notFound() {
       this.emit('free').pipe.status(this.req, this.res, 404);
 
+      if (this.listeners('end').length) this.emit('end');
       return this;
     }
   },
@@ -455,6 +458,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       err = err || new Error('Internal Server Error');
       this.emit('free').pipe.status(this.req, this.res, 500, err);
 
+      if (this.listeners('end').length) this.emit('end');
       return this;
     }
   },
@@ -527,10 +531,15 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
         pagelet.once('end', next);
         pagelet.emit('data', data);
       }, function done(err) {
-          if (!page.listeners('data').length) return fn(err, data);
+        if (!page.listeners('data').length) return fn(err, data);
 
-          page.once('end', fn);
+        page.once('end', fn);
+
+        if (err && page.listeners('error').length) {
+          page.emit('error', err);
+        } else {
           page.emit('data', data);
+        }
       });
     }
   },
