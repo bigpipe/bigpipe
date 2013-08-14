@@ -190,7 +190,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
    */
   render: {
     value: function render(done) {
-      process.nextTick(done);
+      done();
     },
     writable: true,
     enumerable: false,
