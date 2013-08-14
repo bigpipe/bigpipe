@@ -522,12 +522,15 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       var page = this;
 
       async.forEach(this.enabled, function post(pagelet, next) {
-        if (!pagelet.incoming) return next(undefined, data);
-        pagelet.incoming(data, next);
-      }, function done(err) {
-          if (page.incoming) return page.incoming(err, data, fn);
+        if (!pagelet.listeners('data').length) return next(undefined, data);
 
-          fn(err, data);
+        pagelet.once('end', next);
+        pagelet.emit('data', data);
+      }, function done(err) {
+          if (!page.listeners('data').length) return fn(err, data);
+
+          page.once('end', fn);
+          page.emit('data', data);
       });
     }
   },

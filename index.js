@@ -359,10 +359,6 @@ Pipe.prototype.transform = function transform(Page) {
       if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
       if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
 
-      if (prototype.incoming && 'function' !== typeof prototype.incoming) {
-        throw new Error('Pagelet('+ prototype.name + ')\'s incoming property should be a function');
-      }
-
       //
       // Make sure that all our dependencies are also directly mapped to an
       // absolute URL.
@@ -517,7 +513,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   /**
    * We've found a matching route, process the page.
    *
-   * @param {Error} err We've encoutered an error while generating shizzle.
+   * @param {Error} err We've encountered an error while generating shizzle.
    * @param {Page} page The page instance.
    * @param {Object} data Optional incoming data.
    * @api private
