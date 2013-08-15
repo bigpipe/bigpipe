@@ -895,6 +895,25 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
+   * Access a resource.
+   *
+   * @TODO re-use previous initialised resources.
+   * @param {String} name The resource
+   * @api public
+   */
+  resource: {
+    enumerable: false,
+    value: function get(name) {
+      var resource;
+
+      if (name in this.resources) resource = new this.resources[name];
+
+      resource.configure(this.req, this.res);
+      return resource;
+    }
+  },
+
+  /**
    * Reset the instance to it's original state and initialise it.
    *
    * @param {ServerRequest} req HTTP server request.

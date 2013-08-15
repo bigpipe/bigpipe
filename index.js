@@ -499,6 +499,9 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
       , page = freelist.alloc();
 
     if ('function' === typeof page.authorize) {
+      page.req = req; // Configure the res
+      page.res = res; // and the response, needed for resources..
+
       return page.authorize(req, function authorize(allowed) {
         if (allowed) return done(undefined, page);
 
