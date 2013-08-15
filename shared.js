@@ -71,17 +71,7 @@ var shared = {
     value: function mixin(target) {
       Array.prototype.slice.call(arguments, 1).forEach(function forEach(o) {
         Object.getOwnPropertyNames(o).forEach(function eachAttr(attr) {
-          var getter = Object.getOwnPropertyDescriptor(o, attr).get
-            , setter = Object.getOwnPropertyDescriptor(o, attr).set;
-
-          if (!getter && !setter) {
-            target[attr] = o[attr];
-          } else {
-            Object.defineProperty(target, attr, {
-              get: getter,
-              set: setter
-            });
-          }
+          Object.defineProperty(target, attr, Object.getOwnPropertyDescriptor(o, attr));
         });
       });
 
