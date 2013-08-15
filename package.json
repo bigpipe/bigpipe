@@ -17,7 +17,7 @@
     "extendable": "0.0.x",
     "ws": "0.4.x",
     "routable": "0.0.x",
-    "primus": "1.1.x",
+    "primus": "1.2.x",
     "expirable": "0.0.x",
     "colors": "0.6.x",
     "temper": "0.0.x",
