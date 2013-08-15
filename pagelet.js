@@ -1,6 +1,7 @@
 'use strict';
 
-var path = require('path');
+var shared = require('./shared')
+  , path = require('path');
 
 /**
  * A simple pagelet.
@@ -14,7 +15,7 @@ function Pagelet() {
   this.id = null;
 }
 
-Pagelet.prototype = Object.create(require('stream').prototype, {
+Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   constructor: {
     value: Pagelet,
     writable: true,
@@ -168,21 +169,6 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
-   * Initialization function that is called when the pagelet is activated. This is
-   * done AFTER any of the authorization hooks are handled. So your sure that this
-   * pagelet is allowed for usage.
-   *
-   * @type {Function}
-   * @public
-   */
-  initialize: {
-    value: function initialize() {},
-    writable: true,
-    enumerable: false,
-    configurable: true
-  },
-
-  /**
    * Default render function.
    *
    * @param {Function} done callback for async rendering
@@ -238,79 +224,6 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
-   * Simple emit wrapper that returns a function that emits an event once it's
-   * called.
-   *
-   * ```js
-   * page.on('close', pagelet.emits('close'));
-   * ```
-   *
-   * @param {String} event Name of the event that we should emit.
-   * @param {Function} parser Argument parser.
-   * @api public
-   */
-  emits: {
-    enumerable: false,
-    value: function emits(event, parser) {
-      var self = this;
-
-      return function emit(arg) {
-        self.emit(event, parser ? parser.apply(self, arguments) : arg);
-      };
-    }
-  },
-
-  /**
-   * Mixin objects.
-   *
-   * @param {Object} target Mix all other object in to this object.
-   * @returns {Object} target
-   * @api public
-   */
-  mixin: {
-    enumerable: false,
-    value: function mixin(target) {
-      Array.prototype.slice.call(arguments, 1).forEach(function forEach(o) {
-        Object.getOwnPropertyNames(o).forEach(function eachAttr(attr) {
-          var getter = Object.getOwnPropertyDescriptor(o, attr).get
-            , setter = Object.getOwnPropertyDescriptor(o, attr).set;
-
-          if (!getter && !setter) {
-            target[attr] = o[attr];
-          } else {
-            Object.defineProperty(target, attr, {
-              get: getter,
-              set: setter
-            });
-          }
-        });
-      });
-
-      return target;
-    }
-  },
-
-  /**
-   * Access a resource.
-   *
-   * @TODO re-use previous initialised resources.
-   * @param {String} name The resource
-   * @api public
-   */
-  resource: {
-    enumerable: false,
-    value: function get(name) {
-      var resource;
-
-      if (name in this.resources) resource = new this.resources[name];
-      else resource = new this.page.resources[name];
-
-      resource.configure(this.page.req, this.page.res);
-      return resource;
-    }
-  },
-
-  /**
    * Reset the instance to it's original state.
    *
    * @param {Page} page The page instance which created this pagelet.
@@ -347,7 +260,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, {
       });
     }
   }
-});
+}));
 
 //
 // Make the Pagelet extendable. This allows us to use:

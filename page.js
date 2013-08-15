@@ -1,6 +1,7 @@
 'use strict';
 
-var async = require('async')
+var shared = require('./shared')
+  , async = require('async')
   , path = require('path')
   , fs = require('fs');
 
@@ -140,7 +141,7 @@ function Page(pipe) {
   if ('development' === this.env) Object.seal(this);
 }
 
-Page.prototype = Object.create(require('events').EventEmitter.prototype, {
+Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.mixin({
   constructor: {
     value: Page,
     writable: true,
@@ -183,21 +184,6 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
    */
   statusCode: {
     value: 200,
-    writable: true,
-    enumerable: false,
-    configurable: true
-  },
-
-  /**
-   * Initialization function that is called when the page is activated. This is
-   * done AFTER any of the authorization hooks are handled. So your sure that this
-   * pagelet is allowed for usage.
-   *
-   * @type {Function}
-   * @public
-   */
-  initialize: {
-    value: function initialize() {},
     writable: true,
     enumerable: false,
     configurable: true
@@ -344,19 +330,6 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
-   * List of resources that can be used by the pagelets.
-   *
-   * @type {object}
-   * @public
-   */
-  resources: {
-    value: {},
-    writable: true,
-    enumerable: false,
-    configurable: true
-  },
-
-  /**
    * Dependencies. These are the common, shared files that need to be loaded
    * globally. This array will be set
    *
@@ -392,25 +365,6 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   //
   // !IMPORTANT
   //
-
-  /**
-   * Simple emit wrapper that returns a function that emits an event once it's
-   * called
-   *
-   * @param {String} event Name of the event that we should emit.
-   * @param {Function} parser Argument parser.
-   * @api public
-   */
-  emits: {
-    enumerable: false,
-    value: function emits(event, parser) {
-      var self = this;
-
-      return function emit(arg) {
-        self.emit(event, parser ? parser.apply(self, arguments) : arg);
-      };
-    }
-  },
 
   /**
    * Redirect the user.
@@ -895,25 +849,6 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
   },
 
   /**
-   * Access a resource.
-   *
-   * @TODO re-use previous initialised resources.
-   * @param {String} name The resource
-   * @api public
-   */
-  resource: {
-    enumerable: false,
-    value: function get(name) {
-      var resource;
-
-      if (name in this.resources) resource = new this.resources[name];
-
-      resource.configure(this.req, this.res);
-      return resource;
-    }
-  },
-
-  /**
    * Reset the instance to it's original state and initialise it.
    *
    * @param {ServerRequest} req HTTP server request.
@@ -1001,7 +936,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, {
       return this;
     }
   }
-});
+}));
 
 //
 // Make the Page extendable.

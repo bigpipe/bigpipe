@@ -1,10 +1,12 @@
 'use strict';
 
+var shared = require('./shared');
+
 function Resource() {
   if (!(this instanceof Resource)) return new Resource();
 }
 
-Resource.prototype = Object.create(require('stream').prototype, {
+Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   constructor: {
     value: Resource,
     writable: true,
@@ -28,10 +30,10 @@ Resource.prototype = Object.create(require('stream').prototype, {
   },
 
   /**
-   * Simple state that people can manipulate which perists untill the resource
+   * Simple state that people can manipulate which persists until the resource
    * has been destroyed.
    *
-   * @ptype {Mixed}
+   * @type {Mixed}
    * @public
    */
   state: {
@@ -44,7 +46,7 @@ Resource.prototype = Object.create(require('stream').prototype, {
   //
   // !IMPORTANT
   //
-  // Function's should never overriden as we might depend on them internally,
+  // Function's should never overridden as we might depend on them internally,
   // that's why they are configured with writable: false and configurable: false
   // by default.
   //
@@ -150,7 +152,7 @@ Resource.prototype = Object.create(require('stream').prototype, {
       }
     }
   }
-});
+}));
 
 //
 // Make the Resource extendable.
