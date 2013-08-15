@@ -13,7 +13,7 @@ var FreeList = require('freelist').FreeList
 //
 // Library internals.
 //
-var Compiler = require('./src/compiler')
+var Compiler = require('./lib/compiler')
   , Resource = require('./resource')
   , Pagelet = require('./pagelet')
   , Pool = require('./pool')
