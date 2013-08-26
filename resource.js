@@ -56,7 +56,6 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function get(query, fn) {
       var state = this.state;
-
       if (state && 'get' in state) return state.get.apply(this, arguments);
 
       //
@@ -80,7 +79,6 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function post(data, fn) {
       var state = this.state;
-
       if (state && 'post' in state) return state.post.apply(this, arguments);
 
       //
@@ -104,11 +102,10 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function put(data, query, fn) {
       var state = this.state;
-
       if (state && 'put' in state) return state.put.apply(this, arguments);
 
       //
-      // Notify UPDATE failed due to missing resource method.
+      // Notify PUT failed due to missing resource method.
       //
       process.nextTick(
         fn.bind(fn, 'unable to update the queried value in the resource', false)
@@ -128,7 +125,6 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function deleted(query, fn) {
       var state = this.state;
-
       if (state && 'delete' in state) return state.delete.apply(this, arguments);
 
       //
@@ -197,40 +193,10 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       this.get(data, function get(err, found) {
         if (!found) return fn(err, found);
 
-        resource.del(data, function deleted(fail) {
+        resource.delete(data, function deleted(fail) {
           fn(err || fail, found);
         });
       });
-    }
-  },
-
-  /**
-   * Update a value in the resource.
-   *
-   * @param {Mixed} data The data that needs to be updated.
-   * @param {Function} fn The callback.
-   * @api public
-   */
-  set: {
-    enumerable: false,
-    value: function set(data, fn) {
-      if (this.sync) this.sync('update', data, fn);
-      this.emit('update');
-    }
-  },
-
-  /**
-   * Remove a value in the resource.
-   *
-   * @param {Mixed} data The data that needs to be removed.
-   * @param {Function} fn The callback.
-   * @api public
-   */
-  del: {
-    enumerable: false,
-    value: function deletes(data, fn) {
-      if (this.sync) this.sync('delete', data, fn);
-      this.emit('delete');
     }
   },
 
