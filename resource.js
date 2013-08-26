@@ -1,6 +1,7 @@
 'use strict';
 
-var shared = require('./shared');
+var shared = require('./shared')
+  , rest = ['get', 'post', 'put', 'delete'];
 
 function Resource() {
   if (!(this instanceof Resource)) return new Resource();
@@ -43,6 +44,102 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true
   },
 
+  /**
+   * GET a new value from the resource.
+   *
+   * @type {Function}
+   * @public
+   */
+  get: {
+    writable: true,
+    enumerable: false,
+    configurable: true,
+    value: function get(query, fn) {
+      var state = this.state;
+
+      if (state && 'get' in state) return state.get.apply(this, arguments);
+
+      //
+      // Notify GET failed due to missing resource method.
+      //
+      process.nextTick(
+        fn.bind(fn, 'unable to read the data from the resource')
+      );
+    }
+  },
+
+  /**
+   * POST a new value to the resource.
+   *
+   * @type {Function}
+   * @public
+   */
+  post: {
+    writable: true,
+    enumerable: false,
+    configurable: true,
+    value: function post(data, fn) {
+      var state = this.state;
+
+      if (state && 'post' in state) return state.post.apply(this, arguments);
+
+      //
+      // Notify POST failed due to missing resource method.
+      //
+      process.nextTick(
+        fn.bind(fn, 'unable to create a new value in the resource', false)
+      );
+    }
+  },
+
+  /**
+   * PUT a value in the resource.
+   *
+   * @type {Function}
+   * @public
+   */
+  put: {
+    writable: true,
+    enumerable: false,
+    configurable: true,
+    value: function put(data, query, fn) {
+      var state = this.state;
+
+      if (state && 'put' in state) return state.put.apply(this, arguments);
+
+      //
+      // Notify UPDATE failed due to missing resource method.
+      //
+      process.nextTick(
+        fn.bind(fn, 'unable to update the queried value in the resource', false)
+      );
+    }
+  },
+
+  /**
+   * DELETE a value from the resource.
+   *
+   * @type {Function}
+   * @public
+   */
+  delete: {
+    writable: true,
+    enumerable: false,
+    configurable: true,
+    value: function deleted(query, fn) {
+      var state = this.state;
+
+      if (state && 'delete' in state) return state.delete.apply(this, arguments);
+
+      //
+      // Notify DELETE failed due to missing resource method.
+      //
+      process.nextTick(
+        fn.bind(fn, 'unable to delete the value from the resource', false)
+      );
+    }
+  },
+
   //
   // !IMPORTANT
   //
@@ -52,6 +149,23 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   //
   // !IMPORTANT
   //
+
+  /**
+   * GET proxy, which will call the provided or default GET and
+   * emit the READ status on completion. This requires any custom state methods
+   * to accept a callback as last argument.
+   *
+   * @param {String} method GET, POST, PUT, DELETE
+   * @api private
+   */
+  proxyMethod: {
+    enumerable: false,
+    value: function proxyMethod(method) {
+      return function proxy() {
+        this[method].apply(this, arguments);
+      };
+    }
+  },
 
   /**
    * Invalidate the cache all other get requests will now bypass the cache. It
@@ -65,21 +179,6 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     enumerable: false,
     value: function invalidate() {
       this.cache = null;
-    }
-  },
-
-  /**
-   * Get a new value from the resource.
-   *
-   * @param {Mixed} data The query or data we need to retrieve.
-   * @param {Function} fn The callback.
-   * @api public
-   */
-  get: {
-    enumerable: false,
-    value: function get(data, fn) {
-      if (this.sync) this.sync('read', data, fn);
-      this.emit('read');
     }
   },
 
@@ -143,13 +242,18 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   configure: {
     enumerable: false,
     value: function configure(req, res) {
-      this.cache.length = 0;
+      var self = this;
 
-      if (this.initialise) {
-        this.initialise(req, res);
-      } else {
-        this.sync('create', req, function noop() {});
-      }
+      //
+      // Listen to each REST event and delegate it to our private functions,
+      // which can then call the user defined REST actions if provided.
+      //
+      rest.forEach(function initRest(method) {
+        self.on(method, self.proxyMethod(method));
+      });
+
+      this.cache.length = 0;
+      if (this.initialise) this.initialise(req, res);
     }
   }
 }));
