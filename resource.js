@@ -193,9 +193,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    * @param {Function} fn The callback.
    * @api public
    */
-  once: {
+  pull: {
     enumerable: false,
-    value: function once(data, fn) {
+    value: function pull(data, fn) {
       var resource = this;
 
       this.get(data, function get(err, found) {
