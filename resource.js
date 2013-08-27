@@ -139,9 +139,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     value: function proxyMethod(method) {
       return function callback() {
         var args = Array.prototype.slice.apply(arguments)
-          , last = args.pop();
+          , fn = args.pop();
 
-        args.push(this.proxy.bind(this, last));
+        args.push(this.proxy.bind(this, fn));
         this[method].apply(this, args);
       };
     }
@@ -161,7 +161,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     enumerable: false,
     value: function proxy(fn, error, data) {
       if (!(error instanceof Error)) error = new Error(error);
-      process.nextTick(fn.bind(fn, error, data));
+      process.nextTick(function callback() {
+        fn(error, data);
+      });
     }
   },
 
