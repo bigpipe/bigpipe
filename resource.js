@@ -160,7 +160,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   proxy: {
     enumerable: false,
     value: function proxy(fn, error, data) {
-      if (!(error instanceof Error)) error = new Error(error);
+      if (error && !(error instanceof Error)) error = new Error(error);
       process.nextTick(function callback() {
         fn(error, data);
       });
