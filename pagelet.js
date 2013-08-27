@@ -286,9 +286,16 @@ Pagelet.extend = require('extendable');
 // ```
 //
 Pagelet.on = function on(module) {
-  this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
-  module.exports = this;
+  var dir = this.prototype.directory = this.prototype.directory || path.dirname(module.filename)
+    , resources = this.prototype.resources
+    , resolve = this.prototype.resolve;
 
+  //
+  // Resolve resource paths.
+  //
+  if (resources) Object.keys(resources).forEach(resolve(dir, resources));
+
+  module.exports = this;
   return this;
 };
 

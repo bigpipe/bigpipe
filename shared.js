@@ -1,5 +1,7 @@
 'use strict';
 
+var path = require('path');
+
 //
 // This file contains common utilities and functionality that is shared between
 // the various of pagelet interfaces. This object is merged in to the prototype
@@ -80,6 +82,26 @@ var shared = {
   },
 
   /**
+   * Compile iterator to resolve paths to various resources supplied to the module.
+   *
+   * @param {String} dir base directory
+   * @param {Object} stack orginal collection
+   * @param {Mixed} object reference to resource
+   * @returns {Function} iterator
+   * @api private
+   */
+  resolve: {
+    enumerable: false,
+    value: function resolve(dir, stack) {
+      return function resolver(object) {
+        if ('string' === typeof stack[object]) {
+          stack[object] = path.join(dir, stack[object]);
+        }
+      };
+    }
+  },
+
+  /**
    * Access a resource.
    *
    * @TODO re-use previous initialised resources.
@@ -90,10 +112,11 @@ var shared = {
     enumerable: false,
     value: function get(name) {
       var page = this.page || this
+        , Resource = this.resources[name] || page.resources[name]
         , resource;
 
-      if (name in this.resources) resource = new this.resources[name];
-      else resource = new page.resources[name];
+      if ('string' === typeof Resource) Resource = require(Resource);
+      resource = new Resource;
 
       resource.configure(page.req, page.res);
       return resource;
