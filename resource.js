@@ -56,14 +56,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function get(query, fn) {
       var state = this.state;
-      if (state && 'get' in state) return state.get.apply(this, arguments);
 
-      //
-      // Notify GET failed due to missing resource method.
-      //
-      process.nextTick(
-        fn.bind(fn, 'unable to read the data from the resource')
-      );
+      if (state && 'get' in state) return state.get.apply(this, arguments);
+      fn('unable to read the data from the resource');
     }
   },
 
@@ -79,14 +74,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function post(data, fn) {
       var state = this.state;
-      if (state && 'post' in state) return state.post.apply(this, arguments);
 
-      //
-      // Notify POST failed due to missing resource method.
-      //
-      process.nextTick(
-        fn.bind(fn, 'unable to create a new value in the resource', false)
-      );
+      if (state && 'post' in state) return state.post.apply(this, arguments);
+      fn('unable to create a new value in the resource', false);
     }
   },
 
@@ -102,14 +92,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function put(data, query, fn) {
       var state = this.state;
-      if (state && 'put' in state) return state.put.apply(this, arguments);
 
-      //
-      // Notify PUT failed due to missing resource method.
-      //
-      process.nextTick(
-        fn.bind(fn, 'unable to update the queried value in the resource', false)
-      );
+      if (state && 'put' in state) return state.put.apply(this, arguments);
+      fn('unable to update the queried value in the resource', false);
     }
   },
 
@@ -125,14 +110,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     configurable: true,
     value: function deleted(query, fn) {
       var state = this.state;
-      if (state && 'delete' in state) return state.delete.apply(this, arguments);
 
-      //
-      // Notify DELETE failed due to missing resource method.
-      //
-      process.nextTick(
-        fn.bind(fn, 'unable to delete the value from the resource', false)
-      );
+      if (state && 'delete' in state) return state.delete.apply(this, arguments);
+      fn('unable to delete the value from the resource', false);
     }
   },
 
@@ -157,9 +137,31 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   proxyMethod: {
     enumerable: false,
     value: function proxyMethod(method) {
-      return function proxy() {
-        this[method].apply(this, arguments);
+      return function callback() {
+        var args = Array.prototype.slice.apply(arguments)
+          , last = args.pop();
+
+        args.push(this.proxy.bind(this, last));
+        this[method].apply(this, args);
       };
+    }
+  },
+
+  /**
+   * Proxy method to channel all callbacks from resources through, this will
+   * expose Error objects only if manipulation of resources fails and will make
+   * sure callbacks are async.
+   *
+   * @param {Funtion} fn callback
+   * @param {Mixed} error error message
+   * @param {Mixed} data
+   * @api private
+   */
+  proxy: {
+    enumerable: false,
+    value: function proxy(fn, error, data) {
+      if (!(error instanceof Error)) error = new Error(error);
+      process.nextTick(fn.bind(fn, error, data));
     }
   },
 
