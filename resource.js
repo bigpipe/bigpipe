@@ -161,6 +161,10 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     enumerable: false,
     value: function proxy(fn, error, data) {
       if (error && !(error instanceof Error)) error = new Error(error);
+
+      //
+      // Defer callbacks so resource are always async.
+      //
       process.nextTick(function callback() {
         fn(error, data);
       });
@@ -218,6 +222,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       // Listen to each REST event and delegate it to our private functions,
       // which can then call the user defined REST actions if provided.
       //
+      this.removeAllListeners();
       rest.forEach(function initRest(method) {
         self.on(method, self.proxyMethod(method));
       });
