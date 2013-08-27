@@ -24,7 +24,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    * @public
    */
   cache: {
-    value: [],
+    value: {},
     writable: true,
     enumerable: false,
     configurable: true
