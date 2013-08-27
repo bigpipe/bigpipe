@@ -58,7 +58,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       var state = this.state;
 
       if (state && 'get' in state) return state.get.apply(this, arguments);
-      fn('unable to read the data from the resource');
+      fn(new Error('unable to read the data from the resource'));
     }
   },
 
@@ -76,7 +76,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       var state = this.state;
 
       if (state && 'post' in state) return state.post.apply(this, arguments);
-      fn('unable to create a new value in the resource', false);
+      fn(new Error('unable to create a new value in the resource'), false);
     }
   },
 
@@ -94,7 +94,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       var state = this.state;
 
       if (state && 'put' in state) return state.put.apply(this, arguments);
-      fn('unable to update the queried value in the resource', false);
+      fn(new Error('unable to update the queried value in the resource'), false);
     }
   },
 
@@ -112,7 +112,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       var state = this.state;
 
       if (state && 'delete' in state) return state.delete.apply(this, arguments);
-      fn('unable to delete the value from the resource', false);
+      fn(new Error('unable to delete the value from the resource'), false);
     }
   },
 
