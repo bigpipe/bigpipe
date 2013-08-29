@@ -20,11 +20,11 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    * lookups of data. If people don't want to have their shit cached. They
    * should set it to `undefined` explicitly.
    *
-   * @type {Object}
+   * @type {Array}
    * @public
    */
   cache: {
-    value: {},
+    value: [],
     writable: true,
     enumerable: false,
     configurable: true
@@ -42,78 +42,6 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     writable: true,
     enumerable: false,
     configurable: true
-  },
-
-  /**
-   * GET a new value from the resource.
-   *
-   * @type {Function}
-   * @public
-   */
-  get: {
-    writable: true,
-    enumerable: false,
-    configurable: true,
-    value: function get(query, fn) {
-      var state = this.state;
-
-      if (state && 'get' in state) return state.get.apply(this, arguments);
-      fn(new Error('unable to read the data from the resource'));
-    }
-  },
-
-  /**
-   * POST a new value to the resource.
-   *
-   * @type {Function}
-   * @public
-   */
-  post: {
-    writable: true,
-    enumerable: false,
-    configurable: true,
-    value: function post(data, fn) {
-      var state = this.state;
-
-      if (state && 'post' in state) return state.post.apply(this, arguments);
-      fn(new Error('unable to create a new value in the resource'), false);
-    }
-  },
-
-  /**
-   * PUT a value in the resource.
-   *
-   * @type {Function}
-   * @public
-   */
-  put: {
-    writable: true,
-    enumerable: false,
-    configurable: true,
-    value: function put(data, query, fn) {
-      var state = this.state;
-
-      if (state && 'put' in state) return state.put.apply(this, arguments);
-      fn(new Error('unable to update the queried value in the resource'), false);
-    }
-  },
-
-  /**
-   * DELETE a value from the resource.
-   *
-   * @type {Function}
-   * @public
-   */
-  delete: {
-    writable: true,
-    enumerable: false,
-    configurable: true,
-    value: function deleted(query, fn) {
-      var state = this.state;
-
-      if (state && 'delete' in state) return state.delete.apply(this, arguments);
-      fn(new Error('unable to delete the value from the resource'), false);
-    }
   },
 
   //
@@ -141,8 +69,23 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
         var args = Array.prototype.slice.apply(arguments)
           , fn = args.pop();
 
-        args.push(this.proxy.bind(this, fn));
-        this[method].apply(this, args);
+        //
+        // Populate cache
+        //
+        if (method === 'get') this.once('read', function () {
+          // store stuff in cache
+        });
+
+        //
+        // Call cache proxy and provide custom callback to excert control.
+        //
+        args.push(this.proxy.bind(this, fn, method));
+        if (method in this) return this['_' + method].apply(this, args);
+
+        //
+        // Call the REST method if implemented or return the callback with error.
+        //
+        this.proxy(fn, method, new Error('unable to call ' + method + ' on the resource'));
       };
     }
   },
@@ -159,15 +102,123 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    */
   proxy: {
     enumerable: false,
-    value: function proxy(fn, error, data) {
+    value: function proxy(fn, method, error, data) {
+      if (method === 'get') this.emit('read', data);
       if (error && !(error instanceof Error)) error = new Error(error);
-
       //
       // Defer callbacks so resource are always async.
       //
       process.nextTick(function callback() {
         fn(error, data);
       });
+    }
+  },
+
+  /**
+   * Return array indices which have object in accordance with the object
+   *
+   * @param {Object} query
+   * @returns {Array} of indices
+   * @api private
+   */
+  find: {
+    enumerable: false,
+    value: function find(query) {
+      var cache = this.cache
+        , indices = [];
+
+      //
+      // Return empty list of indices if nothing is cached.
+      //
+      if ('object' !== typeof query || !cache) return indices;
+
+      //
+      // Extract matching indices from the cache.
+      //
+      return cache.reduce(function where(list, object, i) {
+        var matches = Object.keys(query).reduce(function check(result, control) {
+          result.push(control in object && query[control] === object[control]);
+          return result;
+        }, []);
+
+        //
+        // Only include the indice if every queried key matched.
+        //
+        if(matches.length === matches.filter(Boolean).length) list.push(i);
+        return list;
+      }, []);
+    }
+  },
+
+  /**
+   * Return objects in cache that match the indices in the list.
+   *
+   * @param {Array} list of indices
+   * @returns {Array} cached objects in correspondence with indices
+   * @api private
+   */
+  indices: {
+    enumerable: false,
+    value: function indices(list) {
+      return (this.cache || []).reduce(function filter(stack, value, i) {
+        if (~list.indexOf(i)) stack.push(value);
+        return stack;
+      }, []);
+    }
+  },
+
+  /**
+   * GET from cache or proxy to user implemented GET method.
+   *
+   * @type {Function}
+   * @public
+   */
+  _get: {
+    enumerable: false,
+    value: function _get(query, fn) {
+      var cache = this.indices(this.find(query));
+
+      //
+      // Value was found in cache by query return cached value.
+      //
+      if (cache.length) return fn(null, cache);
+      this.get.apply(this, arguments);
+    }
+  },
+
+  /**
+   * POST a new value to the resource.
+   *
+   * @type {Function}
+   * @public
+   */
+  _post: {
+    enumerable: false,
+    value: function _post(data, fn) {
+    }
+  },
+
+  /**
+   * PUT a value in the resource.
+   *
+   * @type {Function}
+   * @public
+   */
+  _put: {
+    enumerable: false,
+    value: function _put(data, query, fn) {
+    }
+  },
+
+  /**
+   * DELETE a value from the resource.
+   *
+   * @type {Function}
+   * @public
+   */
+  _delete: {
+    enumerable: false,
+    value: function _deleted(query, fn) {
     }
   },
 
@@ -187,7 +238,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   },
 
   /**
-   * Receive the data once and remove it.
+   * Pullt data from the resource once and remove it.
    *
    * @param {Mixed} data The data that we want to retrieve and delete.
    * @param {Function} fn The callback.
@@ -227,7 +278,10 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
         self.on(method, self.proxyMethod(method));
       });
 
-      this.cache.length = 0;
+      //
+      // Supply an empty array to cache, since previous use could have unset it.
+      //
+      this.cache = [];
       if (this.initialise) this.initialise(req, res);
     }
   }
