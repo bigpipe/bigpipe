@@ -190,9 +190,15 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       // Tiny middleware function to populate cache on callback.
       //
       this.get.call(this, query, function push(error, data) {
-        if (error) return fn(error);
+        if (error || !data) return fn(error, data);
 
-        if (self.find(query).length === 0) cache.push(data);
+        //
+        // Check if equal objects where added to the cache before, if not push.
+        //
+        data.forEach(function locate(q) {
+          if (self.find(q).length === 0) cache.push(q);
+        });
+
         fn.apply(fn, arguments);
       });
     }
