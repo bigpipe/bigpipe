@@ -70,22 +70,17 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
           , fn = args.pop();
 
         //
-        // Populate cache
-        //
-        if (method === 'get') this.once('read', function () {
-          // store stuff in cache
-        });
-
-        //
         // Call cache proxy and provide custom callback to excert control.
         //
-        args.push(this.proxy.bind(this, fn, method));
+        args.push(this.proxy(fn));
         if (method in this) return this['_' + method].apply(this, args);
 
         //
         // Call the REST method if implemented or return the callback with error.
         //
-        this.proxy(fn, method, new Error('unable to call ' + method + ' on the resource'));
+        this.proxy(fn).call(this, new Error(
+          'unable to call ' + method + ' on the resource'
+        ));
       };
     }
   },
@@ -96,21 +91,28 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    * sure callbacks are async.
    *
    * @param {Funtion} fn callback
-   * @param {Mixed} error error message
-   * @param {Mixed} data
    * @api private
    */
   proxy: {
     enumerable: false,
-    value: function proxy(fn, method, error, data) {
-      if (method === 'get') this.emit('read', data);
-      if (error && !(error instanceof Error)) error = new Error(error);
-      //
-      // Defer callbacks so resource are always async.
-      //
-      process.nextTick(function callback() {
-        fn(error, data);
-      });
+    value: function proxy(fn) {
+      /**
+       * Last callback before arguments are returned to the orginal callee.
+       *
+       * @param {Mixed} error error message
+       * @param {Mixed} data
+       * @api private
+       */
+      return function final(error, data) {
+        if (error && !(error instanceof Error)) error = new Error(error);
+
+        //
+        // Defer callbacks so resource are always async.
+        //
+        process.nextTick(function callback() {
+          fn(error, data);
+        });
+      };
     }
   },
 
@@ -157,9 +159,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    * @returns {Array} cached objects in correspondence with indices
    * @api private
    */
-  indices: {
+  aquire: {
     enumerable: false,
-    value: function indices(list) {
+    value: function aquire(list) {
       return (this.cache || []).reduce(function filter(stack, value, i) {
         if (~list.indexOf(i)) stack.push(value);
         return stack;
@@ -176,13 +178,23 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   _get: {
     enumerable: false,
     value: function _get(query, fn) {
-      var cache = this.indices(this.find(query));
+      var self = this
+        , cache = this.aquire(this.find(query));
 
       //
-      // Value was found in cache by query return cached value.
+      // Values were found in cache return cached values.
       //
       if (cache.length) return fn(null, cache);
-      this.get.apply(this, arguments);
+
+      //
+      // Tiny middleware function to populate cache on callback.
+      //
+      this.get.call(this, query, function push(error, data) {
+        if (error) return fn(error);
+
+        if (self.find(query).length === 0) cache.push(data);
+        fn.apply(fn, arguments);
+      });
     }
   },
 

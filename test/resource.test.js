@@ -91,7 +91,7 @@ describe('Resource', function () {
     it('returns empty list if indices do not exist on cache', function () {
       resource.cache = [{ random: 'data' }];
 
-      var indices = resource.indices([1, 2]);
+      var indices = resource.aquire([1, 2]);
       expect(indices).to.be.an('array');
       expect(indices.length).to.equal(0);
     });
@@ -99,7 +99,7 @@ describe('Resource', function () {
     it('returns empty list if cache is unavailable', function () {
       resource.cache = null;
 
-      var indices = resource.indices([1, 2]);
+      var indices = resource.aquire([1, 2]);
       expect(indices).to.be.an('array');
       expect(indices.length).to.equal(0);
     });
@@ -107,7 +107,7 @@ describe('Resource', function () {
     it('returns cached objects in correspondence with indices', function () {
       resource.cache = [{ random: 'data' }];
 
-      var indices = resource.indices([0]);
+      var indices = resource.aquire([0]);
       expect(indices).to.be.an('array');
       expect(indices.length).to.equal(1);
       expect(indices[0]).to.be.an('object');
