@@ -199,7 +199,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
           if (self.find(q).length === 0) cache.push(q);
         });
 
-        fn.apply(fn, arguments);
+        fn.call(fn, error, data);
       });
     }
   },
