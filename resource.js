@@ -250,7 +250,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
           //
           // Update the cache, append if the query returned no indices.
           //
-          if (!indices) {
+          if (!indices.length) {
             cache.push(data);
           } else {
             indices.forEach(function merge(key) {

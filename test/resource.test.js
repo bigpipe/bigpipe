@@ -171,6 +171,50 @@ describe('Resource', function () {
     });
   });
 
+  describe('#PUT', function () {
+    it('will merge/update data in cache', function (done) {
+      var i = 0;
+
+      resource.cache = [{ random: 'data' }];
+      resource.put = function (query, data, fn) { i++; fn(undefined, true); };
+
+      resource._put({ random: 'data' }, {id: 2}, function (err, result) {
+        expect(resource.cache.length).to.equal(1);
+        expect(resource.cache[0]).to.have.property('id', 2);
+        expect(resource.cache[0]).to.have.property('random', 'data');
+        expect(i).to.equal(1);
+        expect(result).to.equal(true);
+        done();
+      });
+    });
+
+    it('will append data if no indices where queried', function (done) {
+      resource.cache = [{ random: 'data' }];
+      resource.put = function (query, data, fn) { fn(undefined, true); };
+
+      resource._put({ not: 'existing' }, {id: 2}, function (err, result) {
+        expect(resource.cache.length).to.equal(2);
+        expect(resource.cache[0]).to.have.property('random', 'data');
+        expect(resource.cache[1]).to.have.property('id', 2);
+        expect(result).to.equal(true);
+        done();
+      });
+    });
+
+
+    it('will not cache values on failure', function (done) {
+      resource.put = function (query, data, fn) {
+        fn('PUT errored');
+      };
+
+      resource._put({random: 'data'}, {}, function (err, result) {
+        expect(err).to.be.equal('PUT errored');
+        expect(result).to.equal(false);
+        done();
+      });
+    });
+  });
+
   describe('#DELETE', function () {
     it('removes indices from cache', function (done) {
       var i = 0;
