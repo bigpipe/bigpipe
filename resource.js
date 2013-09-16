@@ -191,7 +191,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       //
       // Tiny middleware function to populate cache on callback.
       //
-      this.get.call(this, query, function push(error, data) {
+      this.get(query, function push(error, data) {
         if (error || !data) return fn(error, data);
 
         //
@@ -221,11 +221,10 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       // Only insert data in cache if the actual provided POST succeeds. This
       // will ensure more cache consistency.
       //
-      this.post.call(this, data, function push(error) {
-        if (error) return fn(error, false);
+      this.post(data, function push(error) {
+        if (cache.length && !error) cache.push(data);
 
-        if (cache.length) cache.push(data);
-        fn(error, true);
+        fn(error, !error);
       });
     }
   },
@@ -251,6 +250,26 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   _delete: {
     enumerable: false,
     value: function _deleted(query, fn) {
+      var self = this
+        , cache = this.cache;
+
+      //
+      // Delete queried indices from the cache if resources where deleted from
+      // the external resource as well.
+      //
+      self.delete(query, function deleted(error) {
+        var indices = self.find(query);
+
+        //
+        // Delete indices from cache.
+        //
+        if (cache.length && !error) {
+          indices.forEach(function purge(key) { delete cache[key]; });
+          self.cache = cache.filter(Boolean);
+        }
+
+        fn(error, !error);
+      });
     }
   },
 
