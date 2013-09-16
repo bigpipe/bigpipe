@@ -121,6 +121,28 @@ var shared = {
       resource.configure(page.req, page.res);
       return resource;
     }
+  },
+
+  /*
+   * Recursively merge properties of two objects.
+   */
+  merge: {
+    enumerable: false,
+    value: function merge(a, b) {
+      for (var p in b) {
+        try {
+          if ('object' === typeof b[p]) {
+            a[p] = this.merge(a[p], b[p]);
+          } else {
+            a[p] = b[p];
+          }
+        } catch(e) {
+          a[p] = b[p];
+        }
+      }
+
+      return a;
+    }
   }
 };
 

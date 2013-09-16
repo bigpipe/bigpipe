@@ -181,7 +181,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     enumerable: false,
     value: function _get(query, fn) {
       var self = this
-        , cache = this.aquire(this.find(query));
+        , cache = self.aquire(self.find(query));
 
       //
       // Values were found in cache return cached values.
@@ -191,7 +191,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       //
       // Tiny middleware function to populate cache on callback.
       //
-      this.get(query, function push(error, data) {
+      self.get(query, function push(error, data) {
         if (error || !data) return fn(error, data);
 
         //
@@ -221,10 +221,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       // Only insert data in cache if the actual provided POST succeeds. This
       // will ensure more cache consistency.
       //
-      this.post(data, function push(error) {
+      this.post(data, function push(error, result) {
         if (cache.length && !error) cache.push(data);
-
-        fn(error, !error);
+        fn(error, !error && result);
       });
     }
   },
@@ -237,7 +236,31 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    */
   _put: {
     enumerable: false,
-    value: function _put(data, query, fn) {
+    value: function _put(query, data, fn) {
+      var self = this
+        , cache = self.cache;
+
+      //
+      // Update the or append to the resources.
+      //
+      self.put(query, data, function update(error, result) {
+        if (cache.length && !error) {
+          var indices = self.find(query);
+
+          //
+          // Update the cache, append if the query returned no indices.
+          //
+          if (!indices) {
+            cache.push(data);
+          } else {
+            indices.forEach(function merge(key) {
+              self.cache[key] = self.merge(cache[key], data);
+            });
+          }
+        }
+
+        fn(error, !error && result);
+      });
     }
   },
 
@@ -251,13 +274,13 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
     enumerable: false,
     value: function _deleted(query, fn) {
       var self = this
-        , cache = this.cache;
+        , cache = self.cache;
 
       //
       // Delete queried indices from the cache if resources where deleted from
       // the external resource as well.
       //
-      self.delete(query, function deleted(error) {
+      self.delete(query, function deleted(error, result) {
         var indices = self.find(query);
 
         //
@@ -268,7 +291,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
           self.cache = cache.filter(Boolean);
         }
 
-        fn(error, !error);
+        fn(error, !error && result);
       });
     }
   },

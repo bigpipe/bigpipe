@@ -145,7 +145,7 @@ describe('Resource', function () {
       var i = 0;
 
       resource.cache = [{ random: 'data' }];
-      resource.post = function (data, fn) { i++; fn(); };
+      resource.post = function (data, fn) { i++; fn(undefined, true); };
 
       resource._post({id: 2, more: 'stuff'}, function (err, result) {
         expect(resource.cache.length).to.equal(2);
@@ -176,7 +176,7 @@ describe('Resource', function () {
       var i = 0;
 
       resource.cache = [{id: 1}, { random: 'data' }, {id: 2}];
-      resource.delete = function (query, fn) { i++; fn(); };
+      resource.delete = function (query, fn) { i++; fn(undefined, true); };
 
       resource._delete({random: 'data'}, function (err, result) {
         expect(result).to.equal(true);
@@ -188,7 +188,7 @@ describe('Resource', function () {
     });
 
     it('returns true if nothing was deleted and if there are no errors', function (done) {
-      resource.delete = function (query, fn) { fn(); };
+      resource.delete = function (query, fn) { fn(undefined, true); };
       resource.cache = [{id: 1}, { random: 'data' }, {id: 2}];
 
       resource._delete({not: 'in cache'}, function (err, result) {
