@@ -6,10 +6,6 @@ describe('Resource', function () {
     , Resource = common.Resource
     , resource;
 
-  function noop() {
-    // Callback
-  }
-
   beforeEach(function () {
     resource = new Resource;
     resource.configure();
@@ -170,6 +166,34 @@ describe('Resource', function () {
         // Error will be an instance of Error if POST is triggered by event.
         expect(err).to.be.equal('POST errored somewhere');
         expect(result).to.equal(false);
+        done();
+      });
+    });
+  });
+
+  describe('#DELETE', function () {
+    it('removes indices from cache', function (done) {
+      var i = 0;
+
+      resource.cache = [{id: 1}, { random: 'data' }, {id: 2}];
+      resource.delete = function (query, fn) { i++; fn(); };
+
+      resource._delete({random: 'data'}, function (err, result) {
+        expect(result).to.equal(true);
+        expect(resource.cache.length).to.equal(2);
+        expect(resource.cache[1]).to.have.property('id', 2);
+        expect(i).to.equal(1);
+        done();
+      });
+    });
+
+    it('returns true if nothing was deleted and if there are no errors', function (done) {
+      resource.delete = function (query, fn) { fn(); };
+      resource.cache = [{id: 1}, { random: 'data' }, {id: 2}];
+
+      resource._delete({not: 'in cache'}, function (err, result) {
+        expect(result).to.equal(true);
+        expect(resource.cache.length).to.equal(3);
         done();
       });
     });
