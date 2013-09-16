@@ -144,6 +144,37 @@ describe('Resource', function () {
     });
   });
 
+  describe('#POST', function () {
+    it('will insert data in cache on succesful POST', function (done) {
+      var i = 0;
+
+      resource.cache = [{ random: 'data' }];
+      resource.post = function (data, fn) { i++; fn(); };
+
+      resource._post({id: 2, more: 'stuff'}, function (err, result) {
+        expect(resource.cache.length).to.equal(2);
+        expect(resource.cache[1]).to.have.property('id', 2);
+        expect(resource.cache[1]).to.have.property('more', 'stuff');
+        expect(i).to.equal(1);
+        expect(result).to.equal(true);
+        done();
+      });
+    });
+
+    it('will not cache values on failure', function (done) {
+      resource.post = function (data, fn) {
+        fn('POST errored somewhere');
+      };
+
+      resource._post({random: 'data'}, function (err, result) {
+        // Error will be an instance of Error if POST is triggered by event.
+        expect(err).to.be.equal('POST errored somewhere');
+        expect(result).to.equal(false);
+        done();
+      });
+    });
+  });
+
   describe('#proxyMethod', function () {
     it('returns a callable callback', function () {
       expect(resource.proxyMethod()).to.be.an('function');

@@ -201,7 +201,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
           if (self.find(q).length === 0) cache.push(q);
         });
 
-        fn.call(fn, error, data);
+        fn(error, data);
       });
     }
   },
@@ -218,9 +218,15 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       var cache = this.cache;
 
       //
-      // If cache is available always insert new data.
+      // Only insert data in cache if the actual provided POST succeeds. This
+      // will ensure more cache consistency.
       //
-      if (cache.length) cache.push(data);
+      this.post.call(this, data, function push(error) {
+        if (error) return fn(error, false);
+
+        if (cache.length) cache.push(data);
+        fn(error, true);
+      });
     }
   },
 
