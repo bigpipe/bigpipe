@@ -6,6 +6,10 @@ describe('Resource', function () {
     , Resource = common.Resource
     , resource;
 
+  function noop() {
+    // Callback
+  }
+
   beforeEach(function () {
     resource = new Resource;
     resource.configure();
@@ -87,7 +91,7 @@ describe('Resource', function () {
     });
   });
 
-  describe('#indices', function () {
+  describe('#aquire', function () {
     it('returns empty list if indices do not exist on cache', function () {
       resource.cache = [{ random: 'data' }];
 
@@ -137,6 +141,46 @@ describe('Resource', function () {
       };
 
       resource._get({id: 1}, done);
+    });
+  });
+
+  describe('#proxyMethod', function () {
+    it('returns a callable callback', function () {
+      expect(resource.proxyMethod()).to.be.an('function');
+    });
+
+    it('checks for availability of developer supplied REST method', function (done) {
+      var callback = resource.proxyMethod('post');
+
+      callback(function (err, data) {
+        expect(err).to.be.an.instanceof(Error);
+        expect(err.message).to.equal('unable to call post on the resource');
+        expect(data).to.equal(undefined);
+        done();
+      });
+    });
+  });
+
+  describe('#proxy', function () {
+    it('returns a callable callback', function () {
+      expect(resource.proxy()).to.be.an('function');
+    });
+
+    it('ensures callback is deferred regardless of implementation', function (done) {
+      var final = resource.proxy(done);
+      final();
+    });
+
+    it('exposes supplied error and data', function (done) {
+      var final = resource.proxy(function callback(err, data) {
+        expect(data).to.be.an('object');
+        expect(data).to.have.property('test', 1);
+        expect(err).to.be.an.instanceof(Error);
+        expect(err.message).to.be.equal('I errored');
+        done();
+      });
+
+      final('I errored', { test: 1 });
     });
   });
 });

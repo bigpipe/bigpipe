@@ -65,6 +65,8 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   proxyMethod: {
     enumerable: false,
     value: function proxyMethod(method) {
+      var self = this;
+
       return function callback() {
         var args = Array.prototype.slice.apply(arguments)
           , fn = args.pop();
@@ -72,13 +74,13 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
         //
         // Call cache proxy and provide custom callback to excert control.
         //
-        args.push(this.proxy(fn));
-        if (method in this) return this['_' + method].apply(this, args);
+        args.push(self.proxy(fn));
+        if (method in self) return self['_' + method].apply(self, args);
 
         //
         // Call the REST method if implemented or return the callback with error.
         //
-        this.proxy(fn).call(this, new Error(
+        self.proxy(fn).call(self, new Error(
           'unable to call ' + method + ' on the resource'
         ));
       };
@@ -173,7 +175,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    * GET from cache or proxy to user implemented GET method.
    *
    * @type {Function}
-   * @public
+   * @api private
    */
   _get: {
     enumerable: false,
@@ -208,11 +210,17 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
    * POST a new value to the resource.
    *
    * @type {Function}
-   * @public
+   * @api private
    */
   _post: {
     enumerable: false,
     value: function _post(data, fn) {
+      var cache = this.cache;
+
+      //
+      // If cache is available always insert new data.
+      //
+      if (cache.length) cache.push(data);
     }
   },
 
@@ -256,7 +264,7 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
   },
 
   /**
-   * Pullt data from the resource once and remove it.
+   * Pull data from the resource once and remove it.
    *
    * @param {Mixed} data The data that we want to retrieve and delete.
    * @param {Function} fn The callback.
