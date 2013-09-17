@@ -790,12 +790,12 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
       //
       // Add the character set asap for performance, defaults to utf-8.
       //
-      if (charset) head.push('<meta charset="' + charset + '" />');
+      if (charset) head.push('<meta charset="' + charset + '">');
 
       if (mode !== 'render') {
         head.push(
           '<noscript>',
-          '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1" />',
+          '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1">',
           '</noscript>'
         );
       } else {
@@ -808,7 +808,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
       }
 
       if (library.css) library.css.forEach(function inject(url) {
-        head.push('<link rel="stylesheet" href="'+ url +'" />');
+        head.push('<link rel="stylesheet" href="'+ url +'">');
       });
 
       library.js.forEach(function inject(url) {
