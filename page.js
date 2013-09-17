@@ -119,6 +119,20 @@ function Page(pipe) {
     },
 
     /**
+     * Character set for page. Setting this to null will not include the meta
+     * charset. However this is not advised as this will reduce performace.
+     *
+     * @type {String}
+     * @api private
+     */
+    charset: {
+      value: 'utf-8',
+      writable: true,
+      enumerable: false,
+      configurable: true
+    },
+
+    /**
      * Counter for the number of processed pagelets.
      *
      * @type {Number}
@@ -767,10 +781,16 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
     value: function bootstrap(mode, data) {
       var method = this.pagelets.length ? 'write' : 'end'
         , view = this.temper.fetch(this.view).server
-        , head = ['<meta charset="utf-8" />']
+        , charset = this.charset
         , library = this.compiler.page(this)
         , path = this.req.uri.pathname
+        , head = []
         , output;
+
+      //
+      // Add the character set asap for performance, defaults to utf-8.
+      //
+      if (charset) head.push('<meta charset="' + charset + '" />');
 
       if (mode !== 'render') {
         head.push(
