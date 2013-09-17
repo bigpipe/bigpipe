@@ -119,20 +119,6 @@ function Page(pipe) {
     },
 
     /**
-     * Character set for page. Setting this to null will not include the meta
-     * charset. However this is not advised as this will reduce performace.
-     *
-     * @type {String}
-     * @api private
-     */
-    charset: {
-      value: 'utf-8',
-      writable: true,
-      enumerable: false,
-      configurable: true
-    },
-
-    /**
      * Counter for the number of processed pagelets.
      *
      * @type {Number}
@@ -171,6 +157,20 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
    */
   path: {
     value: '/',
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
+
+  /**
+   * Character set for page. Setting this to null will not include the meta
+   * charset. However this is not advised as this will reduce performace.
+   *
+   * @type {String}
+   * @api private
+   */
+  charset: {
+    value: 'utf-8',
     writable: true,
     enumerable: false,
     configurable: true
