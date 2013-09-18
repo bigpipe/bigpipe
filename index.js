@@ -42,6 +42,7 @@ catch (e) {}
  * - domain: Use domains to handle requests.
  * - pathname: The pathname we use for Primus requests
  * - static: The pathname for our static assets
+ * - public: Pathname with public and compiled assets, latter are stored in /dist
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -72,7 +73,7 @@ function Pipe(server, options) {
   //
   // Compile the Page's assets.
   //
-  this.compiler = new Compiler(options('directory', __dirname), this, {
+  this.compiler = new Compiler(path.resolve(options('public', __dirname), 'dist'), this, {
     pathname: options('static', '/')
   });
 
