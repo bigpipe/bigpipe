@@ -50,7 +50,7 @@ catch (e) {}
  * @api public
  */
 function Pipe(server, options) {
-  options = this.options(options || {});
+  this.options = options = this.options(options || {});
 
   this.resources = new Pool({ type: 'resources' }); // Resource pool.
   this.stream = options('stream', process.stdout);  // Our log stream.
@@ -59,6 +59,7 @@ function Pipe(server, options) {
   this.cache = options('cache', null);              // Enable URL lookup caching.
   this.temper = new Temper();                       // Template parser.§
   this.acl = new ACL(this);                         // Access Control List.
+  this.plugins = Object.create(null);               // Plugin storage.
 
   //
   // Now that everything is processed, we can setup our internals.
@@ -618,6 +619,67 @@ Pipe.prototype.decorate = function decorate(req, res) {
  */
 Pipe.prototype.connection = function connection(spark) {
 
+};
+
+/**
+ * Register a new plugin.
+ *
+ * ```js
+ * bigpipe.use('ack', {
+ *   //
+ *   // Only ran on the server.
+ *   //
+ *   server: function (bigpipe, options) {
+ *      // do stuff
+ *   },
+ *
+ *   //
+ *   // Runs on the client, it's automatically bundled.
+ *   //
+ *   client: function (bigpipe, options) {
+ *      // do client stuff
+ *   },
+ *
+ *   //
+ *   // Optional library that needs to be bundled on the client (should be a string)
+ *   //
+ *   library: ''
+ * });
+ * ```
+ *
+ * @param {String} name The name of the plugin.
+ * @param {Object} plugin The plugin that contains client and server extensions.
+ * @api public
+ */
+Pipe.prototype.use = function use(name, plugin) {
+  if ('object' === typeof name && !plugin) {
+    plugin = name;
+    name = plugin.name;
+  }
+
+  if (!name) throw new Error('Plugin should be specified with a name');
+  if ('string' !== typeof name) throw new Error('Plugin names should be a string');
+  if ('string' === typeof plugin) plugin = require(plugin);
+
+  //
+  // Plugin accepts an object or a function only.
+  //
+  if (!/^(object|function)$/.test(typeof plugin)) throw new Error('Plugin should be an object or function');
+
+  //
+  // Plugin require a client, server or both to be specified in the object.
+  //
+  if (!('server' in plugin || 'client' in plugin)) {
+    throw new Error('The plugin in missing a client or server function');
+  }
+
+  if (name in this.plugins) throw new Error('The plugin name was already defined');
+
+  this.plugins[name] = plugin;
+  if (!plugin.server) return this;
+
+  plugin.server.call(this, this, this.options);
+  return this;
 };
 
 /**
