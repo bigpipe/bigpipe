@@ -5,7 +5,7 @@ describe('Pagelet', function () {
     , Pagelet = common.Pagelet
     , Pipe = common.Pipe
     , expect = common.expect
-    , server = Pipe.createServer(1337, { pages: __dirname + '/fixtures/pages', directory: __dirname +'/dist' })
+    , server = Pipe.createServer(1337, { pages: __dirname + '/fixtures/pages', dist: '/tmp/dist' })
     , page, pagelet;
 
   beforeEach(function () {

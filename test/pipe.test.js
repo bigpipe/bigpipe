@@ -15,7 +15,7 @@ describe('Pipe', function () {
 
     app = new Pipe(server, {
         pages: __dirname +'/fixtures/pages'
-      , directory: __dirname +'/dist'
+      , dist: '/tmp/dist'
       , domains: true
     });
 
@@ -97,7 +97,7 @@ describe('Pipe', function () {
 
       app = new Pipe(server, {
           pages: __dirname + '/fixtures/pages'
-        , directory: __dirname +'/dist'
+        , dist: '/tmp/dist'
         , cache: cache
       });
 
@@ -131,7 +131,7 @@ describe('Pipe', function () {
     it('doesnt write to stdout if we dont provide a stream', function (done) {
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/pages',
-        directory: __dirname +'/dist',
+        dist: '/tmp/dist',
         domains: true,
         stream: null
       });
@@ -163,7 +163,7 @@ describe('Pipe', function () {
 
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/pages',
-        directory: __dirname +'/dist',
+        dist: '/tmp/dist',
         domains: true,
         stream: stream
       });
@@ -184,7 +184,7 @@ describe('Pipe', function () {
     it('uses user provided 404 and 500 pages based on routes', function () {
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/discover',
-        directory: __dirname +'/dist'
+        dist: '/tmp/dist'
       });
 
       expect(app.pages).to.have.length(2);
@@ -232,7 +232,7 @@ describe('Pipe', function () {
     it('omits any directories from the read of the pages directory', function () {
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/pages',
-        directory: __dirname + '/dist'
+        dist: '/tmp/dist'
       });
 
       app.pages.forEach(function (page) {
@@ -245,7 +245,7 @@ describe('Pipe', function () {
     it('proxies event listeners', function (done) {
       var pipe = Pipe.createServer(common.port, {
           pages: __dirname +'/fixtures/pages'
-        , directory: __dirname +'/dist'
+        , dist: '/tmp/dist'
       });
 
       pipe.once('listening', function () {
