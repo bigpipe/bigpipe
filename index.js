@@ -42,7 +42,8 @@ catch (e) {}
  * - domain: Use domains to handle requests.
  * - pathname: The pathname we use for Primus requests
  * - static: The pathname for our static assets
- * - public: Pathname with public and compiled assets, latter are stored in /dist
+ * - dist: The pathname for the compiled assets
+ * - public: The pathname for public static content
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
