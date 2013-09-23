@@ -640,7 +640,12 @@ Pipe.prototype.connection = function connection(spark) {
  *   //
  *   // Optional library that needs to be bundled on the client (should be a string)
  *   //
- *   library: ''
+ *   library: '',
+ *
+ *   //
+ *   // Optional plugin specific options, will be merged with Bigpipe.options
+ *   //
+ *   options: {}
  * });
  * ```
  *
@@ -675,7 +680,7 @@ Pipe.prototype.use = function use(name, plugin) {
   this.plugins[name] = plugin;
   if (!plugin.server) return this;
 
-  plugin.server.call(this, this, this.options);
+  plugin.server.call(this, this, this.mixin({}, this.options, plugin.options || {}));
   return this;
 };
 
