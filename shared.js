@@ -123,8 +123,12 @@ var shared = {
     }
   },
 
-  /*
+  /**
    * Recursively merge properties of two objects.
+   *
+   * @param {Object} a first object
+   * @param {Object} b second object
+   * @api public
    */
   merge: {
     enumerable: false,
@@ -157,3 +161,12 @@ var shared = {
 exports.mixin = function mixin(proto) {
   return shared.mixin.value(Object.create(null), shared, proto);
 };
+
+/**
+ * Recursively merge properties of two objects.
+ *
+ * @param {Object} a first object
+ * @param {Object} b second object
+ * @api public
+ */
+exports.merge = shared.merge.value;

@@ -8,7 +8,8 @@ var FreeList = require('freelist').FreeList
   , async = require('async')
   , path = require('path')
   , url = require('url')
-  , fs = require('fs');
+  , fs = require('fs')
+  , shared = require('./shared');
 
 //
 // Library internals.
@@ -49,7 +50,8 @@ catch (e) {}
  * @api public
  */
 function Pipe(server, options) {
-  this.options = options = this.options(options || {});
+  this._options = options;
+  options = this.options(options || {});
 
   this.stream = options('stream', process.stdout);  // Our log stream.
   this.domains = !!options('domain') && domain;     // Call all requests in a domain.
@@ -680,7 +682,10 @@ Pipe.prototype.use = function use(name, plugin) {
   this.plugins[name] = plugin;
   if (!plugin.server) return this;
 
-  plugin.server.call(this, this, this.mixin({}, this.options, plugin.options || {}));
+  plugin.server.call(this, this, this.options(
+    shared.merge(this._options, plugin.options || {}))
+  );
+
   return this;
 };
 
