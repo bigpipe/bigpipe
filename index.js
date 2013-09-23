@@ -16,9 +16,7 @@ var FreeList = require('freelist').FreeList
 var Compiler = require('./lib/compiler')
   , Resource = require('./resource')
   , Pagelet = require('./pagelet')
-  , Pool = require('./pool')
-  , Page = require('./page')
-  , ACL = require('./acl');
+  , Page = require('./page');
 
 //
 // Try to detect if we've got domains support. So we can easily serve 500 error
@@ -53,13 +51,11 @@ catch (e) {}
 function Pipe(server, options) {
   this.options = options = this.options(options || {});
 
-  this.resources = new Pool({ type: 'resources' }); // Resource pool.
   this.stream = options('stream', process.stdout);  // Our log stream.
   this.domains = !!options('domain') && domain;     // Call all requests in a domain.
   this.statusCodes = Object.create(null);           // Stores error pages.
   this.cache = options('cache', null);              // Enable URL lookup caching.
   this.temper = new Temper();                       // Template parser.§
-  this.acl = new ACL(this);                         // Access Control List.
   this.plugins = Object.create(null);               // Plugin storage.
 
   //
