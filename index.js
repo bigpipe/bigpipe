@@ -71,7 +71,7 @@ function Pipe(server, options) {
   //
   // Compile the Page's assets.
   //
-  this.compiler = new Compiler(options('dist', __dirname), this, {
+  this.compiler = new Compiler(options('dist', path.join(process.cwd(), 'dist')), this, {
     pathname: options('static', '/')
   });
 

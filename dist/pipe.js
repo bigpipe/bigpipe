@@ -829,6 +829,7 @@ Pagelet.prototype.render = function render(html) {
     if (borked) root.removeChild(div);
   }, this);
 
+  this.pipe.emit(this.name +'::render', this);
   return true;
 };
 
