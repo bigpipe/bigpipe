@@ -663,7 +663,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.js = collection.array(data.js);      // Dependencies for the page.
   this.run = data.run;                      // Pagelet client code.
 
-  var pagelet = this;
+  var pagelet = this.broadcast('configured', data);
 
   async.each(this.css.concat(this.js), function download(asset, next) {
     this.load(document.body, asset, next);
@@ -682,7 +682,7 @@ Pagelet.prototype.configure = function configure(name, data) {
  * @api private
  */
 Pagelet.prototype.initialise = function initialise() {
-  this.emit('initialise');
+  this.broadcast('initialise');
 
   //
   // Only load the client code in a sandbox when it exists. There no point in
@@ -690,6 +690,22 @@ Pagelet.prototype.initialise = function initialise() {
   //
   if (!this.code) return;
   this.sandbox(this.prepare(this.code));
+};
+
+/**
+ * Broadcast an event that will be emitted on the pagelet and the page.
+ *
+ * @param {String} event The name of the event we should emit
+ * @api private
+ */
+Pagelet.prototype.broadcast = function broadcast(event) {
+  this.emit.apply(this, arguments);
+  this.pipe.emit.apply([
+    this.name +'::'+ event,
+    this.pipe
+  ].concat(Array.prototype.slice.call(arguments, 1)));
+
+  return this;
 };
 
 /**
@@ -829,7 +845,7 @@ Pagelet.prototype.render = function render(html) {
     if (borked) root.removeChild(div);
   }, this);
 
-  this.pipe.emit(this.name +'::render', this);
+  this.broadcast('render', html);
   return true;
 };
 
