@@ -784,6 +784,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
         , charset = this.charset
         , library = this.compiler.page(this)
         , path = this.req.uri.pathname
+        , key = this.pipe.options('head', 'bootstrap')
         , head = []
         , output;
 
@@ -829,7 +830,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
       // @TODO bootstrap should not interfere with user data.
       //
       data = data || {};
-      data.bootstrap = head.join('\n');
+      data[key] = head.join('\n');
       output = view(data);
 
       if ('render' === mode) return this.emit('bootstrapped', output);

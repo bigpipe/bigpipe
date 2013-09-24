@@ -39,10 +39,11 @@ catch (e) {}
  * - parser: Which parser should be used to send data in real-time.
  * - pages: String or array of pages we serve.
  * - domain: Use domains to handle requests.
- * - pathname: The pathname we use for Primus requests
- * - static: The pathname for our static assets
- * - dist: The pathname for the compiled assets
- * - public: The pathname for public static content
+ * - pathname: The pathname we use for Primus requests.
+ * - static: The pathname for our static assets.
+ * - dist: The pathname for the compiled assets.
+ * - public: The pathname for public static content.
+ * - head: String on which to bind header view data, defaults to bootstrap.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -50,8 +51,7 @@ catch (e) {}
  * @api public
  */
 function Pipe(server, options) {
-  this._options = options;
-  options = this.options(options || {});
+  this.options = options = this.options(options || {});
 
   this.stream = options('stream', process.stdout);  // Our log stream.
   this.domains = !!options('domain') && domain;     // Call all requests in a domain.
@@ -121,9 +121,15 @@ Pipe.prototype.emits = function emits(event, parser) {
  * @api private
  */
 Pipe.prototype.options = function options(obj) {
-  return function get(key, backup) {
+  function get(key, backup) {
     return key in obj ? obj[key] : backup;
-  };
+  }
+
+  //
+  // Allow new options to be be merged in against the orginal object.
+  //
+  get.merge = shared.merge.bind(get, obj);
+  return get;
 };
 
 /**
@@ -682,9 +688,8 @@ Pipe.prototype.use = function use(name, plugin) {
   this.plugins[name] = plugin;
   if (!plugin.server) return this;
 
-  plugin.server.call(this, this, this.options(
-    shared.merge(this._options, plugin.options || {}))
-  );
+  this.options.merge(plugin.options || {});
+  plugin.server.call(this, this, this.options);
 
   return this;
 };
