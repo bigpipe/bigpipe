@@ -700,7 +700,7 @@ Pagelet.prototype.initialise = function initialise() {
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
   this.emit.apply(this, arguments);
-  this.pipe.emit.apply([
+  this.pipe.emit.apply(this.pipe, [
     this.name +'::'+ event,
     this.pipe
   ].concat(Array.prototype.slice.call(arguments, 1)));
