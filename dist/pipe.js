@@ -369,7 +369,7 @@ function loaded() {
  * server side for example:
  *
  * ```css
- * #pagelet_af3f399qu { height: 45px }
+ * #pagelet_af3f399qu { height: 42 }
  * ```
  *
  * @api private
