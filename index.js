@@ -80,9 +80,11 @@ function Pipe(server, options) {
   //
   // Process the pages.
   //
-  this.pages = [];
-  this.define(options('pages'));
-  this.discover(this.pages, this.listen.bind(this));
+  this.pages = this.resolve(options('pages'), this.transform) || [];
+  this.discover(this.pages).compiler.catalog(
+    this.pages,
+    this.listen.bind(this)
+  );
 }
 
 Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
@@ -265,12 +267,11 @@ Pipe.prototype.resolve = function resolve(files, transform) {
  * in case we need to handle a 404 or and 500 error page.
  *
  * @param {Array} pages All enabled pages.
- * @param {Function} done callback
  * @returns {Pipe} fluent interface
  * @api private
  */
-Pipe.prototype.discover = function discover(pages, done) {
-  var catalog = []
+Pipe.prototype.discover = function discover(pages) {
+  var catalog = pages || []
     , fivehundered
     , fourofour;
 
@@ -297,8 +298,7 @@ Pipe.prototype.discover = function discover(pages, done) {
   this.statusCodes[500] = fivehundered;
   this.statusCodes[404] = fourofour;
 
-  if (catalog.length) return this.compiler.catalog(catalog, done);
-  process.nextTick(done);
+  return this;
 };
 
 /**
@@ -432,19 +432,28 @@ Pipe.prototype.transform = function transform(Page) {
 
 /**
  * Insert page into collection of pages. If page is a manually instantiated
- * Page push it in, otherwise resolve the path, always transform the page.
+ * Page push it in, otherwise resolve the path, always transform the page. After
+ * dependencies are catalogued the callback will be called.
  *
- * @param {Mixed} page composed Page object or file.
- * @returns {Pipe} fluent interface
+ * @param {Mixed} pages array of composed Page objects or filepath.
+ * @param {Function} fn callback
  * @api public
  */
-Pipe.prototype.define = function define(page) {
-  if (!page) return this;
-  if ('function' === typeof page) page = [ page ];
+Pipe.prototype.define = function define(pages, fn) {
+  if (!pages) return this;
+  if ('function' === typeof pages) pages = [ pages ];
 
-  this.pages.push.apply(this.pages, this.resolve(page, this.transform));
+  //
+  // Transform the mixed pages into useful constructors.
+  //
+  pages = this.resolve(pages, this.transform);
 
-  if (this.compiler) this.compiler.catalog(this.pages);
+  //
+  // Add the pages to the collection and catalog the dependencies.
+  //
+  this.pages.push.apply(this.pages, pages);
+  this.compiler.catalog(pages, fn);
+
   return this;
 };
 
