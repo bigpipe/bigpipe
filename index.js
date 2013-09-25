@@ -57,7 +57,7 @@ function Pipe(server, options) {
   this.domains = !!options('domain') && domain;     // Call all requests in a domain.
   this.statusCodes = Object.create(null);           // Stores error pages.
   this.cache = options('cache', null);              // Enable URL lookup caching.
-  this.temper = new Temper();                       // Template parser.§
+  this.temper = new Temper;                         // Template parser.
   this.plugins = Object.create(null);               // Plugin storage.
 
   //
@@ -82,18 +82,25 @@ function Pipe(server, options) {
   //
   this.pages = [];
   this.define(options('pages'));
-  this.discover(this.pages);
+  this.discover(this.pages, this.listen.bind(this));
+}
 
-  //
-  // Start listening for incoming requests.
-  //
+Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
+
+/**
+ * Start listening for incoming requests.
+ *
+ * @param {Error} error
+ * @api public
+ */
+Pipe.prototype.listen = function listen(error) {
+  if (error) this.emit('error', error);
+
   this.primus.on('connection', this.connection.bind(this));
   this.server.on('request', this.dispatch.bind(this));
   this.server.on('listening', this.emits('listening'));
   this.server.on('error', this.emits('error'));
-}
-
-Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
+};
 
 /**
  * Simple emit wrapper that returns a function that emits an event once it's
@@ -258,10 +265,11 @@ Pipe.prototype.resolve = function resolve(files, transform) {
  * in case we need to handle a 404 or and 500 error page.
  *
  * @param {Array} pages All enabled pages.
+ * @param {Function} done callback
  * @returns {Pipe} fluent interface
  * @api private
  */
-Pipe.prototype.discover = function discover(pages) {
+Pipe.prototype.discover = function discover(pages, done) {
   var catalog = []
     , fivehundered
     , fourofour;
@@ -289,8 +297,8 @@ Pipe.prototype.discover = function discover(pages) {
   this.statusCodes[500] = fivehundered;
   this.statusCodes[404] = fourofour;
 
-  if (catalog.length) this.compiler.catalog(catalog);
-  return this;
+  if (catalog.length) return this.compiler.catalog(catalog, done);
+  process.nextTick(done);
 };
 
 /**
