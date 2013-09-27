@@ -271,7 +271,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
  * @api private
  */
 Pipe.prototype.discover = function discover(pages) {
-  var catalog = pages || []
+  var catalog = []
     , fivehundered
     , fourofour;
 
@@ -716,10 +716,11 @@ Pipe.prototype.use = function use(name, plugin) {
  *
  * @param {Number} port Port number we should listen on.
  * @param {Object} options Configuration.
+ * @param {Function} done optional callback for listen.
  * @returns {Pipe}
  * @api public
  */
-Pipe.createServer = function createServer(port, options) {
+Pipe.createServer = function createServer(port, options, done) {
   options = options || {};
 
   var certs = 'key' in options && 'cert' in options
@@ -746,7 +747,7 @@ Pipe.createServer = function createServer(port, options) {
   // Now that we've got a server, we can setup the pipe and start listening.
   //
   var pipe = new Pipe(server, options);
-  server.listen(port);
+  server.listen(port, done);
 
   return pipe;
 };
