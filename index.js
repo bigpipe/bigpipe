@@ -8,8 +8,7 @@ var FreeList = require('freelist').FreeList
   , async = require('async')
   , path = require('path')
   , url = require('url')
-  , fs = require('fs')
-  , shared = require('./shared');
+  , fs = require('fs');
 
 //
 // Library internals.
@@ -17,7 +16,8 @@ var FreeList = require('freelist').FreeList
 var Compiler = require('./lib/compiler')
   , Resource = require('./resource')
   , Pagelet = require('./pagelet')
-  , Page = require('./page');
+  , Page = require('./page')
+  , shared = require('./shared');
 
 //
 // Try to detect if we've got domains support. So we can easily serve 500 error
@@ -81,45 +81,38 @@ function Pipe(server, options) {
   // Process the pages.
   //
   this.pages = this.resolve(options('pages'), this.transform) || [];
-  this.discover(this.pages).compiler.catalog(
-    this.pages,
-    this.listen.bind(this)
-  );
+  this.discover(this.pages);
 }
 
 Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
+Pipe.prototype.emits = shared.emits;
 
 /**
  * Start listening for incoming requests.
  *
- * @param {Error} error
+ * @param {Number} port port to listen on
+ * @param {Function} done callback
+ * @return {Pipe} fluent interface
  * @api public
  */
-Pipe.prototype.listen = function listen(error) {
-  if (error) this.emit('error', error);
+Pipe.prototype.listen = function listen(port, done) {
+  var pipe = this;
 
-  this.primus.on('connection', this.connection.bind(this));
-  this.server.on('request', this.dispatch.bind(this));
-  this.server.on('listening', this.emits('listening'));
-  this.server.on('error', this.emits('error'));
-};
+  pipe.compiler.catalog(this.pages, function init(error) {
+    if (error) pipe.emit('error', error);
 
-/**
- * Simple emit wrapper that returns a function that emits an event once it's
- * called
- *
- * @param {String} event Name of the event that we should emit.
- * @param {Function} parser Argument parser.
- * @api public
- */
-Pipe.prototype.emits = function emits(event, parser) {
-  var self = this;
+    pipe.primus.on('connection', pipe.connection.bind(pipe));
+    pipe.server.on('request', pipe.dispatch.bind(pipe));
+    pipe.server.on('listening', pipe.emits('listening'));
+    pipe.server.on('error', pipe.emits('error'));
 
-  return function emit(arg) {
-    if (!self.listeners(event).length) return;
+    //
+    // Start listening on the provided port and return the BigPipe instance.
+    //
+    pipe.server.listen(port, done);
+  });
 
-    self.emit(event, parser ? parser.apply(self, arguments) : arg);
-  };
+  return pipe;
 };
 
 /**
@@ -271,7 +264,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
  * @api private
  */
 Pipe.prototype.discover = function discover(pages) {
-  var catalog = []
+  var catalog = pages || []
     , fivehundered
     , fourofour;
 
@@ -436,10 +429,10 @@ Pipe.prototype.transform = function transform(Page) {
  * dependencies are catalogued the callback will be called.
  *
  * @param {Mixed} pages array of composed Page objects or filepath.
- * @param {Function} fn callback
+ * @param {Function} done callback
  * @api public
  */
-Pipe.prototype.define = function define(pages, fn) {
+Pipe.prototype.define = function define(pages, done) {
   if (!pages) return this;
   if ('function' === typeof pages) pages = [ pages ];
 
@@ -452,7 +445,7 @@ Pipe.prototype.define = function define(pages, fn) {
   // Add the pages to the collection and catalog the dependencies.
   //
   this.pages.push.apply(this.pages, pages);
-  this.compiler.catalog(pages, fn);
+  this.compiler.catalog(pages, done);
 
   return this;
 };
@@ -679,7 +672,7 @@ Pipe.prototype.connection = function connection(spark) {
  * @api public
  */
 Pipe.prototype.use = function use(name, plugin) {
-  if ('object' === typeof name && !plugin) {
+  if ('object' === typeof name) {
     plugin = name;
     name = plugin.name;
   }
@@ -714,13 +707,12 @@ Pipe.prototype.use = function use(name, plugin) {
 /**
  * Create a new Pagelet/Pipe server.
  *
- * @param {Number} port Port number we should listen on.
+ * @param {Number} port port to listen on
  * @param {Object} options Configuration.
- * @param {Function} done optional callback for listen.
  * @returns {Pipe}
  * @api public
  */
-Pipe.createServer = function createServer(port, options, done) {
+Pipe.createServer = function createServer(port, options) {
   options = options || {};
 
   var certs = 'key' in options && 'cert' in options
@@ -747,7 +739,14 @@ Pipe.createServer = function createServer(port, options, done) {
   // Now that we've got a server, we can setup the pipe and start listening.
   //
   var pipe = new Pipe(server, options);
-  server.listen(port, done);
+  pipe.listen(port, function initialized(error) {
+    if (error) return pipe.emit('error', error);
+
+    //
+    // Apply plugins is available.
+    //
+    if ('plugins' in options) options.plugins.map(pipe.use.bind(pipe));
+  });
 
   return pipe;
 };
