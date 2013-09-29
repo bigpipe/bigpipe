@@ -99,7 +99,7 @@ Pipe.prototype.listen = function listen(port, done) {
   var pipe = this;
 
   pipe.compiler.catalog(this.pages, function init(error) {
-    if (error) pipe.emit('error', error);
+    if (error) return done(error);
 
     pipe.primus.on('connection', pipe.connection.bind(pipe));
     pipe.server.on('request', pipe.dispatch.bind(pipe));
@@ -740,7 +740,7 @@ Pipe.createServer = function createServer(port, options) {
   //
   var pipe = new Pipe(server, options);
   pipe.listen(port, function initialized(error) {
-    if (error) return pipe.emit('error', error);
+    if (error) throw error;
 
     //
     // Apply plugins is available.
