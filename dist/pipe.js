@@ -344,8 +344,7 @@ function loaded() {
         : meta.tag.currentStyle;
 
       //
-      // We assume that the CSS set the height property of the for given id
-      // selector.
+      // We assume that the CSS set the height property for the given id selector.
       //
       if (style && meta.fn && parseInt(style.height, 10) > 1) {
         meta.fn();
@@ -369,7 +368,7 @@ function loaded() {
  * server side for example:
  *
  * ```css
- * #pagelet_af3f399qu { height: 42 }
+ * #pagelet_af3f399qu { height: 42px }
  * ```
  *
  * @api private
@@ -385,6 +384,7 @@ function poll(url, root, fn) {
     fn: fn
   };
 
+  console.log(meta)
   //
   // Do a quick check before trying to poll, it could be that style sheet was
   // cached and was loaded instantly on the page.

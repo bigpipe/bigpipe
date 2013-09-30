@@ -6,7 +6,7 @@
   "engine": "node >= 0.10.0",
   "scripts": {
     "test": "mocha $(find test -name '*.test.js')",
-    "build": "browserify pipe/index.js -o dist/pipe.js --standalone BigPipe"
+    "build": "./node_modules/.bin/browserify pipe/index.js -o dist/pipe.js --standalone BigPipe"
   },
   "pre-commit": [
     "build",
@@ -18,18 +18,18 @@
     "ws": "0.4.x",
     "routable": "0.0.x",
     "mkdirp": "0.3.x",
-    "primus": "1.2.x",
+    "primus": "1.4.x",
     "expirable": "0.0.x",
     "colors": "0.6.x",
     "smithy": "0.1.x",
     "temper": "0.0.x",
-    "jade": "0.33.x"
+    "jade": "0.35.x"
   },
   "devDependencies": {
-    "chai": "1.7.x",
-    "mocha": "1.12.x",
+    "chai": "1.8.x",
+    "mocha": "1.13.x",
     "pre-commit": "0.0.x",
-    "browserify": "2.25.x"
+    "browserify": "2.33.x"
   },
   "repository": {
     "type": "git",
