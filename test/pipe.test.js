@@ -243,6 +243,11 @@ describe('Pipe', function () {
 
   describe('#listen', function () {
     it('proxies event listeners', function (done) {
+      //
+      // Set a big timeout as we might need to lazy install dependencies
+      //
+      this.timeout(50E4);
+
       var pipe = new Pipe(http.createServer(), {
           pages: __dirname +'/fixtures/pages'
         , dist: '/tmp/dist'
