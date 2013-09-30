@@ -80,7 +80,7 @@ function Pipe(server, options) {
   //
   // Process the pages.
   //
-  this.pages = this.resolve(options('pages'), this.transform) || [];
+  this.pages = this.resolve(options('pages', __dirname + '/pages'), this.transform) || [];
   this.discover(this.pages);
 }
 
