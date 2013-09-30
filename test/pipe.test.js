@@ -241,9 +241,9 @@ describe('Pipe', function () {
     });
   });
 
-  describe('.createServer', function () {
+  describe('#listen', function () {
     it('proxies event listeners', function (done) {
-      var pipe = Pipe.createServer(common.port, {
+      var pipe = new Pipe(http.createServer(), {
           pages: __dirname +'/fixtures/pages'
         , dist: '/tmp/dist'
       });
@@ -251,6 +251,8 @@ describe('Pipe', function () {
       pipe.once('listening', function () {
         pipe.server.close(done);
       });
+
+      pipe.listen(common.port);
     });
   });
 });
