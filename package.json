@@ -21,6 +21,7 @@
     "primus": "1.2.x",
     "expirable": "0.0.x",
     "colors": "0.6.x",
+    "smithy": "0.1.x",
     "temper": "0.0.x",
     "jade": "0.33.x"
   },

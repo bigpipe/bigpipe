@@ -162,11 +162,8 @@ exports.mixin = function mixin(proto) {
   return shared.mixin.value(Object.create(null), shared, proto);
 };
 
-/**
- * Recursively merge properties of two objects.
- *
- * @param {Object} a first object
- * @param {Object} b second object
- * @api public
- */
+//
+// Expose merge and emits functionality for external use.
+//
 exports.merge = shared.merge.value;
+exports.emits = shared.emits.value;

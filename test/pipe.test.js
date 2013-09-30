@@ -48,7 +48,7 @@ describe('Pipe', function () {
 
   it('correctly resolves `pages` as a string to an array', function () {
     expect(app.pages).to.be.a('array');
-    expect(app.pages).to.have.length(3);
+    expect(app.pages).to.have.length(5);
   });
 
   it('transforms pages', function () {
@@ -112,7 +112,7 @@ describe('Pipe', function () {
       var faq = require(__dirname + '/fixtures/pages/faq');
       app.define(faq);
 
-      expect(app.pages).to.have.length(4);
+      expect(app.pages).to.have.length(6);
       expect(app.pages[2]).to.be.an('function');
       expect(app.pages[2]).to.have.property('properties');
     });
@@ -120,7 +120,7 @@ describe('Pipe', function () {
     it('will resolve and add the page if directory or array', function () {
       app.define(__dirname + '/fixtures/pages');
 
-      expect(app.pages).to.have.length(6);
+      expect(app.pages).to.have.length(8);
       app.pages.forEach(function (page) {
         expect(page).to.have.property('properties');
       });
@@ -241,9 +241,14 @@ describe('Pipe', function () {
     });
   });
 
-  describe('.createServer', function () {
+  describe('#listen', function () {
     it('proxies event listeners', function (done) {
-      var pipe = Pipe.createServer(common.port, {
+      //
+      // Set a big timeout as we might need to lazy install dependencies
+      //
+      this.timeout(50E4);
+
+      var pipe = new Pipe(http.createServer(), {
           pages: __dirname +'/fixtures/pages'
         , dist: '/tmp/dist'
       });
@@ -251,6 +256,8 @@ describe('Pipe', function () {
       pipe.once('listening', function () {
         pipe.server.close(done);
       });
+
+      pipe.listen(common.port);
     });
   });
 });
