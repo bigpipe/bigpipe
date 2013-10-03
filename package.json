@@ -23,7 +23,8 @@
     "colors": "0.6.x",
     "smithy": "0.1.x",
     "temper": "0.0.x",
-    "jade": "0.35.x"
+    "jade": "0.35.x",
+    "substream": "0.0.0"
   },
   "devDependencies": {
     "chai": "1.8.x",

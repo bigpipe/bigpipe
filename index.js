@@ -70,6 +70,8 @@ function Pipe(server, options) {
     parser: options('parser', 'json')
   });
 
+  this.primus.use('substream', require('substream'));
+
   //
   // Compile the Page's assets.
   //

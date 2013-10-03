@@ -34,6 +34,11 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.placeholders = this.$('data-pagelet', name);
   this.name = name;
 
+  //
+  // Create a real-time substream over which we can communicate over without.
+  //
+  this.stream = this.pipe.stream.substream(this.name);
+
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
   this.run = data.run;                      // Pagelet client code.

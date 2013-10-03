@@ -1,5 +1,5 @@
 (function(e){if("function"==typeof bootstrap)bootstrap("bigpipe",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeBigPipe=e}else"undefined"!=typeof window?window.BigPipe=e():global.BigPipe=e()})(function(){var define,ses,bootstrap,module,exports;
-return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+return (function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection');
@@ -658,6 +658,11 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.placeholders = this.$('data-pagelet', name);
   this.name = name;
 
+  //
+  // Create a real-time substream over which we can communicate over without.
+  //
+  this.stream = this.pipe.stream.substream(this.name);
+
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
   this.run = data.run;                      // Pagelet client code.
@@ -937,7 +942,6 @@ Pagelet.prototype.destroy = function destroy() {
 //
 module.exports = Pagelet;
 
-},{"./async":1,"./collection":2}]},{},[3])
-(3)
+},{"./async":1,"./collection":2}]},{},[3])(3)
 });
 ;
