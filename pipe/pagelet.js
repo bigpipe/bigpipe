@@ -14,6 +14,8 @@ var collection = require('./collection')
 function Pagelet(pipe) {
   Primus.EventEmitter.call(this);
 
+  this.orchestrate = pipe.orchestrate;
+  this.stream = pipe.stream;
   this.pipe = pipe;
 }
 
@@ -37,7 +39,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   // Create a real-time substream over which we can communicate over without.
   //
-  this.stream = this.pipe.stream.substream(this.name);
+  this.stream = this.stream.substream('pagelet::'+ this.name);
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.

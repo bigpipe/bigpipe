@@ -32,7 +32,7 @@ function Pipe(server, options) {
 }
 
 //
-// Inherit from Primus's EventEmitter.
+// Inherit from Primus's EventEmitter3.
 //
 Pipe.prototype = new Primus.EventEmitter();
 Pipe.prototype.constructor = Pipe;
@@ -49,7 +49,7 @@ Pipe.prototype.configure = function configure() {
 };
 
 /**
- * Horrible hack, but needed to prevent memory leaks while maintaing sublime
+ * Horrible hack, but needed to prevent memory leaks while maintaining sublime
  * performance. See Pagelet.prototype.IEV for more information.
  *
  * @type {Number}
@@ -107,6 +107,18 @@ Pipe.prototype.remove = function remove(name) {
 };
 
 /**
+ * Broadcast an event to all connected pagelets.
+ *
+ * @param {String} event The event that needs to be broadcasted.
+ * @api private
+ */
+Pipe.prototype.broadcast = function broadcast(event) {
+  for (var pagelet in this.pagelets) {
+    this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+  }
+};
+
+/**
  * Load a new resource.
  *
  * @param {Element} root The root node where we should insert stuff in.
@@ -155,6 +167,7 @@ Pipe.prototype.free = function free(pagelet) {
  */
 Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
+  var orchestrator = this.orchestrate = this.stream.substream('pipe::orchestrate');
 };
 
 //

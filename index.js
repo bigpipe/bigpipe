@@ -635,7 +635,20 @@ Pipe.prototype.decorate = function decorate(req, res) {
  * @api private
  */
 Pipe.prototype.connection = function connection(spark) {
+  //
+  // Setup the pipe substream which.
+  //
+  var orchestrate = spark.substream('pipe::orchestrate');
 
+  orchestrate.on('data', function orchestration(data) {
+
+  });
+
+  spark.on('end', function end() {
+    //
+    // Free all allocated pages and nuke all pagelets.
+    //
+  });
 };
 
 /**
