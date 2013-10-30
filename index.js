@@ -306,7 +306,9 @@ Pipe.prototype.discover = function discover(pages) {
  * @api private
  */
 Pipe.prototype.status = function status(req, res, code, data) {
-  if (!(code in this.statusCodes)) throw new Error('Unsupported HTTP code: '+ code);
+  if (!(code in this.statusCodes)) {
+    throw new Error('Unsupported HTTP code: '+ code +'.');
+  }
 
   var Page = this.statusCodes[code]
     , page = Page.freelist.alloc();
@@ -399,8 +401,16 @@ Pipe.prototype.transform = function transform(Page) {
     Page.prototype.pagelets = pagelets;
   }
 
-  if (!Page.prototype.view) {
-    throw new Error('The page for path '+ Page.prototype.path +' should have a .view property');
+  //
+  // The view property is a mandatory but it's quite silly to enforce this if
+  // the page is just doing a redirect. We can check for this edge case by
+  // checking if the set statusCode is in the 300~ range.
+  //
+  if (
+       !Page.prototype.view
+    && !(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)
+  ) {
+    throw new Error('The page for path '+ Page.prototype.path +' should have a .view property.');
   }
 
   Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
@@ -594,7 +604,7 @@ Pipe.prototype.post = function post(req, fn) {
 
     if (bytes && received > bytes) {
       req.removeListener('data', data);
-      req.destroy(err = new Error('Request was too large'));
+      req.destroy(err = new Error('Request was too large and has been destroyed to prevent DDOS.'));
     }
   });
 
@@ -692,23 +702,27 @@ Pipe.prototype.use = function use(name, plugin) {
     name = plugin.name;
   }
 
-  if (!name) throw new Error('Plugin should be specified with a name');
-  if ('string' !== typeof name) throw new Error('Plugin names should be a string');
+  if (!name) throw new Error('Plugin should be specified with a name.');
+  if ('string' !== typeof name) throw new Error('Plugin names should be a string.');
   if ('string' === typeof plugin) plugin = require(plugin);
 
   //
   // Plugin accepts an object or a function only.
   //
-  if (!/^(object|function)$/.test(typeof plugin)) throw new Error('Plugin should be an object or function');
+  if (!/^(object|function)$/.test(typeof plugin)) {
+    throw new Error('Plugin should be an object or function.');
+  }
 
   //
   // Plugin require a client, server or both to be specified in the object.
   //
   if (!('server' in plugin || 'client' in plugin)) {
-    throw new Error('The plugin in missing a client or server function');
+    throw new Error('The plugin in missing a client or server function.');
   }
 
-  if (name in this.plugins) throw new Error('The plugin name was already defined');
+  if (name in this.plugins) {
+    throw new Error('The plugin name was already defined. Please select an unique name for each plugin');
+  }
 
   this.plugins[name] = plugin;
   if (!plugin.server) return this;
