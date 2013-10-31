@@ -237,14 +237,19 @@ Pipe.prototype.resolve = function resolve(files, transform) {
     //
     return 'string' === type && (!extname || extname === '.js')
     || 'function' === type;
-  }).map(function map(constructor) {
-    constructor = init(constructor);
+  }).map(function map(location) {
+    var constructor = init(location);
 
     //
     // We didn't receive a proper page instance.
     //
     if ('function' !== typeof constructor) {
       var invalid = (JSON.stringify(constructor) || constructor.toString());
+
+      if ('string' === typeof location) {
+        invalid += ' (file: '+ location +')';
+      }
+
       this.log('warn', 'Ignorning invalid constructor: '+ invalid);
       return undefined;
     }
@@ -406,15 +411,12 @@ Pipe.prototype.transform = function transform(Page) {
   // the page is just doing a redirect. We can check for this edge case by
   // checking if the set statusCode is in the 300~ range.
   //
-  if (
-       !Page.prototype.view
-    && !(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)
-  ) {
+  if (Page.prototype.view) {
+    Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
+    pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
+  } else if (!(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)) {
     throw new Error('The page for path '+ Page.prototype.path +' should have a .view property.');
   }
-
-  Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
-  pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
 
   //
   // Add the properties to the page.

@@ -920,38 +920,56 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
         mode = 'render';
       }
 
-      this.initialize();
-      this.once('render', this[mode]);
-      this.once('bootstrapped', this.dispatch);
+      /**
+       * We've been initialized, proceed with rendering if needed. It could be
+       * that the initialization handled the page rendering through
+       * a `page.redirect()` or a `page.notFound()` call so we should terminate
+       * the request once that happens.
+       *
+       * @api private
+       */
+      function initialize() {
+        if (page.res.finished) return; // @TODO free the page
 
-      //
-      // There are two distinct ways of rendering the page.
-      //
-      // 1. We receive a GET request and want to render the page as fast as
-      //    possible as we need to output the template and load the pagelets.
-      //    The page and pagelets are rendered async alongside each other.
-      // 2. We receive a POST request and we need to check if we have a `data`
-      //    hook on the page that can handle POST processing "failures" for when
-      //    a pagelet denies it etc. The `data` method should be able
-      if (undefined !== data) {
-        this.once('bootstrapped', this.emits('render'));
-        this.once('discovered', function discovered() {
-          this.post(data, function posted(err, data) {
+        page.once('render', page[mode]);
+        page.once('bootstrapped', page.dispatch);
 
-            //
-            // Only process the bootstapping if we didn't write any output to
-            // the response. Which can happen if people want to .redirect or
-            // just abuse the .req/res directly and have the Page instance serve
-            // a simple wrapper around the request/response pattern.
-            //
-            if (!(!page.res.socket || page.res.socket.destroyed)) {
-              page.bootstrap(mode, data);
-            }
-          });
-        }).discover();
+        //
+        // There are two distinct ways of rendering the page.
+        //
+        // 1. We receive a GET request and want to render the page as fast as
+        //    possible as we need to output the template and load the pagelets.
+        //    The page and pagelets are rendered async alongside each other.
+        // 2. We receive a POST request and we need to check if we have a `data`
+        //    hook on the page that can handle POST processing "failures" for when
+        //    a pagelet denies it etc. The `data` method should be able
+        if (undefined !== data) {
+          page.once('bootstrapped', page.emits('render'));
+          page.once('discovered', function discovered() {
+            page.post(data, function posted(err, data) {
+
+              //
+              // Only process the bootstapping if we didn't write any output to
+              // the response. Which can happen if people want to .redirect or
+              // just abuse the .req/res directly and have the Page instance serve
+              // a simple wrapper around the request/response pattern.
+              //
+              if (!(!page.res.socket || page.res.socket.destroyed)) {
+                page.bootstrap(mode, data);
+              }
+            });
+          }).discover();
+        } else {
+          page.onset(mode, data);
+          page.discover();
+        }
+      }
+
+      if (this.initialize.length) {
+        this.initialize(initialize);
       } else {
-        this.onset(mode, data);
-        this.discover();
+        this.initialize();
+        initialize();
       }
 
       return this;
