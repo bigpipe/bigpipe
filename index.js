@@ -1,6 +1,7 @@
 'use strict';
 
 var FreeList = require('freelist').FreeList
+  , debug = require('debug')('bigpipe')
   , Route = require('routable')
   , Primus = require('primus')
   , Temper = require('temper')

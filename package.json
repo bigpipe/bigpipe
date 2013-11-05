@@ -24,7 +24,8 @@
     "smithy": "0.2.x",
     "temper": "0.0.x",
     "jade": "0.35.x",
-    "substream": "0.0.0"
+    "substream": "0.0.0",
+    "debug": "~0.7.3"
   },
   "devDependencies": {
     "chai": "1.8.x",

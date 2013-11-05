@@ -1,6 +1,7 @@
 'use strict';
 
-var shared = require('./shared')
+var debug = require('debug')('bigpipe:pagelet')
+  , shared = require('./shared')
   , path = require('path');
 
 /**
@@ -242,7 +243,10 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
         return Math.random().toString(36).substring(2).toUpperCase();
       }).join('-');
 
-      return this.removeAllListeners();
+      this.removeAllListeners();
+
+      debug('configuring %s/%s', this.name, this.id);
+      return this;
     }
   },
 
@@ -255,7 +259,10 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   renderer: {
     enumerable: false,
     value: function renderer(fn) {
+      var pagelet = this;
+
       this.render(function receive(err, data) {
+        if (err) debug('rendering %s/%s resulted in a error', pagelet.name, pagelet.id, err);
         if (err) return fn(err);
       });
     }
