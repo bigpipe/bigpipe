@@ -395,7 +395,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
       this.res.setHeader('Location', location);
       this.res.end();
 
-      debug('%s/%s is redirecting to %s', this.method, this.path, location);
+      debug('%s - %s is redirecting to %s', this.method, this.path, location);
       if (this.listeners('end').length) this.emit('end');
     }
   },
@@ -409,7 +409,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
   notFound: {
     enumerable: false,
     value: function notFound() {
-      debug('%s/%s is not found, returning Page to freelist and 404-ing', this.method, this.path);
+      debug('%s - %s is not found, returning Page to freelist and 404-ing', this.method, this.path);
 
       this.emit('free').pipe.status(this.req, this.res, 404);
       if (this.listeners('end').length) this.emit('end');
@@ -430,7 +430,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
       err = err || new Error('Internal Server Error');
       this.emit('free').pipe.status(this.req, this.res, 500, err);
 
-      debug('%s/%s captured an error: %s, displaying error page instead', this.method, this.path, err);
+      debug('%s - %s captured an error: %s, displaying error page instead', this.method, this.path, err);
       if (this.listeners('end').length) this.emit('end');
       return this;
     }
@@ -465,14 +465,14 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
         //
         if ('function' === typeof pagelet.authorize) {
           pagelet.authorize(req, function (allowed) {
-            debug('%s/%s pagelet %s/%s was %s on the page'
+            debug('%s - %s pagelet %s/%s was %s on the page'
               , page.method, page.path
               , pagelet.name, pagelet.id, allowed ? 'allowed' : 'disallowd'
             );
             done(allowed);
           });
         } else {
-          debug('%s/%s pagelet %s/%s had no authorization function and is allowed on page'
+          debug('%s - %s pagelet %s/%s had no authorization function and is allowed on page'
             , page.method, page.path
             , pagelet.name, pagelet.id
           );
@@ -489,7 +489,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
           pagelet.initialize();
         });
 
-        debug('%s/%s initialised all allowed pagelets', page.method, page.path);
+        debug('%s - %s initialised all allowed pagelets', page.method, page.path);
 
         // @TODO free disabled pagelets
         page.emit('discovered');
@@ -553,7 +553,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
     value: function render(base) {
       var page = this;
 
-      debug('%s/%s is rendering the pagelets in `render` mode', this.method, this.path);
+      debug('%s - %s is rendering the pagelets in `render` mode', this.method, this.path);
 
       async.forEach(this.enabled, function each(pagelet, next) {
         pagelet.renderer(next);
@@ -581,7 +581,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
   async: {
     enumerable: false,
     value: function render() {
-      debug('%s/%s is rendering the pagelets in `async` mode', this.method, this.path);
+      debug('%s - %s is rendering the pagelets in `async` mode', this.method, this.path);
 
       var page = this
         , pagelets = this.enabled.map(function mapRendering(pagelet) {
@@ -627,7 +627,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
   pipeline: {
     enumerable: false,
     value: function render() {
-      debug('%s/%s is rendering the pagelets in `pipeline` mode', this.method, this.path);
+      debug('%s - %s is rendering the pagelets in `pipeline` mode', this.method, this.path);
     }
   },
 
@@ -652,7 +652,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
       page.disabled.filter(function filter(pagelet) {
         return !!pagelet.remove;
       }).forEach(function each(pagelet) {
-        debug('%s/%s is instructing removal of the %s/%s pagelet'
+        debug('%s - %s is instructing removal of the %s/%s pagelet'
           , page.method, page.path
           , pagelet.name, pagelet.id
         );
@@ -664,7 +664,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
       // Send the remaining trailer headers if we have them queued.
       //
       if (page.res.trailer) {
-        debug('%s/%s adding trailer headers', this.method, this.path);
+        debug('%s - %s adding trailer headers', this.method, this.path);
         page.res.addTrailers(page.res.trailers);
       }
 
@@ -691,7 +691,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
         , frag = this.compiler.pagelet(pagelet)
         , output;
 
-      debug('%s/%s writing pagelet %s/%s\'s response'
+      debug('%s - %s writing pagelet %s/%s\'s response'
         , this.method, this.path
         , pagelet.name, pagelet.id
       );
@@ -869,7 +869,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
 
       if ('render' === mode) return this.emit('bootstrapped', output);
 
-      debug('%s/%s writing bigpipe bootstrapper', this.method, this.path);
+      debug('%s - %s writing bigpipe bootstrapper', this.method, this.path);
       this.res[method](output);
 
       //
@@ -952,7 +952,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
            'no_pagelet_js' in req.uri.query
         || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
       ) {
-        debug('%s/%s forcing `render` mode instead of %s', this.method, this.path, mode);
+        debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, mode);
         mode = 'render';
       }
 
@@ -970,7 +970,7 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
         page.once('render', page[mode]);
         page.once('bootstrapped', page.dispatch);
 
-        debug('%s/%s is initialising', page.method, page.path);
+        debug('%s - %s is initialising', page.method, page.path);
 
         //
         // There are two distinct ways of rendering the page.
@@ -1003,10 +1003,10 @@ Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.
         }
       }
 
-      debug('configuring %s/%s', this.method, this.path);
+      debug('%s - %s is configured', this.method, this.path);
 
       if (this.initialize.length) {
-        debug('%s/%s waiting for `initialize` method before discovering pagelets', this.method, this.path);
+        debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
         this.initialize(initialize);
       } else {
         this.initialize();
