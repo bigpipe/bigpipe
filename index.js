@@ -1,7 +1,7 @@
 'use strict';
 
-var FreeList = require('freelist').FreeList
-  , debug = require('debug')('bigpipe')
+var debug = require('debug')('bigpipe:server')
+  , FreeList = require('freelist').FreeList
   , Route = require('routable')
   , Primus = require('primus')
   , Temper = require('temper')
@@ -112,6 +112,7 @@ Pipe.prototype.listen = function listen(port, done) {
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
+    debug('succesfully prepared the assets, starting HTTP server');
     pipe.server.listen(port, done);
   });
 
@@ -276,6 +277,8 @@ Pipe.prototype.discover = function discover(pages) {
     , fivehundered
     , fourofour;
 
+  debug('discovering build-in error pages');
+
   pages.forEach(function each(page) {
     if (page.router.test('/500')) fivehundered = page;
     if (page.router.test('/404')) fourofour = page;
@@ -287,11 +290,13 @@ Pipe.prototype.discover = function discover(pages) {
   // them through our transform process.
   //
   if (!fivehundered) {
+    debug('no /500 error page detected, using default bigpipe error page');
     fivehundered = this.transform(require('./pages/500'));
     catalog.push(fivehundered);
   }
 
   if (!fourofour) {
+    debug('no /404 error page detected, using default bigpipe not found page');
     fourofour = this.transform(require('./pages/404'));
     catalog.push(fourofour);
   }
@@ -462,6 +467,8 @@ Pipe.prototype.define = function define(pages, done) {
   this.pages.push.apply(this.pages, pages);
   this.compiler.catalog(pages, done);
 
+  debug('added a new set of pages to bigpipe');
+
   return this;
 };
 
@@ -508,7 +515,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   //
   // Check if these are assets that need to be served from the compiler.
   //
-  if (this.compiler.serve(req, res)) return;
+  if (this.compiler.serve(req, res)) return debug('asset compiler answered %s', req.url);
 
   var pages = this.find(req.uri.pathname, req.method)
     , pipe = this;
@@ -530,13 +537,17 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
     var freelist = pages.shift().freelist
       , page = freelist.alloc();
 
+    debug('iterating over pages for %s testing %s atm', req.url, page.path);
+
     if ('function' === typeof page.authorize) {
       page.req = req; // Configure the res
       page.res = res; // and the response, needed for resources..
 
       return page.authorize(req, function authorize(allowed) {
+        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
         if (allowed) return done(undefined, page);
 
+        debug('%s - %s is released to the freelist', page.method, page.path);
         freelist.free(page);
         iterate(done);
       });
@@ -558,6 +569,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
     // Release the page again when we receive a `free` event.
     //
     page.once('free', function free() {
+      debug('%s - %s is released to the freelist', page.method, page.path);
       page.constructor.freelist.free(page);
     });
 
@@ -574,6 +586,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   }
 
   if (req.method === 'POST') {
+    debug('received a POST request, handling the POST while iterating over pagelets');
     async.parallel({
       data: this.post.bind(this, req),
       page: iterate
@@ -727,6 +740,8 @@ Pipe.prototype.use = function use(name, plugin) {
     throw new Error('The plugin name was already defined. Please select an unique name for each plugin');
   }
 
+  debug('added plugin `%s`', name);
+
   this.plugins[name] = plugin;
   if (!plugin.server) return this;
 
@@ -761,10 +776,13 @@ Pipe.createServer = function createServer(port, options) {
 
   if (spdy) {
     server = require('spdy').createServer(options);
+    debug('creating a spdy server on port %d', port);
   } else if (secure) {
     server = require('https').createServer(options);
+    debug('creating a https server on port %d', port);
   } else {
     server = require('http').createServer();
+    debug('creating a http server on port %d', port);
   }
 
   //
