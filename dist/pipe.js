@@ -1,5 +1,5 @@
 (function(e){if("function"==typeof bootstrap)bootstrap("bigpipe",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeBigPipe=e}else"undefined"!=typeof window?window.BigPipe=e():global.BigPipe=e()})(function(){var define,ses,bootstrap,module,exports;
-return (function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
+return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection');
@@ -183,7 +183,7 @@ function Pipe(server, options) {
 }
 
 //
-// Inherit from Primus's EventEmitter.
+// Inherit from Primus's EventEmitter3.
 //
 Pipe.prototype = new Primus.EventEmitter();
 Pipe.prototype.constructor = Pipe;
@@ -200,7 +200,7 @@ Pipe.prototype.configure = function configure() {
 };
 
 /**
- * Horrible hack, but needed to prevent memory leaks while maintaing sublime
+ * Horrible hack, but needed to prevent memory leaks while maintaining sublime
  * performance. See Pagelet.prototype.IEV for more information.
  *
  * @type {Number}
@@ -258,6 +258,18 @@ Pipe.prototype.remove = function remove(name) {
 };
 
 /**
+ * Broadcast an event to all connected pagelets.
+ *
+ * @param {String} event The event that needs to be broadcasted.
+ * @api private
+ */
+Pipe.prototype.broadcast = function broadcast(event) {
+  for (var pagelet in this.pagelets) {
+    this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+  }
+};
+
+/**
  * Load a new resource.
  *
  * @param {Element} root The root node where we should insert stuff in.
@@ -306,6 +318,7 @@ Pipe.prototype.free = function free(pagelet) {
  */
 Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
+  var orchestrator = this.orchestrate = this.stream.substream('pipe::orchestrate');
 };
 
 //
@@ -638,6 +651,8 @@ var collection = require('./collection')
 function Pagelet(pipe) {
   Primus.EventEmitter.call(this);
 
+  this.orchestrate = pipe.orchestrate;
+  this.stream = pipe.stream;
   this.pipe = pipe;
 }
 
@@ -661,7 +676,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   // Create a real-time substream over which we can communicate over without.
   //
-  this.stream = this.pipe.stream.substream(this.name);
+  this.stream = this.stream.substream('pagelet::'+ this.name);
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
@@ -942,6 +957,7 @@ Pagelet.prototype.destroy = function destroy() {
 //
 module.exports = Pagelet;
 
-},{"./async":1,"./collection":2}]},{},[3])(3)
+},{"./async":1,"./collection":2}]},{},[3])
+(3)
 });
 ;
