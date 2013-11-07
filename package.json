@@ -6,7 +6,9 @@
   "engine": "node >= 0.10.0",
   "scripts": {
     "test": "mocha $(find test -name '*.test.js')",
-    "compile": "./node_modules/.bin/browserify pipe/index.js -o dist/pipe.js --standalone BigPipe"
+    "compile": "./node_modules/.bin/browserify pipe/index.js -o dist/pipe.js --standalone BigPipe",
+    "pretest": "npm run-script compile",
+    "prepublish": "npm run-script compile"
   },
   "pre-commit": [
     "build",
