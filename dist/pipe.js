@@ -194,9 +194,16 @@ Pipe.prototype.constructor = Pipe;
  * @api private
  */
 Pipe.prototype.configure = function configure() {
-  if (this.root.className.indexOf('no_js')) {
-    this.root.className = this.root.className.replace('no_js', '');
+  var root = this.root;
+
+  if (root.className.indexOf('no_js')) {
+    root.className = root.className.replace('no_js', '');
   }
+
+  //
+  // Catch all form submits.
+  //
+  root.addEventListener.call(root, 'submit', this.submit.bind(this));
 };
 
 /**
@@ -219,6 +226,32 @@ Pipe.prototype.IEV = Pagelet.prototype.IEV;
 Pipe.prototype.arrive = function arrive(name, data) {
   if (!this.has(name)) this.create(name, data);
   return this;
+};
+
+/**
+ * Catch all form submits and add reference to originating pagelet.
+ *
+ * @param {Event} event
+ * @api public
+ */
+Pipe.prototype.submit = function submit(event) {
+  var src = event.target || event.srcElement
+    , form = src
+    , name;
+
+  event.preventDefault();
+  while (src.parentNode) {
+    src = src.parentNode;
+    if (name = src.getAttribute('data-pagelet')) break;
+  }
+
+  if (this.has(name)) form.action += [
+    ~form.action.indexOf('?') ? '&' : '?',
+    'pagelet=',
+    name
+  ].join('');
+
+  form.submit();
 };
 
 /**
