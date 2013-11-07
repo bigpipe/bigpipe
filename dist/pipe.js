@@ -203,7 +203,7 @@ Pipe.prototype.configure = function configure() {
   //
   // Catch all form submits.
   //
-  root.addEventListener.call(root, 'submit', this.submit.bind(this));
+  root.addEventListener('submit', this.submit.bind(this));
 };
 
 /**
