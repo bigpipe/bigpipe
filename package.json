@@ -8,7 +8,8 @@
     "test": "mocha $(find test -name '*.test.js')",
     "compile": "./node_modules/.bin/browserify pipe/index.js -o dist/pipe.js --standalone BigPipe",
     "pretest": "npm run-script compile",
-    "prepublish": "npm run-script compile"
+    "prepublish": "npm run-script compile",
+    "watch": "./node_modules/.bin/watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
   },
   "pre-commit": [
     "build",
@@ -33,7 +34,8 @@
     "chai": "1.8.x",
     "mocha": "1.13.x",
     "pre-commit": "0.0.x",
-    "browserify": "2.33.x"
+    "browserify": "2.33.x",
+    "watchify": "0.3.x"
   },
   "repository": {
     "type": "git",
