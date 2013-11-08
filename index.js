@@ -393,6 +393,13 @@ Pipe.prototype.transform = function transform(Page) {
         });
       }
 
+      //
+      // Allow plugins to hook in the transformation process, so emit it when
+      // all our transformations are done and before we create a copy of the
+      // "fixed" properties which later can be re-used again to restore
+      // a generated instance to it's original state.
+      //
+      pipe.emit('transform::pagelet', Pagelet);
       Pagelet.properties = Object.keys(Pagelet.prototype);
 
       //
@@ -427,6 +434,7 @@ Pipe.prototype.transform = function transform(Page) {
   //
   // Add the properties to the page.
   //
+  pipe.emit('transform::page', Page);                 // Emit tranform event for plugins.
   Page.properties = Object.keys(Page.prototype);      // All properties before init.
   Page.router = new Route(router);                    // Actual HTTP route.
   Page.method = method;                               // Available HTTP methods.
@@ -541,7 +549,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
 
     if ('function' === typeof page.authorize) {
       page.req = req; // Configure the res
-      page.res = res; // and the response, needed for resources..
+      page.res = res; // and the response, needed for plugins..
 
       return page.authorize(req, function authorize(allowed) {
         debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');

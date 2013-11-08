@@ -31,6 +31,30 @@ against Node.js 0.10.x.
 npm install --save bigpipe
 ```
 
+### Events
+
+Everything in BigPipe is build upon the EventEmitter interface. It's either a
+plain EventEmitter or a proper stream. This a summary of the events we emit:
+
+Event                 | Usage       | Location      | Description
+----------------------|-------------|---------------|-------------------------------
+`log`                 | public      | server        | A new log message.
+`transform::pagelet`  | public      | server        | Transform a Pagelet
+`transform::page`     | public      | server        | Transform a Page
+`listening`           | public      | server        | The server is listening
+`error`               | public      | server        | The HTTP serer received an error
+
+### Debugging
+
+The library makes use the `debug` module and has all it's internals namespaced
+to `bigpipe:`. These debug messages can be trigged by starting your application
+with the `DEBUG=` env variable. In order to filter out all messages except
+bigpipe's message run your server with the following command:
+
+```bash
+DEBUG=bigpipe:* node <server.js>
+```
+
 ### Testing
 
 Tests are automatically run on [Travis CI] to ensure that everything is
