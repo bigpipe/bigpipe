@@ -55,6 +55,14 @@ bigpipe's message run your server with the following command:
 DEBUG=bigpipe:* node <server.js>
 ```
 
+The following `DEBUG` namespaces are available:
+
+- `bigpipe:server` The part that handles the request dispatching, page / pagelet
+  transformation and more.
+- `bigpipe:pagelet` Pagelet interactions
+- `bigpipe:page` Page generation.
+- `bigpipe:compiler` Asset compilation.
+
 ### Testing
 
 Tests are automatically run on [Travis CI] to ensure that everything is
