@@ -39,27 +39,26 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   },
 
   /**
-   * The pagelet can emit in real-time that could get handled by the Pagelet.
-   * It's super annoying to add EventListeners for that manually (and it would
-   * also destroy the ability to properly steam) so we're going to adopt the
-   * same pattern as you are used to with Backbone views and DOM events.
+   * These methods can be remotely called from the client. Please note that they
+   * are not set to the client, it will merely be executing on the server side.
    *
    * ```js
    * Pagelet.extend({
-   *  events: {
-   *    'eventname': 'methodname'
-   *  },
+   *  rpc: [
+   *    'methodname',
+   *    'methodname'
+   *  [,
    *
    *  methodname: function () {
    *
    *  }
    * });
    *
-   * @type {Object}
+   * @type {Array}
    * @public
    */
-  events: {
-    value: {},
+  rpc: {
+    value: [],
     writable: true,
     enumerable: false,
     configurable: true
@@ -296,23 +295,53 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   },
 
   /**
-   * Trigger one of the specified events.
+   * Trigger a RPC function.
    *
-   * @param {String} event The name of the event.
+   * @param {String} method The name of the method.
    * @param {Array} args The function arguments.
+   * @param {String} id The RPC id.
+   * @param {SubStream} substream The substream that does RPC.
    * @returns {Boolean} The event was triggered.
    * @api private
    */
-  trigger: function trigger(event, args) {
-    if (!(event in this.events)) {
-      debug('%s/%s received an unknown event `%s`, ignorning rpc', this.name, this.id, event);
+  trigger: function trigger(method, args, id, substream) {
+    var index = this.rpc.indexOf(method)
+      , err;
+
+    if (!~index) {
+      debug('%s/%s received an unknown method `%s`, ignorning rpc', this.name, this.id, method);
+      return substream.write({
+        args: [new Error('The given method is not allowed as RPC function.')],
+        type: 'rpc',
+        id: id
+      });
     }
 
-    var method = this[this.events[event]];
-    if ('function' !== typeof method) {
-      debug('%s/%s event `%s` is not a function, ignoring rpc', this.name, this.id, event);
-      return false;
+    var fn = this[this.rpc[index]]
+      , pagelet = this;
+
+    if ('function' !== typeof fn) {
+      debug('%s/%s method `%s` is not a function, ignoring rpc', this.name, this.id, method);
+      return substream.write({
+        args: [new Error('The called method is not an RPC function.')],
+        type: 'rpc',
+        id: id
+      });
     }
+
+    //
+    // We've found a working function, assume that function is RPC compatible
+    // where it accepts a `returns` function that receives the arguments.
+    //
+    fn.apply(this, [function returns() {
+      var args = Array.prototype.slice.call(arguments, 0);
+
+      return substream.write({
+        type: 'rpc',
+        args: args,
+        id: id
+      });
+    }].concat(args));
 
     return true;
   }

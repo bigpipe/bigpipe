@@ -698,8 +698,10 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         , pagelet.name, pagelet.id
       );
 
-      frag.remove = pagelet.remove;
-      frag.data = data;
+      frag.remove = pagelet.remove;   // Does the front-end need to remove the pagelet.
+      frag.id = pagelet.id;           // The internal id of the pagelet.
+      frag.data = data;               // Template data for the pagelet.
+      frag.rpc = pagelet.rpc;         // RPC method.
 
       output = fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
