@@ -42,8 +42,8 @@ describe('Pipe', function () {
     expect(Pipe.Resource.extend).to.be.a('function');
   });
 
-  it('is an EvenEmitter', function () {
-    expect(app).to.be.instanceOf(process.EventEmitter);
+  it('is an EvenEmitter3', function () {
+    expect(app).to.be.instanceOf(require('eventemitter3'));
   });
 
   it('correctly resolves `pages` as a string to an array', function () {

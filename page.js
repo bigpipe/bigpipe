@@ -142,7 +142,7 @@ function Page(pipe) {
   if ('development' === this.env) Object.seal(this);
 }
 
-Page.prototype = Object.create(require('events').EventEmitter.prototype, shared.mixin({
+Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin({
   constructor: {
     value: Page,
     writable: true,

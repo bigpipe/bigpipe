@@ -86,8 +86,16 @@ function Pipe(server, options) {
   this.discover(this.pages);
 }
 
-Pipe.prototype.__proto__ = require('events').EventEmitter.prototype;
+Pipe.prototype.__proto__ = require('eventemitter3').prototype;
 Pipe.prototype.emits = shared.emits;
+
+/**
+ * The current version of the library.
+ *
+ * @type {String}
+ * @api public
+ */
+Pipe.prototype.version = require(__dirname +'/package.json').version;
 
 /**
  * Start listening for incoming requests.

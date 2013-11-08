@@ -17,18 +17,19 @@
   ],
   "dependencies": {
     "async": "0.2.x",
+    "colors": "0.6.x",
+    "debug": "0.7.x",
+    "eventemitter3": "0.0.x",
+    "expirable": "0.0.x",
     "extendable": "0.0.x",
-    "ws": "0.4.x",
-    "routable": "0.0.x",
+    "jade": "0.35.x",
     "mkdirp": "0.3.x",
     "primus": "1.4.x",
-    "expirable": "0.0.x",
-    "colors": "0.6.x",
+    "routable": "0.0.x",
     "smithy": "0.2.x",
-    "temper": "0.0.x",
-    "jade": "0.35.x",
     "substream": "0.0.0",
-    "debug": "~0.7.3"
+    "temper": "0.0.x",
+    "ws": "0.4.x"
   },
   "devDependencies": {
     "chai": "1.8.x",
