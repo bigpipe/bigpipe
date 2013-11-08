@@ -39,6 +39,33 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   },
 
   /**
+   * The pagelet can emit in real-time that could get handled by the Pagelet.
+   * It's super annoying to add EventListeners for that manually (and it would
+   * also destroy the ability to properly steam) so we're going to adopt the
+   * same pattern as you are used to with Backbone views and DOM events.
+   *
+   * ```js
+   * Pagelet.extend({
+   *  events: {
+   *    'eventname': 'methodname'
+   *  },
+   *
+   *  methodname: function () {
+   *
+   *  }
+   * });
+   *
+   * @type {Object}
+   * @public
+   */
+  events: {
+    value: {},
+    writable: true,
+    enumerable: false,
+    configurable: true
+  },
+
+  /**
    * An authorization handler to see if the request is authorized to interact with
    * this pagelet. This is set to `null` by default as there isn't any
    * authorization in place. The authorization function will receive 2 arguments:
@@ -266,6 +293,28 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
         if (err) return fn(err);
       });
     }
+  },
+
+  /**
+   * Trigger one of the specified events.
+   *
+   * @param {String} event The name of the event.
+   * @param {Array} args The function arguments.
+   * @returns {Boolean} The event was triggered.
+   * @api private
+   */
+  trigger: function trigger(event, args) {
+    if (!(event in this.events)) {
+      debug('%s/%s received an unknown event `%s`, ignorning rpc', this.name, this.id, event);
+    }
+
+    var method = this[this.events[event]];
+    if ('function' !== typeof method) {
+      debug('%s/%s event `%s` is not a function, ignoring rpc', this.name, this.id, event);
+      return false;
+    }
+
+    return true;
   }
 }));
 
