@@ -704,18 +704,59 @@ Pagelet.prototype.constructor = Pagelet;
  */
 Pagelet.prototype.configure = function configure(name, data) {
   this.placeholders = this.$('data-pagelet', name);
+
+  //
+  // Pagelet identification.
+  //
+  this.id = data.id;
   this.name = name;
 
   //
   // Create a real-time substream over which we can communicate over without.
   //
   this.stream = this.stream.substream('pagelet::'+ this.name);
+  this.stream.write({ type: 'configure', id: data.id });
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
   this.run = data.run;                      // Pagelet client code.
+  this.rpc = data.rpc;                      // Pagelet RPC methods.
 
   var pagelet = this.broadcast('configured', data);
+
+  //
+  // Generate the RPC methods that we're given by the server. We will make the
+  // assumption that:
+  //
+  // - A callback function is always given as last argument.
+  // - The function should return it self in order to chain.
+  // - The function given supports and uses error first callback styles.
+  // - Does not override the build-in prototypes of the Pagelet.
+  //
+  collection.each(this.rpc, function rpc(method) {
+    var pagelet = this
+      , counter = 0;
+
+    //
+    // Never override build-in methods as this WILL affect the way a Pagelet is
+    // working.
+    //
+    if (method in Pagelet.prototype) return;
+
+    this[method] = function rpcfactory() {
+      var args = Array.prototype.slice.call(arguments, 0)
+        , id = method +'#'+ (++counter);
+
+      pagelet.once('rpc::'+ id, args.pop());
+      pagelet.stream.write({
+        type: 'rpc',
+        args: args,
+        id: id
+      });
+
+      return pagelet;
+    };
+  }, this);
 
   async.each(this.css.concat(this.js), function download(asset, next) {
     this.load(document.body, asset, next);
@@ -768,7 +809,10 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  */
 Pagelet.prototype.$ = function $(attribute, value) {
   if (document && 'querySelectorAll' in document) {
-    return Array.prototype.slice.call(document.querySelectorAll('['+ attribute +'="'+ value +'"]'), 0);
+    return Array.prototype.slice.call(
+        document.querySelectorAll('['+ attribute +'="'+ value +'"]')
+      , 0
+    );
   }
 
   //
@@ -780,7 +824,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
     , i = 0;
 
   for (; i < length; i++) {
-    if (all[i].getAttribute(attribute) === value) {
+    if (value === all[i].getAttribute(attribute)) {
       results.push(all[i]);
     }
   }
@@ -967,6 +1011,15 @@ Pagelet.prototype.destroy = function destroy() {
   if (this.placeholders) collection.each(this.placeholders, function (root) {
     while (root.firstChild) root.removeChild(root.firstChild);
   });
+
+  //
+  // Remove the added RPC handlers, make sure we don't delete prototypes.
+  //
+  collection.each(this.rpc, function nuke(method) {
+    if (method in Pagelet.prototype) return;
+
+    delete this[method];
+  }, this);
 
   this.placeholders = null;
 
