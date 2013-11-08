@@ -89,8 +89,10 @@ function Page(pipe) {
      * @private
      */
     _events: {
-      enumerable: false,
       value: Object.create(null),
+      writable: true,
+      enumerable: false,
+      configurable: true
     },
 
     /**
