@@ -54,7 +54,6 @@ catch (e) {}
 function Pipe(server, options) {
   this.options = options = this.options(options || {});
 
-  this.stream = options('stream', process.stdout);  // Our log stream.
   this.domains = !!options('domain') && domain;     // Call all requests in a domain.
   this.statusCodes = Object.create(null);           // Stores error pages.
   this.cache = options('cache', null);              // Enable URL lookup caching.
@@ -139,41 +138,6 @@ Pipe.prototype.options = function options(obj) {
 };
 
 /**
- * Simple log method.
- *
- * @param {String} type The log type.
- * @returns {Pipe} fluent interface
- * @api private
- */
-Pipe.prototype.log = function log(type) {
-  var data = Array.prototype.slice.call(arguments, 1)
-    , level = Pipe.prototype.log.levels[type];
-
-  if (this.stream) {
-    //
-    // Add some padding, write the log type, and join as pretty string.
-    //
-    this.stream.write(['  '+ level +' '].concat(data).join(' ') + '\n');
-  } else {
-    this.emit.apply(this, ['log', type].concat(data));
-  }
-
-  return this;
-};
-
-/**
- * Pretty logger prefixes.
- *
- * @type {Object}
- * @private
- */
-Pipe.prototype.log.levels = {
-  'warn': '𝓦'.yellow,
-  'error': '𝓔'.red,
-  'info': '𝓘'.blue
-};
-
-/**
  * Transform strings, array of strings, objects, things in to the actual
  * constructors.
  *
@@ -252,7 +216,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
         invalid += ' (file: '+ location +')';
       }
 
-      this.log('warn', 'Ignorning invalid constructor: '+ invalid);
+      debug('we received an invalid constructor, ignoring the file: %s', invalid);
       return undefined;
     }
 

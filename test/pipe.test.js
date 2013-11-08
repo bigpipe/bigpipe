@@ -127,51 +127,6 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#log', function () {
-    it('doesnt write to stdout if we dont provide a stream', function (done) {
-      app = new Pipe(server, {
-        pages: __dirname + '/fixtures/pages',
-        dist: '/tmp/dist',
-        domains: true,
-        stream: null
-      });
-
-      app.on('log', function (type, arg1, arg2) {
-        expect(type).to.equal('warn');
-        expect(arg1).to.equal('foo');
-        expect(arg2).to.equal('bar');
-
-        done();
-      });
-
-      app.log('warn', 'foo', 'bar');
-    });
-
-    it('writes to specified stream', function (done) {
-      var stream = new (require('stream'));
-
-      stream.write = function (line) {
-        expect(line).to.not.contain('warn');
-        expect(line).to.contain(Pipe.prototype.log.levels.warn);
-        expect(line).to.contain('foo');
-        expect(line).to.contain('bar');
-
-        console.log(line);
-
-        done();
-      };
-
-      app = new Pipe(server, {
-        pages: __dirname + '/fixtures/pages',
-        dist: '/tmp/dist',
-        domains: true,
-        stream: stream
-      });
-
-      app.log('warn', 'foo', 'bar');
-    });
-  });
-
   describe('#discover', function () {
     it('provides default pages if no /404 or /500 is found', function () {
       expect(app.find('/404')).to.have.length(0);
