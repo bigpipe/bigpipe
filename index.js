@@ -119,7 +119,7 @@ Pipe.prototype.listen = function listen(port, done) {
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
-    debug('succesfully prepared the assets, starting HTTP server');
+    debug('succesfully prepared the assets, starting HTTP server on port %d', port);
     pipe.server.listen(port, done);
   });
 
@@ -468,6 +468,7 @@ Pipe.prototype.define = function define(pages, done) {
  * @api public
  */
 Pipe.prototype.find = function find(url, method) {
+  debug('searching the matching routes for url %s', url);
   if (this.cache && this.cache.has(url)) return this.cache.get(url);
 
   var routes = [];
@@ -481,7 +482,11 @@ Pipe.prototype.find = function find(url, method) {
     routes.push(page);
   }
 
-  if (this.cache && routes.length) this.cache.set(url, routes);
+  if (this.cache && routes.length) {
+    this.cache.set(url, routes);
+    debug('added url %s and its discovered routes to the cache', url);
+  }
+
   return routes;
 };
 
