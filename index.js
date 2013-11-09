@@ -184,6 +184,11 @@ Pipe.prototype.resolve = function resolve(files, transform) {
     files = Object.keys(files).map(function merge(name) {
       var constructor = init(files[name]);
 
+      if (!constructor.prototype) {
+        debug('%s did not export correcly, did you forgot to add .on(module) at the end of your file?', files[name]);
+        return;
+      }
+
       //
       // Add a name to the prototype, if we have this property in the prototype.
       // This mostly applies for the Pagelets.
@@ -193,7 +198,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
       }
 
       return constructor;
-    });
+    }).filter(Boolean);
   }
 
   //
