@@ -59,6 +59,7 @@ function Pipe(server, options) {
   this.cache = options('cache', null);              // Enable URL lookup caching.
   this.temper = new Temper;                         // Template parser.
   this.plugins = Object.create(null);               // Plugin storage.
+  this.layers = [];                                 // Middleware layer.
 
   //
   // Now that everything is processed, we can setup our internals.
@@ -491,6 +492,18 @@ Pipe.prototype.find = function find(url, method) {
 };
 
 /**
+ * Add a new middleware layer which will run before any Page is executed.
+ *
+ * @param {Function} use The middleware.
+ * @api private
+ */
+Pipe.prototype.middleware = function middleware(use) {
+  this.layers.push(use);
+
+  return this;
+};
+
+/**
  * Dispatch incoming requests.
  *
  * @TODO cancel POST requests, when we don't accept them
@@ -575,18 +588,23 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
     }
   }
 
-  if (req.method === 'POST') {
-    debug('received a POST request, handling the POST while iterating over pagelets');
-    async.parallel({
-      data: this.post.bind(this, req),
-      page: iterate
-    }, function processed(err, result) {
-      result = result || {};
-      completed(err, result.page, result.data);
-    });
-  } else {
-    iterate(completed);
-  }
+  async.forEach(this.layers, function middleware(layer, next) {
+    layer.call(pipe, req, res, next);
+  }, function (err) {
+    if (req.method === 'POST') {
+      debug('received a POST request, handling the POST while iterating over pagelets');
+      async.parallel({
+        data: pipe.post.bind(pipe, req),
+        page: iterate
+      }, function processed(err, result) {
+        result = result || {};
+        completed(err, result.page, result.data);
+      });
+    } else {
+      iterate(completed);
+    }
+  });
+
   return this;
 };
 
