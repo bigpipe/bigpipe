@@ -792,6 +792,12 @@ Pagelet.prototype.processor = function processor(packet) {
     case 'rpc':
       this.emit.apply(this, ['rpc::'+ packet.id].concat(packet.args || []));
     break;
+
+    case 'event':
+      if (packet.args && packet.args.length) {
+        this.emit.apply(this, packet.args);
+      }
+    break;
   }
 };
 

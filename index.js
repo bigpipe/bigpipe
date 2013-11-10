@@ -691,6 +691,11 @@ Pipe.prototype.connection = function connection(spark) {
     var stream = streams[pagelet.name] = spark.substream('pagelet::'+ pagelet.name);
 
     //
+    // Let the pagelet know that we've paird with a substream and spark.
+    //
+    if ('function' === typeof pagelet.pair) pagelet.pair(stream, spark);
+
+    //
     // Incoming communication between the pagelet and it's substream.
     //
     stream.on('data', function substreamer(data) {
