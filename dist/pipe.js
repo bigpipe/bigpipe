@@ -242,7 +242,12 @@ Pipe.prototype.submit = function submit(event) {
   event.preventDefault();
   while (src.parentNode) {
     src = src.parentNode;
-    if (name = src.getAttribute('data-pagelet')) break;
+
+    //
+    // HTMLDocuments do not have a `getAttribute` methods. So it's not a real
+    // "DOM" element.
+    //
+    if (src.getAttribute && (name = src.getAttribute('data-pagelet'))) break;
   }
 
   if (this.has(name)) form.action += [
