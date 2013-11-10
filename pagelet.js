@@ -304,46 +304,46 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
    * @returns {Boolean} The event was triggered.
    * @api private
    */
-  trigger: function trigger(method, args, id, substream) {
-    var index = this.rpc.indexOf(method)
-      , err;
+  trigger: {
+    enumerable: false,
+    value: function trigger(method, args, id, substream) {
+      var index = this.rpc.indexOf(method)
+        , err;
 
-    if (!~index) {
-      debug('%s/%s received an unknown method `%s`, ignorning rpc', this.name, this.id, method);
-      return substream.write({
-        args: [new Error('The given method is not allowed as RPC function.')],
-        type: 'rpc',
-        id: id
-      });
+      if (!~index) {
+        debug('%s/%s received an unknown method `%s`, ignorning rpc', this.name, this.id, method);
+        return substream.write({
+          args: [new Error('The given method is not allowed as RPC function.')],
+          type: 'rpc',
+          id: id
+        });
+      }
+
+      var fn = this[this.rpc[index]]
+        , pagelet = this;
+
+      if ('function' !== typeof fn) {
+        debug('%s/%s method `%s` is not a function, ignoring rpc', this.name, this.id, method);
+        return substream.write({
+          args: [new Error('The called method is not an RPC function.')],
+          type: 'rpc',
+          id: id
+        });
+      }
+
+      //
+      // We've found a working function, assume that function is RPC compatible
+      // where it accepts a `returns` function that receives the arguments.
+      //
+      fn.apply(this, [function returns() {
+        var args = Array.prototype.slice.call(arguments, 0)
+          , success = substream.write({ type: 'rpc', args: args, id: id });
+
+        return success;
+      }].concat(args));
+
+      return true;
     }
-
-    var fn = this[this.rpc[index]]
-      , pagelet = this;
-
-    if ('function' !== typeof fn) {
-      debug('%s/%s method `%s` is not a function, ignoring rpc', this.name, this.id, method);
-      return substream.write({
-        args: [new Error('The called method is not an RPC function.')],
-        type: 'rpc',
-        id: id
-      });
-    }
-
-    //
-    // We've found a working function, assume that function is RPC compatible
-    // where it accepts a `returns` function that receives the arguments.
-    //
-    fn.apply(this, [function returns() {
-      var args = Array.prototype.slice.call(arguments, 0);
-
-      return substream.write({
-        type: 'rpc',
-        args: args,
-        id: id
-      });
-    }].concat(args));
-
-    return true;
   }
 }));
 

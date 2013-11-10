@@ -489,6 +489,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
         allowed.forEach(function initialize(pagelet) {
           pagelet.initialize();
+          page.pipe.expire.set(pagelet.id, pagelet);
         });
 
         debug('%s - %s initialised all allowed pagelets', page.method, page.path);
