@@ -86,6 +86,7 @@ Pipe.prototype.arrive = function arrive(name, data) {
 Pipe.prototype.submit = function submit(event) {
   var src = event.target || event.srcElement
     , form = src
+    , action
     , name;
 
   event.preventDefault();
@@ -94,11 +95,15 @@ Pipe.prototype.submit = function submit(event) {
     if (name = src.getAttribute('data-pagelet')) break;
   }
 
-  if (this.has(name)) form.action += [
-    ~form.action.indexOf('?') ? '&' : '?',
-    'pagelet=',
-    name
-  ].join('');
+  if (this.has(name)) {
+    action = form.getAttribute('action');
+    form.setAttribute('action', [
+      action,
+      ~action.indexOf('?') ? '&' : '?',
+      'pagelet=',
+      name
+    ].join(''));
+  }
 
   form.submit();
 };
