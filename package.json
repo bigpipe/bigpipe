@@ -26,7 +26,7 @@
     "mkdirp": "0.3.x",
     "primus": "1.4.x",
     "routable": "0.0.x",
-    "smithy": "0.2.x",
+    "smithy": "0.3.x",
     "substream": "0.0.0",
     "temper": "0.0.x",
     "ws": "0.4.x"
