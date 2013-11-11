@@ -488,7 +488,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         });
 
         allowed.forEach(function initialize(pagelet) {
-          pagelet.initialize();
+          if (pagelet.initialize) pagelet.initialize();
           page.pipe.expire.set(pagelet.id, pagelet);
         });
 
@@ -706,7 +706,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       frag.remove = pagelet.remove;   // Does the front-end need to remove the pagelet.
       frag.id = pagelet.id;           // The internal id of the pagelet.
       frag.data = data;               // Template data for the pagelet.
-      frag.rpc = pagelet.rpc;         // RPC method.
+      frag.rpc = pagelet.RPC;         // RPC methods from the pagelet.
 
       output = fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
@@ -1016,11 +1016,15 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
       debug('%s - %s is configured', this.method, this.path);
 
-      if (this.initialize.length) {
-        debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
-        this.initialize(initialize);
+      if (this.initialize) {
+        if (this.initialize.length) {
+          debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
+          this.initialize(initialize);
+        } else {
+          this.initialize();
+          initialize();
+        }
       } else {
-        this.initialize();
         initialize();
       }
 

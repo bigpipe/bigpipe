@@ -351,6 +351,8 @@ Pipe.prototype.transform = function transform(Page) {
       //
       if (Pagelet.properties) return Pagelet;
 
+      debug('transforming pagelet: %s', Pagelet.prototype.name);
+
       var prototype = Pagelet.prototype
         , dir = prototype.directory;
 
@@ -371,6 +373,19 @@ Pipe.prototype.transform = function transform(Page) {
           if (/^(http:|https:)?\/\//.test(dep)) return dep;
           return path.resolve(dir, dep);
         });
+      }
+
+      //
+      // Aliasing, some methods can be written with different names or american
+      // vs Britain vs old english. For example `initialise` vs `initialize` but
+      // also the use of CAPS like `RPC` vs `rpc`
+      //
+      if (Array.isArray(prototype.rpc) && !prototype.RPC.length) {
+        Pagelet.prototype.RPC = prototype.rpc;
+      }
+
+      if ('function' === typeof prototype.initialise) {
+        Pagelet.prototype.initialize = prototype.initialise;
       }
 
       //
@@ -723,6 +738,8 @@ Pipe.prototype.connection = function connection(spark) {
   orchestrate.on('data', function orchestration(data) {
     switch (data.type) {
       case 'configure':
+        var pagelet = pipe.expire.get(data.id);
+        debug('registering Pagelet %s/%s as new substream', pagelet.name, data.id);
         substream(pipe.expire.get(data.id));
       break;
     }

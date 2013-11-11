@@ -54,6 +54,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.js = collection.array(data.js);      // Dependencies for the page.
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
+  this.data = data.data;                    // All the template data.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the

@@ -44,20 +44,20 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
    *
    * ```js
    * Pagelet.extend({
-   *  rpc: [
-   *    'methodname',
-   *    'methodname'
-   *  [,
+   *   RPC: [
+   *     'methodname',
+   *     'methodname'
+   *   [,
    *
-   *  methodname: function () {
+   *   methodname: function methodname(reply) {
    *
-   *  }
+   *   }
    * });
    *
    * @type {Array}
    * @public
    */
-  rpc: {
+  RPC: {
     value: [],
     writable: true,
     enumerable: false,
@@ -307,7 +307,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   trigger: {
     enumerable: false,
     value: function trigger(method, args, id, substream) {
-      var index = this.rpc.indexOf(method)
+      var index = this.RPC.indexOf(method)
         , err;
 
       if (!~index) {
@@ -319,7 +319,7 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
         });
       }
 
-      var fn = this[this.rpc[index]]
+      var fn = this[this.RPC[index]]
         , pagelet = this;
 
       if ('function' !== typeof fn) {
