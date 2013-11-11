@@ -92,7 +92,8 @@ Pipe.prototype.submit = function submit(event) {
   event.preventDefault();
   while (src.parentNode) {
     src = src.parentNode;
-    if (name = src.getAttribute('data-pagelet')) break;
+    if ('getAttribute' in src) name = src.getAttribute('data-pagelet');
+    if (name) break;
   }
 
   if (this.has(name)) {
