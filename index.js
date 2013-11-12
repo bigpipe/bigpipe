@@ -591,12 +591,20 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
     page.once('free', function free() {
       debug('%s - %s is released to the freelist', page.method, page.path);
       page.constructor.freelist.free(page);
+
+      if (page.domain) {
+        debug('%s - %s \'s domain has been disposed', page.method, page.path);
+        page.domain.dispose();
+      }
     });
 
     res.once('close', page.emits('close'));
 
     if (pipe.domains) {
       page.domain = domain.create();
+      page.domain.on('error', function (err) {
+        debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.message);
+      });
       page.domain.run(function run() {
         run.configure(req, res, data);
       });
@@ -607,7 +615,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
 
   async.forEach(this.layers, function middleware(layer, next) {
     layer.call(pipe, req, res, next);
-  }, function (err) {
+  }, function eached(err) {
     if (req.method === 'POST') {
       debug('received a POST request, handling the POST while iterating over pagelets');
       async.parallel({
