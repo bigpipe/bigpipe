@@ -237,24 +237,25 @@ Pipe.prototype.arrive = function arrive(name, data) {
 Pipe.prototype.submit = function submit(event) {
   var src = event.target || event.srcElement
     , form = src
+    , action
     , name;
 
   event.preventDefault();
   while (src.parentNode) {
     src = src.parentNode;
-
-    //
-    // HTMLDocuments do not have a `getAttribute` methods. So it's not a real
-    // "DOM" element.
-    //
-    if (src.getAttribute && (name = src.getAttribute('data-pagelet'))) break;
+    if ('getAttribute' in src) name = src.getAttribute('data-pagelet');
+    if (name) break;
   }
 
-  if (this.has(name)) form.action += [
-    ~form.action.indexOf('?') ? '&' : '?',
-    'pagelet=',
-    name
-  ].join('');
+  if (this.has(name)) {
+    action = form.getAttribute('action');
+    form.setAttribute('action', [
+      action,
+      ~action.indexOf('?') ? '&' : '?',
+      'pagelet=',
+      name
+    ].join(''));
+  }
 
   form.submit();
 };
