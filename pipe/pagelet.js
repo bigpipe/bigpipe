@@ -48,7 +48,10 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   this.substream = this.stream.substream('pagelet::'+ this.name);
   this.substream.on('data', function data(packet) { pagelet.processor(packet); });
-  this.orchestrate.write({ type: 'configure', id: data.id });
+  this.orchestrate.write({
+    type: 'configure', id: data.id,
+    name: name, page: location.pathname
+  });
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.

@@ -739,8 +739,11 @@ Pipe.prototype.connection = function connection(spark) {
     switch (data.type) {
       case 'configure':
         var pagelet = pipe.expire.get(data.id);
-        debug('registering Pagelet %s/%s as new substream', pagelet.name, data.id);
-        substream(pipe.expire.get(data.id));
+
+        if (pagelet) {
+          debug('registering Pagelet %s/%s as new substream', pagelet.name, data.id);
+          substream(pipe.expire.get(data.id));
+        }
       break;
     }
   });
