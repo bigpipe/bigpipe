@@ -16,10 +16,9 @@ var debug = require('debug')('bigpipe:server')
 // Library internals.
 //
 var Compiler = require('./lib/compiler')
-  , Resource = require('./resource')
   , Pagelet = require('./pagelet')
-  , Page = require('./page')
-  , shared = require('./shared');
+  , shared = require('./shared')
+  , Page = require('./page');
 
 //
 // Try to detect if we've got domains support. So we can easily serve 500 error
@@ -891,7 +890,6 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Resource = Resource;
 Pipe.Pagelet = Pagelet;
 Pipe.Page = Page;
 

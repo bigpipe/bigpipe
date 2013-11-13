@@ -1051,14 +1051,12 @@ Page.extend = require('extendable');
 Page.on = function on(module) {
   var dir = this.prototype.directory = this.prototype.directory || path.dirname(module.filename)
     , pagelets = this.prototype.pagelets
-    , resources = this.prototype.resources
     , resolve = this.prototype.resolve;
 
   //
   // Resolve pagelets and resource paths.
   //
   if (pagelets) Object.keys(pagelets).forEach(resolve(dir, pagelets));
-  if (resources) Object.keys(resources).forEach(resolve(dir, resources));
 
   module.exports = this;
   return this;

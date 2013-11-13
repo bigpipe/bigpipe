@@ -10,19 +10,6 @@ var path = require('path');
 
 var shared = {
   /**
-   * List of resources that can be used by the pagelets.
-   *
-   * @type {object}
-   * @public
-   */
-  resources: {
-    value: {},
-    writable: true,
-    enumerable: false,
-    configurable: true
-  },
-
-  /**
    * Simple emit wrapper that returns a function that emits an event once it's
    * called
    *
@@ -83,28 +70,6 @@ var shared = {
           stack[object] = path.join(dir, stack[object]);
         }
       };
-    }
-  },
-
-  /**
-   * Access a resource.
-   *
-   * @TODO re-use previous initialised resources.
-   * @param {String} name The resource.
-   * @api public
-   */
-  resource: {
-    enumerable: false,
-    value: function get(name) {
-      var page = this.page || this
-        , Resource = this.resources[name] || page.resources[name]
-        , resource;
-
-      if ('string' === typeof Resource) Resource = require(Resource);
-      resource = new Resource;
-
-      resource.configure(page.req, page.res);
-      return resource;
     }
   },
 

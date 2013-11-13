@@ -37,11 +37,6 @@ describe('Pipe', function () {
     expect(Pipe.Pagelet.extend).to.be.a('function');
   });
 
-  it('exposes the Resource constructor', function () {
-    expect(Pipe.Resource).to.be.a('function');
-    expect(Pipe.Resource.extend).to.be.a('function');
-  });
-
   it('is an EvenEmitter3', function () {
     expect(app).to.be.instanceOf(require('eventemitter3'));
   });
