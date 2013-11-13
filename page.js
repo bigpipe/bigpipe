@@ -714,9 +714,16 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''));
 
       this.n++;
-      this.res.write(output);
+      this.res.write(output, 'utf-8', fn);
 
-      if ('function' === typeof fn) fn();
+      //
+      // Optional write confirmation, it got added in more recent versions of
+      // node, so if it's not supported we're just going to call the callback
+      // our selfs.
+      //
+      if (this.res.write.length !== 3 && 'function' === typeof fn) {
+        fn();
+      }
     }
   },
 
