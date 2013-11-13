@@ -719,9 +719,16 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''));
 
       this.n++;
-      this.res.write(output);
+      this.res.write(output, 'utf-8', fn);
 
-      if ('function' === typeof fn) fn();
+      //
+      // Optional write confirmation, it got added in more recent versions of
+      // node, so if it's not supported we're just going to call the callback
+      // our selfs.
+      //
+      if (this.res.write.length !== 3 && 'function' === typeof fn) {
+        fn();
+      }
     }
   },
 
@@ -841,6 +848,22 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       //
       if (this.data && 'function' === typeof this.data) return this.data.call(this, init);
       process.nextTick(init);
+    }
+  },
+
+  /**
+   * Helper to check if the page has pagelet by name
+   *
+   * @param {String} name of pagelet
+   * @returns {Boolean}
+   * @api public
+   */
+  has: {
+    enumerable: false,
+    value: function has(name) {
+      return this.pagelets.some(function some(pagelet) {
+        return pagelet.name === name;
+      });
     }
   },
 
@@ -1061,14 +1084,12 @@ Page.extend = require('extendable');
 Page.on = function on(module) {
   var dir = this.prototype.directory = this.prototype.directory || path.dirname(module.filename)
     , pagelets = this.prototype.pagelets
-    , resources = this.prototype.resources
     , resolve = this.prototype.resolve;
 
   //
   // Resolve pagelets and resource paths.
   //
   if (pagelets) Object.keys(pagelets).forEach(resolve(dir, pagelets));
-  if (resources) Object.keys(resources).forEach(resolve(dir, resources));
 
   module.exports = this;
   return this;
