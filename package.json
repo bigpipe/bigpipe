@@ -12,7 +12,7 @@
     "watch": "./node_modules/.bin/watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
   },
   "pre-commit": [
-    "build",
+    "compile",
     "test"
   ],
   "dependencies": {

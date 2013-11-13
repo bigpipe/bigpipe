@@ -709,6 +709,8 @@ Pagelet.prototype.constructor = Pagelet;
  * @api private
  */
 Pagelet.prototype.configure = function configure(name, data) {
+  var pagelet = this;
+
   this.placeholders = this.$('data-pagelet', name);
 
   //
@@ -720,15 +722,15 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   // Create a real-time substream over which we can communicate over without.
   //
-  this.stream = this.stream.substream('pagelet::'+ this.name);
-  this.stream.write({ type: 'configure', id: data.id });
+  this.substream = this.stream.substream('pagelet::'+ this.name);
+  this.substream.on('data', function data(packet) { pagelet.processor(packet); });
+  this.orchestrate.write({ type: 'configure', id: data.id });
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
-
-  var pagelet = this.broadcast('configured', data);
+  this.data = data.data;                    // All the template data.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -754,7 +756,8 @@ Pagelet.prototype.configure = function configure(name, data) {
         , id = method +'#'+ (++counter);
 
       pagelet.once('rpc::'+ id, args.pop());
-      pagelet.stream.write({
+      pagelet.substream.write({
+        method: method,
         type: 'rpc',
         args: args,
         id: id
@@ -763,6 +766,11 @@ Pagelet.prototype.configure = function configure(name, data) {
       return pagelet;
     };
   }, this);
+
+  //
+  // Should be called before we create `rpc` hooks.
+  //
+  this.broadcast('configured', data);
 
   async.each(this.css.concat(this.js), function download(asset, next) {
     this.load(document.body, asset, next);
@@ -776,12 +784,32 @@ Pagelet.prototype.configure = function configure(name, data) {
 };
 
 /**
+ * Process the incoming messages from our SubStream.
+ *
+ * @param {Object} packet The decoded message.
+ * @api private
+ */
+Pagelet.prototype.processor = function processor(packet) {
+  switch (packet.type) {
+    case 'rpc':
+      this.emit.apply(this, ['rpc::'+ packet.id].concat(packet.args || []));
+    break;
+
+    case 'event':
+      if (packet.args && packet.args.length) {
+        this.emit.apply(this, packet.args);
+      }
+    break;
+  }
+};
+
+/**
  * The pagelet's resource has all been loaded.
  *
  * @api private
  */
 Pagelet.prototype.initialise = function initialise() {
-  this.broadcast('initialise');
+  this.broadcast('initialise', this);
 
   //
   // Only load the client code in a sandbox when it exists. There no point in

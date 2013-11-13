@@ -488,7 +488,8 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         });
 
         allowed.forEach(function initialize(pagelet) {
-          pagelet.initialize();
+          if (pagelet.initialize) pagelet.initialize();
+          page.pipe.expire.set(pagelet.id, pagelet);
         });
 
         debug('%s - %s initialised all allowed pagelets', page.method, page.path);
@@ -569,7 +570,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
           base = page.inject(base, pagelet.name, view(data[index]));
         });
 
-        page.res.end(base);
+        page.done();
       });
     }
   },
@@ -603,12 +604,10 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
                 // queued until the main page is rendered and sent to the client.
                 //
                 if (!page.res._headerSent) {
-                  page.queue.push(page.write.bind(page, pagelet, data));
+                  page.queue.push(page.write.bind(page, pagelet, data, callback));
                 } else {
-                  page.write(pagelet, data);
+                  page.write(pagelet, data, callback);
                 }
-
-                callback();
               });
             };
           });
@@ -646,7 +645,12 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       //
       // Do not close the connection before the main page has sent headers.
       //
-      if (page.n !== page.pagelets.length) return false;
+      if (page.n !== page.pagelets.length) {
+        debug('%s - %s not all pagelets have been written, (%s out of %s)',
+          this.name, this.id, this.n, this.pagelets.length
+        );
+        return false;
+      }
 
       //
       // Write disabled pagelets so the client can remove all empty placeholders.
@@ -682,11 +686,12 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    *
    * @param {Pagelet} pagelet Pagelet instance.
    * @param {Mixed} data The data returned from Pagelet.render().
+   * @param {Function} fn Optional callback to be called when data has been written.
    * @api private
    */
   write: {
     enumerable: false,
-    value: function write(pagelet, data) {
+    value: function write(pagelet, data, fn) {
       data = data || {};
 
       var view = this.temper.fetch(pagelet.view).server
@@ -701,7 +706,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       frag.remove = pagelet.remove;   // Does the front-end need to remove the pagelet.
       frag.id = pagelet.id;           // The internal id of the pagelet.
       frag.data = data;               // Template data for the pagelet.
-      frag.rpc = pagelet.rpc;         // RPC method.
+      frag.rpc = pagelet.RPC;         // RPC methods from the pagelet.
 
       output = fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
@@ -710,6 +715,8 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
       this.n++;
       this.res.write(output);
+
+      if ('function' === typeof fn) fn();
     }
   },
 
@@ -1009,11 +1016,15 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
       debug('%s - %s is configured', this.method, this.path);
 
-      if (this.initialize.length) {
-        debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
-        this.initialize(initialize);
+      if (this.initialize) {
+        if (this.initialize.length) {
+          debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
+          this.initialize(initialize);
+        } else {
+          this.initialize();
+          initialize();
+        }
       } else {
-        this.initialize();
         initialize();
       }
 

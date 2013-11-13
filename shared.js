@@ -23,21 +23,6 @@ var shared = {
   },
 
   /**
-   * Initialization function that is called when the pagelet is activated. This is
-   * done AFTER any of the authorization hooks are handled. So your sure that this
-   * pagelet is allowed for usage.
-   *
-   * @type {Function}
-   * @public
-   */
-  initialize: {
-    value: function initialize() {},
-    writable: true,
-    enumerable: false,
-    configurable: true
-  },
-
-  /**
    * Simple emit wrapper that returns a function that emits an event once it's
    * called
    *

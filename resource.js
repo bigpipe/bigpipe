@@ -356,7 +356,9 @@ Resource.prototype = Object.create(require('stream').prototype, shared.mixin({
       // Supply an empty array to cache, since previous use could have unset it.
       //
       this.cache = [];
-      if (this.initialise) this.initialise(req, res);
+
+      if (this.initialize) this.initialize(req, res);
+      else if (this.initialise) this.initialise(req, res);
     }
   }
 }));

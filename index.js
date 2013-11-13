@@ -2,6 +2,7 @@
 
 var debug = require('debug')('bigpipe:server')
   , FreeList = require('freelist').FreeList
+  , Expire = require('expirable')
   , Route = require('routable')
   , Primus = require('primus')
   , Temper = require('temper')
@@ -59,6 +60,8 @@ function Pipe(server, options) {
   this.cache = options('cache', null);              // Enable URL lookup caching.
   this.temper = new Temper;                         // Template parser.
   this.plugins = Object.create(null);               // Plugin storage.
+  this.layers = [];                                 // Middleware layer.
+  this.expire = new Expire('5 minutes');            // Pagelet instance Primus map
 
   //
   // Now that everything is processed, we can setup our internals.
@@ -119,7 +122,7 @@ Pipe.prototype.listen = function listen(port, done) {
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
-    debug('succesfully prepared the assets, starting HTTP server');
+    debug('succesfully prepared the assets, starting HTTP server on port %d', port);
     pipe.server.listen(port, done);
   });
 
@@ -184,6 +187,11 @@ Pipe.prototype.resolve = function resolve(files, transform) {
     files = Object.keys(files).map(function merge(name) {
       var constructor = init(files[name]);
 
+      if (!constructor.prototype) {
+        debug('%s did not export correcly, did you forgot to add .on(module) at the end of your file?', files[name]);
+        return;
+      }
+
       //
       // Add a name to the prototype, if we have this property in the prototype.
       // This mostly applies for the Pagelets.
@@ -193,7 +201,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
       }
 
       return constructor;
-    });
+    }).filter(Boolean);
   }
 
   //
@@ -343,6 +351,8 @@ Pipe.prototype.transform = function transform(Page) {
       //
       if (Pagelet.properties) return Pagelet;
 
+      debug('transforming pagelet: %s', Pagelet.prototype.name);
+
       var prototype = Pagelet.prototype
         , dir = prototype.directory;
 
@@ -363,6 +373,19 @@ Pipe.prototype.transform = function transform(Page) {
           if (/^(http:|https:)?\/\//.test(dep)) return dep;
           return path.resolve(dir, dep);
         });
+      }
+
+      //
+      // Aliasing, some methods can be written with different names or american
+      // vs Britain vs old english. For example `initialise` vs `initialize` but
+      // also the use of CAPS like `RPC` vs `rpc`
+      //
+      if (Array.isArray(prototype.rpc) && !prototype.RPC.length) {
+        Pagelet.prototype.RPC = prototype.rpc;
+      }
+
+      if ('function' === typeof prototype.initialise) {
+        Pagelet.prototype.initialize = prototype.initialise;
       }
 
       //
@@ -463,6 +486,7 @@ Pipe.prototype.define = function define(pages, done) {
  * @api public
  */
 Pipe.prototype.find = function find(url, method) {
+  debug('searching the matching routes for url %s', url);
   if (this.cache && this.cache.has(url)) return this.cache.get(url);
 
   var routes = [];
@@ -476,8 +500,24 @@ Pipe.prototype.find = function find(url, method) {
     routes.push(page);
   }
 
-  if (this.cache && routes.length) this.cache.set(url, routes);
+  if (this.cache && routes.length) {
+    this.cache.set(url, routes);
+    debug('added url %s and its discovered routes to the cache', url);
+  }
+
   return routes;
+};
+
+/**
+ * Add a new middleware layer which will run before any Page is executed.
+ *
+ * @param {Function} use The middleware.
+ * @api private
+ */
+Pipe.prototype.middleware = function middleware(use) {
+  this.layers.push(use);
+
+  return this;
 };
 
 /**
@@ -551,12 +591,20 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
     page.once('free', function free() {
       debug('%s - %s is released to the freelist', page.method, page.path);
       page.constructor.freelist.free(page);
+
+      if (page.domain) {
+        debug('%s - %s \'s domain has been disposed', page.method, page.path);
+        page.domain.dispose();
+      }
     });
 
     res.once('close', page.emits('close'));
 
     if (pipe.domains) {
       page.domain = domain.create();
+      page.domain.on('error', function (err) {
+        debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.message);
+      });
       page.domain.run(function run() {
         run.configure(req, res, data);
       });
@@ -565,18 +613,23 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
     }
   }
 
-  if (req.method === 'POST') {
-    debug('received a POST request, handling the POST while iterating over pagelets');
-    async.parallel({
-      data: this.post.bind(this, req),
-      page: iterate
-    }, function processed(err, result) {
-      result = result || {};
-      completed(err, result.page, result.data);
-    });
-  } else {
-    iterate(completed);
-  }
+  async.forEach(this.layers, function middleware(layer, next) {
+    layer.call(pipe, req, res, next);
+  }, function eached(err) {
+    if (req.method === 'POST') {
+      debug('received a POST request, handling the POST while iterating over pagelets');
+      async.parallel({
+        data: pipe.post.bind(pipe, req),
+        page: iterate
+      }, function processed(err, result) {
+        result = result || {};
+        completed(err, result.page, result.data);
+      });
+    } else {
+      iterate(completed);
+    }
+  });
+
   return this;
 };
 
@@ -644,16 +697,70 @@ Pipe.prototype.connection = function connection(spark) {
   //
   // Setup the pipe substream which.
   //
-  var orchestrate = spark.substream('pipe::orchestrate');
+  var orchestrate = spark.substream('pipe::orchestrate')
+    , pipe = this
+    , streams = {};
 
+  /**
+   * Configure a pagelet for substreaming.
+   *
+   * @param {Pagelet} pagelet The pagelet we need.
+   * @api private
+   */
+  function substream(pagelet) {
+    if (streams[pagelet.name]) return debug('already configured the Spark');
+
+    debug('creating a new substream for pagelet::%s (%s)', pagelet.name, pagelet.id);
+    var stream = streams[pagelet.name] = spark.substream('pagelet::'+ pagelet.name);
+
+    //
+    // Let the pagelet know that we've paird with a substream and spark.
+    //
+    if ('function' === typeof pagelet.pair) pagelet.pair(stream, spark);
+
+    //
+    // Incoming communication between the pagelet and it's substream.
+    //
+    stream.on('data', function substreamer(data) {
+      if (!pagelet) return debug('substream data event called after pagelet was removed');
+
+      switch (data.type) {
+        case 'rpc':
+          pagelet.trigger(data.method, data.args, data.id, stream);
+        break;
+      }
+    });
+
+    stream.on('end', function end() {
+      debug('substream has ended: %s/%s', pagelet.name, pagelet.id);
+      delete streams[pagelet.name];
+
+      pipe.expire.remove(pagelet.id);
+      pagelet = null;
+    });
+  }
+
+  //
+  // Incoming communication between our spark and the pagelet orchestration.
+  //
   orchestrate.on('data', function orchestration(data) {
+    switch (data.type) {
+      case 'configure':
+        var pagelet = pipe.expire.get(data.id);
 
+        if (pagelet) {
+          debug('registering Pagelet %s/%s as new substream', pagelet.name, data.id);
+          substream(pipe.expire.get(data.id));
+        }
+      break;
+    }
   });
 
   spark.on('end', function end() {
     //
     // Free all allocated pages and nuke all pagelets.
     //
+    debug('connection has ended: %s were still active', Object.keys(streams));
   });
 };
 
