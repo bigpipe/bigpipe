@@ -441,12 +441,13 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   /**
    * Discover pagelets that we're allowed to use.
    *
+   * @returns {Page} fluent interface
    * @api private
    */
   discover: {
     enumerable: false,
     value: function discover() {
-      if (!this.pagelets.length) return this.emit('discovered');
+      if (!this.pagelets.length) return this;
 
       var req = this.req
         , page = this
@@ -495,9 +496,10 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         debug('%s - %s initialised all allowed pagelets', page.method, page.path);
 
         // @TODO free disabled pagelets
-        page.emit('discovered');
-        page.emit('render');
+        page[page.mode]();
       });
+
+      return this;
     }
   },
 
@@ -547,6 +549,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    * Output the pagelets fully rendered in the HTML template.
    *
    * @param {String} base The generated base template.
+   * @returns {Page} fluent interface
    * @api private
    */
   render: {
@@ -572,6 +575,8 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
         page.done();
       });
+
+      return this;
     }
   },
 
@@ -721,14 +726,27 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   },
 
   /**
-   * Dispatch any pagelets that were queued up. Pagelet#render provides the data
-   * in the queue, thus everything can be written immediately.
+   * Dispatch will do the following:
+   *   - check mode and shortcircuit if render sync.
+   *   - write the initial headers so the browser can start working.
+   *   - dispatch already queued pagelets.
    *
    * @api private
    */
   dispatch: {
     enumerable: false,
-    value: function dispatch() {
+    value: function dispatch(output) {
+      if ('render' === this.mode) return this.render(output);
+
+      //
+      // Write the headerswritten.
+      //
+      this.res.write(output);
+
+      //
+      // Write the remaining queued pagelets, if no pagelets
+      // are remaining the response will be closed.
+      //
       async.parallel(this.queue, this.done.bind(this));
     }
   },
@@ -776,15 +794,33 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   },
 
   /**
-   * Supply bootstrap with data before rendering.
-   * @TODO tie in POST data
+   * We've been initialized, proceed with rendering if needed.
+   * @TODO free the page if initialization already terminated the request
    *
    * @api private
    */
   onset: {
     enumerable: false,
-    value: function onset(mode, data) {
-      var self = this;
+    value: function onset() {
+      var page = this;
+
+      //
+      // It could be that the initialization handled the page rendering through
+      // a `page.redirect()` or a `page.notFound()` call so we should terminate
+      // the request once that happens.
+      //
+      if (this.res.finished) return this;
+      debug('%s - %s is initialising', page.method, page.path);
+
+      //
+      //
+      //
+
+      console.log(this.req, this.pagelets);
+      //
+      // Discover all pagelets and start rendering in the set mode, default async.
+      //
+      page.discover();
 
       /**
        * Callback function provided to developer supplied function.
@@ -794,10 +830,10 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
        * @api private
        */
       function init(err, data) {
-        if (err) self.error(new Error('Providing custom data to Page instance failed'));
-        if (!data && 'function' !== typeof self.data) data = self.data;
+        if (err) page.error(new Error('Providing custom data to Page instance failed'));
+        if (!data && 'function' !== typeof page.data) data = page.data;
 
-        self.bootstrap(mode, data);
+        page.bootstrap(data);
       }
 
       //
@@ -817,28 +853,24 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    * - It includes "core" css for the page.
    * - It adds a <noscript> meta refresh for force a sync method.
    *
-   * @param {String} mode The rendering mode that's used to output the pagelets.
    * @param {Object} data data
    * @api private
    */
   bootstrap: {
     enumerable: false,
-    value: function bootstrap(mode, data) {
-      var method = this.pagelets.length ? 'write' : 'end'
-        , view = this.temper.fetch(this.view).server
+    value: function bootstrap(data) {
+      var view = this.temper.fetch(this.view).server
         , charset = this.charset
         , library = this.compiler.page(this)
         , path = this.req.uri.pathname
-        , key = this.pipe.options('head', 'bootstrap')
-        , head = []
-        , output;
+        , head = [];
 
       //
       // Add the character set asap for performance, defaults to utf-8.
       //
       if (charset) head.push('<meta charset="' + charset + '">');
 
-      if (mode !== 'render') {
+      if (this.mode !== 'render') {
         head.push(
           '<noscript>',
           '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1">',
@@ -875,24 +907,12 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       // @TODO bootstrap should not interfere with user data.
       //
       data = data || {};
-      data[key] = head.join('\n');
-      output = view(data);
-
-      if ('render' === mode) return this.emit('bootstrapped', output);
-
-      debug('%s - %s writing bigpipe bootstrapper', this.method, this.path);
-      this.res[method](output);
+      data[this.pipe.options('head', 'bootstrap')] = head.join('\n');
 
       //
-      // Page without pagelets since end is used to write.
+      // Page and headers are bootstrapped. Dispatch the headers.
       //
-      if ('end' === method) return this;
-
-      //
-      // Now that the page is bootstrapped and written to the client, emit that
-      // we are done. This will trigger queued pagelets to be sent.
-      //
-      this.emit('bootstrapped');
+      this.dispatch(view(data));
 
       //
       // Hack: As we've already send out our initial headers, all other headers
@@ -916,16 +936,60 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   },
 
   /**
+   * Process incoming POST requests.
+   *
+   * @param {Request} req HTTP request
+   * @param {Fucntion} fn Completion callback.
+   * @api private
+   */
+  _post: {
+    enumerable: false,
+    value: function post(req, fn) {
+      var bytes = this.bytes
+        , received = 0
+        , buffers = []
+        , err;
+
+      function data(buffer) {
+        received += buffer.length;
+
+        buffers.push(buffer);
+
+        if (bytes && received > bytes) {
+          req.removeListener('data', data);
+          req.destroy(err = new Error('Request was too large and has been destroyed to prevent DDOS.'));
+        }
+      }
+
+      //
+      // Only process data if we received any.
+      //
+      req.on('data', data);
+      req.once('end', function end() {
+        if (err) return fn(err);
+
+        //
+        // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
+        // broken.
+        //
+        req.removeListener('data', data);
+        fn(undefined, Buffer.concat(buffers));
+
+        buffers.length = 0;
+      });
+    }
+  },
+
+  /**
    * Reset the instance to it's original state and initialise it.
    *
    * @param {ServerRequest} req HTTP server request.
    * @param {ServerResponse} res HTTP server response.
-   * @param {Object} data POST data.
    * @api private
    */
   configure: {
     enumerable: false,
-    value: function configure(req, res, data) {
+    value: function configure(req, res) {
       var mode = this.mode
         , page = this
         , key;
@@ -964,54 +1028,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
       ) {
         debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, mode);
-        mode = 'render';
-      }
-
-      /**
-       * We've been initialized, proceed with rendering if needed. It could be
-       * that the initialization handled the page rendering through
-       * a `page.redirect()` or a `page.notFound()` call so we should terminate
-       * the request once that happens.
-       *
-       * @api private
-       */
-      function initialize() {
-        if (page.res.finished) return; // @TODO free the page
-
-        page.once('render', page[mode]);
-        page.once('bootstrapped', page.dispatch);
-
-        debug('%s - %s is initialising', page.method, page.path);
-
-        //
-        // There are two distinct ways of rendering the page.
-        //
-        // 1. We receive a GET request and want to render the page as fast as
-        //    possible as we need to output the template and load the pagelets.
-        //    The page and pagelets are rendered async alongside each other.
-        // 2. We receive a POST request and we need to check if we have a `data`
-        //    hook on the page that can handle POST processing "failures" for when
-        //    a pagelet denies it etc. The `data` method should be able
-        if (undefined !== data) {
-          page.once('bootstrapped', page.emits('render'));
-          page.once('discovered', function discovered() {
-            page.post(data, function posted(err, data) {
-
-              //
-              // Only process the bootstapping if we didn't write any output to
-              // the response. Which can happen if people want to .redirect or
-              // just abuse the .req/res directly and have the Page instance serve
-              // a simple wrapper around the request/response pattern.
-              //
-              if (!(!page.res.socket || page.res.socket.destroyed)) {
-                page.bootstrap(mode, data);
-              }
-            });
-          }).discover();
-        } else {
-          page.onset(mode, data);
-          page.discover();
-        }
+        this.mode = mode = 'render';
       }
 
       debug('%s - %s is configured', this.method, this.path);
@@ -1019,13 +1036,13 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       if (this.initialize) {
         if (this.initialize.length) {
           debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
-          this.initialize(initialize);
+          this.initialize(this.onset.bind(this));
         } else {
           this.initialize();
-          initialize();
+          this.onset();
         }
       } else {
-        initialize();
+        this.onset();
       }
 
       return this;
