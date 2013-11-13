@@ -816,6 +816,22 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   },
 
   /**
+   * Helper to check if the page has pagelet by name
+   *
+   * @param {String} name of pagelet
+   * @returns {Boolean}
+   * @api public
+   */
+  has: {
+    enumerable: false,
+    value: function has(name) {
+      return this.pagelets.some(function some(pagelet) {
+        return pagelet.name === name;
+      });
+    }
+  },
+
+  /**
    * The bootstrap method generates a string that needs to be included in the
    * template in order for pagelets to function.
    *
