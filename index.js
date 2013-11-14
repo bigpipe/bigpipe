@@ -424,6 +424,14 @@ Pipe.prototype.transform = function transform(Page) {
   }
 
   //
+  // Unique id per page. This is used to track back which page was actually
+  // rendered for the front-end so we can retrieve pagelets much easier.
+  //
+  Page.prototype.id = [1, 1, 1, 1].map(function generator() {
+    return Math.random().toString(36).substring(2).toUpperCase();
+  }).join('');
+
+  //
   // Add the properties to the page.
   //
   pipe.emit('transform::page', Page);                 // Emit tranform event for plugins.

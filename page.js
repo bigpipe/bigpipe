@@ -889,7 +889,10 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       //
       head.push(
         '<script>',
-          'pipe = new BigPipe(undefined, { pagelets: '+ this.pagelets.length +' });',
+          'pipe = new BigPipe(undefined, ', JSON.stringify({
+              pagelets: this.pagelets.length,     // Amount of pagelets to load
+              id: this.id                         // Current Page id.
+            }), ' );',
         '</script>'
       );
 
