@@ -2,7 +2,6 @@
 
 var debug = require('debug')('bigpipe:server')
   , FreeList = require('freelist').FreeList
-  , Expire = require('expirable')
   , Route = require('routable')
   , Primus = require('primus')
   , Temper = require('temper')
