@@ -60,7 +60,6 @@ function Pipe(server, options) {
   this.temper = new Temper;                         // Template parser.
   this.plugins = Object.create(null);               // Plugin storage.
   this.layers = [];                                 // Middleware layer.
-  this.expire = new Expire('5 minutes');            // Pagelet instance Primus map
 
   //
   // Now that everything is processed, we can setup our internals.
@@ -733,9 +732,6 @@ Pipe.prototype.connection = function connection(spark) {
     stream.on('end', function end() {
       debug('substream has ended: %s/%s', pagelet.name, pagelet.id);
       delete streams[pagelet.name];
-
-      pipe.expire.remove(pagelet.id);
-      pagelet = null;
     });
   }
 

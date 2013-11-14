@@ -5,18 +5,25 @@ var debug = require('debug')('bigpipe:pagelet')
   , path = require('path');
 
 /**
- * A simple pagelet.
+ * A pagelet is the representation of an item, section, column, widget on the
+ * page. It's basically a small sandboxed application within your page.
  *
  * @constructor
  * @api public
  */
 function Pagelet() {
-  this.page = null;
-  this.pipe = null;
-  this.id = null;
+  this.page = null;     // Reference to the page that generated the pagelet.
+  this.pipe = null;     // Reference to the BigPipe instance.
+  this.id = null;       // Custom ID of the pagelet
 }
 
 Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
+  /**
+   * Reset the constructor back to the original Pagelet function.
+   *
+   * @type {Function}
+   * @private
+   */
   constructor: {
     value: Pagelet,
     writable: true,
@@ -140,7 +147,9 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
 
   /**
    * The location of the Style Sheet for this pagelet. It should contain all the
-   * CSS that's needed to render this pagelet.
+   * CSS that's needed to render this pagelet. It doesn't have to be a `CSS`
+   * extension as these files are passed through `smithy` for automatic
+   * pre-processing.
    *
    * @type {String}
    * @public

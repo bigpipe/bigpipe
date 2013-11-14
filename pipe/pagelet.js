@@ -44,13 +44,13 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.name = name;
 
   //
-  // Create a real-time substream over which we can communicate over without.
+  // Create a real-time Substream over which we can communicate over without.
   //
   this.substream = this.stream.substream('pagelet::'+ this.name);
   this.substream.on('data', function data(packet) { pagelet.processor(packet); });
   this.orchestrate.write({
     type: 'configure', id: data.id,
-    name: name, page: location.pathname
+    name: name, url: this.pipe.url
   });
 
   this.css = collection.array(data.css);    // CSS for the Page.

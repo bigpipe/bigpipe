@@ -22,6 +22,7 @@ function Pipe(server, options) {
   this.pagelets = {};                   // Collection of different pagelets.
   this.freelist = [];                   // Collection of unused Pagelet instances.
   this.maximum = 20;                    // Max Pagelet instances we can reuse.
+  this.url = location.pathname;         // The current URL.
   this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
 
@@ -42,7 +43,7 @@ Pipe.prototype.constructor = Pipe;
  *
  * @api private
  */
-Pipe.prototype.configure = function configure() {
+Pipe.prototype.configure = function configure(options) {
   var root = this.root;
 
   if (root.className.indexOf('no_js')) {
@@ -52,7 +53,7 @@ Pipe.prototype.configure = function configure() {
   //
   // Catch all form submits.
   //
-  root.addEventListener('submit', this.submit.bind(this));
+  root.addEventListener('submit', this.submit.bind(this), false);
 };
 
 /**
@@ -208,6 +209,36 @@ Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
   var orchestrator = this.orchestrate = this.stream.substream('pipe::orchestrate');
 };
+
+/**
+ * Returns a list of introduced globals in this page, this allows us to do
+ * things.
+ */
+Pipe.prototype.globals = (function globals(global) {
+  global = global || this || window;
+
+  return function detect() {
+    var i = document.createElement('iframe')
+      , clean;
+
+    //
+    // Get a clean `global` variable by creating a new iframe.
+    //
+    i.style.display = 'none';
+    document.body.appendChild(i);
+    i.src = 'about:blank';
+
+    clean = i.contentWindow || i.contentDocument;
+    document.body.removeChild(i);
+
+    //
+    // Detect the globals and return them.
+    //
+    return Object.keys(global).filter(function filter(key) {
+      return !(key in clean);
+    });
+  };
+})(this);
 
 //
 // Expose the pipe
