@@ -816,7 +816,8 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   },
 
   /**
-   * Helper to check if the page has pagelet by name
+   * Helper to check if the page has pagelet by name, must use prototype.name
+   * since pagelets are not always constructed yet.
    *
    * @param {String} name of pagelet
    * @returns {Boolean}
@@ -826,7 +827,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
     enumerable: false,
     value: function has(name) {
       return this.pagelets.some(function some(pagelet) {
-        return pagelet.name === name;
+        return pagelet.prototype.name === name;
       });
     }
   },
