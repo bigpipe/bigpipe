@@ -702,17 +702,17 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         , pagelet.name, pagelet.id
       );
 
-      frag.remove = pagelet.remove;   // Does the front-end need to remove the pagelet.
-      frag.id = pagelet.id;           // The internal id of the pagelet.
-      frag.data = data;               // Template data for the pagelet.
-      frag.rpc = pagelet.RPC;         // RPC methods from the pagelet.
+      frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
+      frag.id = pagelet.id;         // The internal id of the pagelet.
+      frag.data = data;             // Template data for the pagelet.
+      frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
+      frag.processed = ++this.n;    // Amount of pagelets processed.
 
       output = fragment
         .replace(/\{pagelet::name\}/g, pagelet.name)
         .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
         .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''));
 
-      this.n++;
       this.res.write(output, 'utf-8', fn);
 
       //
@@ -848,11 +848,11 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
     enumerable: false,
     value: function bootstrap(mode, data) {
       var method = this.pagelets.length ? 'write' : 'end'
+        , key = this.pipe.options('head', 'bootstrap')
         , view = this.temper.fetch(this.view).server
-        , charset = this.charset
         , library = this.compiler.page(this)
         , path = this.req.uri.pathname
-        , key = this.pipe.options('head', 'bootstrap')
+        , charset = this.charset
         , head = []
         , output;
 
@@ -864,14 +864,14 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       if (mode !== 'render') {
         head.push(
           '<noscript>',
-          '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1">',
+            '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1">',
           '</noscript>'
         );
       } else {
         head.push(
           '<script>',
-          'if (location.search.indexOf("no_pagelet_js=1"))',
-          'location.href = location.href.replace(location.search, "")',
+            'if (location.search.indexOf("no_pagelet_js=1"))',
+            'location.href = location.href.replace(location.search, "")',
           '</script>'
         );
       }
@@ -884,7 +884,14 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         head.push('<script type="text/javascript" src="'+ url +'"></script>');
       });
 
-      head.push('<script>pipe = new BigPipe();</script>');
+      //
+      // Initialise the library.
+      //
+      head.push(
+        '<script>',
+          'pipe = new BigPipe(undefined, { pagelets: '+ this.pagelets.length +' });',
+        '</script>'
+      );
 
       // @TODO rel prefetch for resources that are used on the next page?
       // @TODO cache manifest.
