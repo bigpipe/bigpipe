@@ -443,6 +443,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   /**
    * Discover pagelets that we're allowed to use.
    *
+   * @param {Function} before iterative function to execute before render.
    * @returns {Page} fluent interface
    * @api private
    */
@@ -699,6 +700,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    *   - dispatch already queued pagelets.
    *
    * @param {String} core data, e.g. the header
+   * @param {Function} before iterative function to execute before render.
    * @api private
    */
   dispatch: {
@@ -822,9 +824,9 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    *
    * @api private
    */
-  onset: {
+  setup: {
     enumerable: false,
-    value: function onset() {
+    value: function setup() {
       var req = this.req
         , main = [ 'bootstrap' ]
         , sub = [ 'discover' ]
@@ -849,7 +851,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 //        var pagelet = this.has(req.query._pagelet);
 //        if (pagelet && method in pagelet.prototype) hook = pagelet.prototype[method];
         } else if (method in this) {
-          main.push(this.fetch.bind(this, method));
+          main.push(this.fetch(this[method]));
         } else {
           req.destroy();
         }
@@ -961,48 +963,56 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   },
 
   /**
-   * Process incoming POST requests.
+   * Delegate processed and received data to the supplied page#method
    *
-   * @param {Fucntion} done completion callback.
+   * @param {Function} method page delegation method
+   * @returns {Function} processor
    * @api private
    */
   fetch: {
     enumerable: false,
-    value: function fetch(method, done) {
-      var page = this
-        , bytes = this.bytes
-        , req = this.req
-        , received = 0
-        , buffers = []
-        , err;
+    value: function fetch(method) {
+      /**
+       * Process incoming request.
+       *
+       * @param {Fucntion} next completion callback.
+       * @api private
+       */
+      return function process(next) {
+        var bytes = this.bytes
+          , req = this.req
+          , received = 0
+          , buffers = []
+          , err;
 
-      function data(buffer) {
-        received += buffer.length;
+        function data(buffer) {
+          received += buffer.length;
 
-        buffers.push(buffer);
+          buffers.push(buffer);
 
-        if (bytes && received > bytes) {
-          req.removeListener('data', data);
-          req.destroy(err = new Error('Request was too large and has been destroyed to prevent DDOS.'));
+          if (bytes && received > bytes) {
+            req.removeListener('data', data);
+            req.destroy(err = new Error('Request was too large and has been destroyed to prevent DDOS.'));
+          }
         }
-      }
-
-      //
-      // Only process data if we received any.
-      //
-      req.on('data', data);
-      req.once('end', function end() {
-        if (err) return done(err);
 
         //
-        // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
-        // broken.
+        // Only process data if we received any.
         //
-        req.removeListener('data', data);
-        page[method](undefined, Buffer.concat(buffers), done);
+        req.on('data', data);
+        req.once('end', function end() {
+          if (err) return next(err);
 
-        buffers.length = 0;
-      });
+          //
+          // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
+          // broken.
+          //
+          req.removeListener('data', data);
+          method(undefined, Buffer.concat(buffers), next);
+
+          buffers.length = 0;
+        });
+      };
     }
   },
 
@@ -1067,13 +1077,13 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       if (this.initialize) {
         if (this.initialize.length) {
           debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
-          this.initialize(this.onset.bind(this));
+          this.initialize(this.setup.bind(this));
         } else {
           this.initialize();
-          this.onset();
+          this.setup();
         }
       } else {
-        this.onset();
+        this.setup();
       }
 
       return this;
