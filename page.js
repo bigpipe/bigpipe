@@ -487,7 +487,12 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       }, function acceptance(allowed) {
         page.enabled = allowed;
 
+        //
+        // Keep track of disabled pagelets, also close open POST/PUT request if
+        // the pagelet is not included in or allowed for the current page.
+        //
         page.disabled = pagelets.filter(function disabled(pagelet) {
+          if (before && before.pagelet === pagelet.name) page.req.destroy();
           return !~allowed.indexOf(pagelet);
         });
 
@@ -498,7 +503,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
         // @TODO free disabled pagelets
         debug('%s - %s initialised all allowed pagelets', page.method, page.path);
-        page[page.mode]();
+        page[page.mode](before);
       });
 
       return this;
@@ -508,6 +513,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   /**
    * Mode: Render
    * Output the pagelets fully rendered in the HTML template.
+   * @TODO rewrite, not working against altered renderer.
    *
    * @param {String} base The generated base template.
    * @returns {Page} fluent interface
@@ -549,38 +555,19 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    */
   async: {
     enumerable: false,
-    value: function render() {
+    value: function render(before) {
+      var page = this;
+
+      //
+      // Render each pagelet, if the request method was POST/PUT #before will
+      // be called prior to calling the renderer of the specific pagelet.
+      //
       debug('%s - %s is rendering the pagelets in `async` mode', this.method, this.path);
-
-      var page = this
-        , pagelets = this.enabled.map(function mapRendering(pagelet) {
-            return function prepare(callback) {
-              pagelet.render(function rendering(err, data) {
-                if (err) return callback(err);
-
-                //
-                // If the repsonse was closed, finished the async asap.
-                //
-                if (page.res.finished) {
-                  return callback(new Error('Response was closed, unable to write Pagelet'));
-                }
-
-                //
-                // queued until the main page is rendered and sent to the client.
-                //
-                if (!page.res._headerSent) {
-                  page.queue.push(page.write.bind(page, pagelet, data, callback));
-                } else {
-                  page.write(pagelet, data, callback);
-                }
-              });
-            };
-          });
-
-      //
-      // Render (or queue) all pagelets.
-      //
-      async.parallel(pagelets, page.done.bind(page));
+      async.parallel(this.enabled.map(function mapRenderer(pagelet) {
+        return before && before.pagelet === pagelet.name
+          ? before.bind(page, pagelet.renderer.bind(pagelet))
+          : pagelet.renderer.bind(pagelet);
+      }), this.done.bind(this));
     }
   },
 
@@ -830,7 +817,8 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       var req = this.req
         , main = [ 'bootstrap' ]
         , sub = [ 'discover' ]
-        , method = operations[operations.indexOf(req.method.toLowerCase())];
+        , method = req.method.toLowerCase()
+        , pagelet;
 
       //
       // It could be that the initialization handled the page rendering through
@@ -846,10 +834,12 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       // If no pagelet is targeted, check if the page has an implementation, if
       // all else fails make sure we destroy the request.
       //
-      if (method) {
-        if ('_pagelet' in req.query) {
-//        var pagelet = this.has(req.query._pagelet);
-//        if (pagelet && method in pagelet.prototype) hook = pagelet.prototype[method];
+      if (~operations.indexOf(method)) {
+        if ('_pagelet' in req.query) pagelet = this.has(req.query._pagelet);
+        if (pagelet && method in pagelet.prototype) {
+          method = this.fetch(pagelet.prototype[method]);
+          method.pagelet = pagelet.prototype.name;
+          sub.push(method);
         } else if (method in this) {
           main.push(this.fetch(this[method]));
         } else {
@@ -879,9 +869,14 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   has: {
     enumerable: false,
     value: function has(name) {
-      return this.pagelets.some(function some(pagelet) {
-        return pagelet.prototype.name === name ? pagelet : false;
-      });
+      var pagelets = this.pagelets
+        , i = pagelets.length;
+
+      while (i--) {
+        if (pagelets[i].prototype.name === name) break;
+      }
+
+      return pagelets[i];
     }
   },
 
@@ -972,6 +967,8 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   fetch: {
     enumerable: false,
     value: function fetch(method) {
+      var page = this;
+
       /**
        * Process incoming request.
        *
@@ -979,8 +976,8 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
        * @api private
        */
       return function process(next) {
-        var bytes = this.bytes
-          , req = this.req
+        var bytes = page.bytes
+          , req = page.req
           , received = 0
           , buffers = []
           , err;
