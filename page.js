@@ -4,7 +4,8 @@ var debug = require('debug')('bigpipe:page')
   , shared = require('./shared')
   , async = require('async')
   , path = require('path')
-  , fs = require('fs');
+  , fs = require('fs')
+  , operations = ['post', 'put'];
 
 /**
  * The fragment is actual chunk of the response that is written for each
@@ -306,8 +307,9 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   },
 
   /**
-   * Provide dynamic data to the view. The function will be called by onset
-   * and supplied with an callback.
+   * Provide dynamic data to the view or static object. The data will be merged
+   * by dispatch right before rendering the view. The function will be supplied
+   * with callback, e.g. function data(next) { ... }
    *
    * @type {Function}
    * @public
@@ -446,7 +448,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    */
   discover: {
     enumerable: false,
-    value: function discover() {
+    value: function discover(before) {
       if (!this.pagelets.length) return this;
 
       var req = this.req
@@ -493,54 +495,12 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
           page.pipe.expire.set(pagelet.id, pagelet);
         });
 
-        debug('%s - %s initialised all allowed pagelets', page.method, page.path);
-
         // @TODO free disabled pagelets
+        debug('%s - %s initialised all allowed pagelets', page.method, page.path);
         page[page.mode]();
       });
 
       return this;
-    }
-  },
-
-  /**
-   * Process the incoming data. Run it over the pagelets to see if they need to
-   * handle it.
-   *
-   * @param {Mixed} data The data structure.
-   * @param {Function} fn Callback.
-   * @api private
-   */
-  post: {
-    enumerable: false,
-    value: function post(data, fn) {
-      var page = this;
-
-      async.forEach(this.enabled, function post(pagelet, next) {
-        if (!pagelet.listeners('data').length) return next(undefined, data);
-
-        function process(data) {
-          pagelet.removeListener('error', process);
-          pagelet.removeListener('end', process);
-
-          if (data instanceof Error) return next(data);
-          next(undefined, data);
-        }
-
-        pagelet.once('end', process);
-        pagelet.once('error', process);
-        pagelet.emit('data', data);
-      }, function done(err) {
-        if (!page.listeners('data').length) return fn(err, data);
-
-        page.once('end', fn);
-
-        if (err && page.listeners('error').length) {
-          page.emit('error', err);
-        } else {
-          page.emit('data', data);
-        }
-      });
     }
   },
 
@@ -600,12 +560,11 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
                 //
                 // If the repsonse was closed, finished the async asap.
                 //
-                if (!page.res.socket || page.res.socket.destroyed) {
+                if (page.res.finished) {
                   return callback(new Error('Response was closed, unable to write Pagelet'));
                 }
 
                 //
-                // If headers are not send yet, enlist the pagelet to remain
                 // queued until the main page is rendered and sent to the client.
                 //
                 if (!page.res._headerSent) {
@@ -734,27 +693,84 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
   /**
    * Dispatch will do the following:
+   *   - merge additional data from http methods or custom supplier
    *   - check mode and shortcircuit if render sync.
    *   - write the initial headers so the browser can start working.
    *   - dispatch already queued pagelets.
    *
+   * @param {String} core data, e.g. the header
    * @api private
    */
   dispatch: {
     enumerable: false,
-    value: function dispatch(output) {
-      if ('render' === this.mode) return this.render(output);
+    value: function dispatch(core, before) {
+      var page = this
+        , stack = []
+        , output;
+
+      /**
+       * Write content to the client, data is merged before that in
+       * the following order: {} - post - custom data - core.
+       *
+       * @param {Error} err
+       * @param {Mixed} data
+       * @api private
+       */
+      function init(err, data) {
+        if (err) page.error(new Error('Providing custom data to Page instance failed'));
+
+        //
+        // Merge all data.
+        //
+        data.push(core);
+        data = data.reduce(page.merge, {});
+
+        //
+        // Generate the main page via temper.
+        //
+        output = page.temper.fetch(page.view).server(data);
+
+        //
+        // Shortcircuit page is in render mode.
+        //
+        if ('render' === page.mode) return page.render(output);
+
+        //
+        // Write the headers.
+        //
+        page.res.write(output);
+
+        //
+        // Hack: As we've already send out our initial headers, all other headers
+        // need to be send as "trailing" headers. But none of the modules in the
+        // node's eco system are written in a way that they support trailing
+        // headers. They are all focused on a simple request/response pattern so
+        // we need to override the `setHeader` method so it sends trailer headers
+        // instead.
+        //
+        page.res.trailers = {};
+        page.res.trailer = false;
+        page.res.setHeader = function setHeader(key, value) {
+          this.trailers[key] = value;
+          this.trailer = true;
+
+          return this;
+        };
+
+        //
+        // Write the remaining queued pagelets, if no pagelets
+        // are remaining the response will be closed.
+        //
+        async.parallel(page.queue, page.done.bind(page));
+      }
+
+      if ('function' === typeof before) stack.push(before.bind(this));
+      if ('function' === typeof page.data) stack.push(page.data.bind(this));
 
       //
-      // Write the headerswritten.
+      // Check the data provider and supply it with a callback.
       //
-      this.res.write(output);
-
-      //
-      // Write the remaining queued pagelets, if no pagelets
-      // are remaining the response will be closed.
-      //
-      async.parallel(this.queue, this.done.bind(this));
+      async.series(stack, init);
     }
   },
 
@@ -809,45 +825,44 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   onset: {
     enumerable: false,
     value: function onset() {
-      var page = this;
+      var req = this.req
+        , main = [ 'bootstrap' ]
+        , sub = [ 'discover' ]
+        , method = operations[operations.indexOf(req.method.toLowerCase())];
 
       //
       // It could be that the initialization handled the page rendering through
       // a `page.redirect()` or a `page.notFound()` call so we should terminate
       // the request once that happens.
       //
-      if (this.res.finished) return this;
-      debug('%s - %s is initialising', page.method, page.path);
+      if (this.res.finished) return req.destroy();
+      debug('%s - %s is initialising', this.method, this.path);
 
       //
+      // Check if the HTTP method is targetted at a specific pagelet inside the
+      // page. If so, only execute the logic contained in pagelet#method.
+      // If no pagelet is targeted, check if the page has an implementation, if
+      // all else fails make sure we destroy the request.
       //
-      //
-
-      console.log(this.req, this.pagelets);
-      //
-      // Discover all pagelets and start rendering in the set mode, default async.
-      //
-      page.discover();
-
-      /**
-       * Callback function provided to developer supplied function.
-       *
-       * @param {Error} err
-       * @param {Mixed} data
-       * @api private
-       */
-      function init(err, data) {
-        if (err) page.error(new Error('Providing custom data to Page instance failed'));
-        if (!data && 'function' !== typeof page.data) data = page.data;
-
-        page.bootstrap(data);
+      if (method) {
+        if ('_pagelet' in req.query) {
+//        var pagelet = this.has(req.query._pagelet);
+//        if (pagelet && method in pagelet.prototype) hook = pagelet.prototype[method];
+        } else if (method in this) {
+          main.push(this.fetch.bind(this, method));
+        } else {
+          req.destroy();
+        }
       }
 
       //
-      // Check the data provider and supply it with a callback.
+      // Fire the main paths for rendering and dispatching content. Both emits
+      // can be supplied with a different set of parameters.
+      //  - trigger rendering of page.
+      //  - trigger rendering of all pagelets.
       //
-      if (this.data && 'function' === typeof this.data) return this.data.call(this, init);
-      process.nextTick(init);
+      this.emit.apply(this, main);
+      this.emit.apply(this, sub);
     }
   },
 
@@ -863,7 +878,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
     enumerable: false,
     value: function has(name) {
       return this.pagelets.some(function some(pagelet) {
-        return pagelet.prototype.name === name;
+        return pagelet.prototype.name === name ? pagelet : false;
       });
     }
   },
@@ -877,16 +892,17 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    * - It includes "core" css for the page.
    * - It adds a <noscript> meta refresh for force a sync method.
    *
-   * @param {Object} data data
+   * @param {Function} before data
+   * @returns {Page} fluent interface
    * @api private
    */
   bootstrap: {
     enumerable: false,
-    value: function bootstrap(data) {
-      var view = this.temper.fetch(this.view).server
-        , charset = this.charset
+    value: function bootstrap(before) {
+      var charset = this.charset
         , library = this.compiler.page(this)
         , path = this.req.uri.pathname
+        , data = {}
         , head = [];
 
       //
@@ -927,34 +943,19 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       this.res.setHeader('Content-Type', 'text/html');
 
       //
-      // Supply data to the view and render after.
-      // @TODO bootstrap should not interfere with user data.
+      // Supply data to the view and render after. Make sure the defined head
+      // key cannot be overwritten by any custom data.
       //
-      data = data || {};
-      data[this.pipe.options('head', 'bootstrap')] = head.join('\n');
+      Object.defineProperty(data, this.pipe.options('head', 'bootstrap'), {
+        writable: false,
+        enumerable: true,
+        value: head.join('\n')
+      });
 
       //
       // Page and headers are bootstrapped. Dispatch the headers.
       //
-      this.dispatch(view(data));
-
-      //
-      // Hack: As we've already send out our initial headers, all other headers
-      // need to be send as "trailing" headers. But none of the modules in the
-      // node's eco system are written in a way that they support trailing
-      // headers. They are all focused on a simple request/response pattern so
-      // we need to override the `setHeader` method so it sends trailer headers
-      // instead.
-      //
-      this.res.trailers = {};
-      this.res.trailer = false;
-      this.res.setHeader = function setHeader(key, value) {
-        this.trailers[key] = value;
-        this.trailer = true;
-
-        return this;
-      };
-
+      this.dispatch(data, before);
       return this;
     }
   },
@@ -962,14 +963,15 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
   /**
    * Process incoming POST requests.
    *
-   * @param {Request} req HTTP request
-   * @param {Fucntion} fn Completion callback.
+   * @param {Fucntion} done completion callback.
    * @api private
    */
-  _post: {
+  fetch: {
     enumerable: false,
-    value: function post(req, fn) {
-      var bytes = this.bytes
+    value: function fetch(method, done) {
+      var page = this
+        , bytes = this.bytes
+        , req = this.req
         , received = 0
         , buffers = []
         , err;
@@ -990,14 +992,14 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       //
       req.on('data', data);
       req.once('end', function end() {
-        if (err) return fn(err);
+        if (err) return done(err);
 
         //
         // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
         // broken.
         //
         req.removeListener('data', data);
-        fn(undefined, Buffer.concat(buffers));
+        page[method](undefined, Buffer.concat(buffers), done);
 
         buffers.length = 0;
       });
@@ -1055,8 +1057,13 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         this.mode = mode = 'render';
       }
 
-      debug('%s - %s is configured', this.method, this.path);
+      //
+      // Listen to events that setup the main BigPipe routes, pages and pagelets.
+      //
+      this.once('bootstrap', this.bootstrap.bind(this));
+      this.once('discover', this.discover.bind(this));
 
+      debug('%s - %s is configured', this.method, this.path);
       if (this.initialize) {
         if (this.initialize.length) {
           debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
