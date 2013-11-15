@@ -492,8 +492,10 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
         // the pagelet is not included in or allowed for the current page.
         //
         page.disabled = pagelets.filter(function disabled(pagelet) {
-          if (before && before.pagelet === pagelet.name) page.req.destroy();
-          return !~allowed.indexOf(pagelet);
+          var allow = !~allowed.indexOf(pagelet);
+          if (allow && before && before.pagelet === pagelet.name) page.req.destroy();
+
+          return allow;
         });
 
         allowed.forEach(function initialize(pagelet) {
