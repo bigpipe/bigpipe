@@ -6,10 +6,10 @@ var collection = require('./collection');
 // Pointless function that will replace callbacks once they are executed to
 // prevent double execution from ever happening.
 //
-function noop() {}
+function noop() { /* you waste your time by reading this, see, i told you.. */ }
 
 /**
- * Asyncronously iterate over the given data.
+ * Asynchronously iterate over the given data.
  *
  * @param {Mixed} data The data we need to iterate over
  * @param {Function} iterator Function that's called for each item.

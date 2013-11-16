@@ -75,6 +75,7 @@ Pipe.prototype.IEV = Pagelet.prototype.IEV;
  */
 Pipe.prototype.arrive = function arrive(name, data) {
   if (!this.has(name)) this.create(name, data);
+
   return this;
 };
 
@@ -202,7 +203,7 @@ Pipe.prototype.free = function free(pagelet) {
  * Setup a real-time connection to the pagelet server.
  *
  * @param {String} url The server address.
- * @param {Object} options The primus configuration.
+ * @param {Object} options The Primus configuration.
  * @api private
  */
 Pipe.prototype.connect = function connect(url, options) {

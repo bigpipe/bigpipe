@@ -4,7 +4,7 @@
  * Get an accurate type check for the given Object.
  *
  * @param {Mixed} obj The object that needs to be detected.
- * @returns {String} The object type
+ * @returns {String} The object type.
  * @api private
  */
 function type(obj) {
@@ -52,7 +52,7 @@ function empty(obj) {
 }
 
 /**
- * Determin the size of a collection.
+ * Determine the size of a collection.
  *
  * @param {Mixed} collection The object we want to know the size of.
  * @returns {Number} The size of the collection.
@@ -70,7 +70,7 @@ function size(collection) {
 }
 
 /**
- * Wrap the given object in an array if it's not an array allready.
+ * Wrap the given object in an array if it's not an array already.
  *
  * @param {Mixed} obj The thing we might need to wrap.
  * @returns {Array} We promise!
