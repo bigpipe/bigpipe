@@ -285,11 +285,30 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   renderer: {
     enumerable: false,
     value: function renderer(fn) {
-      var pagelet = this;
+      var pagelet = this
+        , page = this.page;
 
       this.render(function receive(err, data) {
         if (err) debug('rendering %s/%s resulted in a error', pagelet.name, pagelet.id, err);
-        if (err) return fn(err);
+
+        //
+        // If the repsonse was closed, finished the async asap.
+        //
+        if (page.res.finished) {
+          return fn(new Error('Response was closed, unable to write Pagelet'));
+        }
+
+        //
+        // The main page and headers were written, flush pagelet immediatly.
+        //
+        if (page.res._headerSent) return page.write(pagelet, data, fn);
+
+        //
+        // The main page is not written to the client yet,
+        // delay the pagelet and trigger the callback.
+        //
+        page.queue.push(page.write.bind(page, pagelet, data));
+        fn();
       });
     }
   },
