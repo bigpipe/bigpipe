@@ -1,7 +1,8 @@
-/*globals Primus */
+/*globals */
 'use strict';
 
-var collection = require('./collection')
+var EventEmitter = require('eventemitter3')
+  , collection = require('./collection')
   , Fortress = require('fortress')
   , async = require('./async');
 
@@ -20,7 +21,7 @@ var sandbox = new Fortress();
  * @api public
  */
 function Pagelet(pipe) {
-  Primus.EventEmitter.call(this);
+  EventEmitter.call(this);
 
   this.orchestrate = pipe.orchestrate;
   this.stream = pipe.stream;
@@ -28,9 +29,9 @@ function Pagelet(pipe) {
 }
 
 //
-// Inherit from Primus's EventEmitter.
+// Inherit from EventEmitter.
 //
-Pagelet.prototype = new Primus.EventEmitter();
+Pagelet.prototype = new EventEmitter();
 Pagelet.prototype.constructor = Pagelet;
 
 /**

@@ -290,7 +290,10 @@ function unloadJavaScript(url) {
  * @api public
  */
 exports.load = function load(root, url, fn) {
-  if ('js' !== url.split('.').pop()) return loadStyleSheet(root, url, fn);
+  if ('js' !== url.split('.').pop()) {
+    return loadStyleSheet(root, url, fn);
+  }
+
   loadJavaScript(root, url, fn);
 };
 
@@ -301,6 +304,9 @@ exports.load = function load(root, url, fn) {
  * @api public
  */
 exports.unload = function unload(url) {
-  if ('js' !== url.split('.').pop()) return unloadStyleSheet(url);
+  if ('js' !== url.split('.').pop()) {
+    return unloadStyleSheet(url);
+  }
+
   unloadJavaScript(url);
 };

@@ -1,7 +1,8 @@
 /*globals Primus */
 'use strict';
 
-var collection = require('./collection')
+var EventEmitter = require('eventemitter3')
+  , collection = require('./collection')
   , Pagelet = require('./pagelet')
   , loader = require('./loader');
 
@@ -26,16 +27,16 @@ function Pipe(server, options) {
   this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
 
-  Primus.EventEmitter.call(this);
+  EventEmitter.call(this);
 
   this.configure(options);
   this.connect(server, options.primus);
 }
 
 //
-// Inherit from Primus's EventEmitter3.
+// Inherit from EventEmitter3.
 //
-Pipe.prototype = new Primus.EventEmitter();
+Pipe.prototype = new EventEmitter();
 Pipe.prototype.constructor = Pipe;
 
 /**
