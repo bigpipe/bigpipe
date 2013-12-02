@@ -22,15 +22,15 @@
     "eventemitter3": "0.0.x",
     "expirable": "0.0.x",
     "extendable": "0.0.x",
+    "fortress": "0.0.x",
     "jade": "0.35.x",
     "mkdirp": "0.3.x",
     "primus": "1.4.x",
     "routable": "0.0.x",
     "smithy": "0.3.x",
-    "substream": "0.0.0",
+    "substream": "0.0.x",
     "temper": "0.0.x",
-    "ws": "0.4.x",
-    "fortress": "0.0.0"
+    "ws": "0.4.x"
   },
   "devDependencies": {
     "chai": "1.8.x",
