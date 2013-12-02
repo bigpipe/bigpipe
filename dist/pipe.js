@@ -8,10 +8,10 @@ var collection = require('./collection');
 // Pointless function that will replace callbacks once they are executed to
 // prevent double execution from ever happening.
 //
-function noop() {}
+function noop() { /* you waste your time by reading this, see, i told you.. */ }
 
 /**
- * Asyncronously iterate over the given data.
+ * Asynchronously iterate over the given data.
  *
  * @param {Mixed} data The data we need to iterate over
  * @param {Function} iterator Function that's called for each item.
@@ -59,7 +59,7 @@ exports.each = function each(data, iterator, fn, options) {
  * Get an accurate type check for the given Object.
  *
  * @param {Mixed} obj The object that needs to be detected.
- * @returns {String} The object type
+ * @returns {String} The object type.
  * @api private
  */
 function type(obj) {
@@ -107,7 +107,7 @@ function empty(obj) {
 }
 
 /**
- * Determin the size of a collection.
+ * Determine the size of a collection.
  *
  * @param {Mixed} collection The object we want to know the size of.
  * @returns {Number} The size of the collection.
@@ -125,7 +125,7 @@ function size(collection) {
 }
 
 /**
- * Wrap the given object in an array if it's not an array allready.
+ * Wrap the given object in an array if it's not an array already.
  *
  * @param {Mixed} obj The thing we might need to wrap.
  * @returns {Array} We promise!
@@ -173,6 +173,7 @@ function Pipe(server, options) {
   this.pagelets = {};                   // Collection of different pagelets.
   this.freelist = [];                   // Collection of unused Pagelet instances.
   this.maximum = 20;                    // Max Pagelet instances we can reuse.
+  this.url = location.pathname;         // The current URL.
   this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
 
@@ -193,7 +194,7 @@ Pipe.prototype.constructor = Pipe;
  *
  * @api private
  */
-Pipe.prototype.configure = function configure() {
+Pipe.prototype.configure = function configure(options) {
   var root = this.root;
 
   if (root.className.indexOf('no_js')) {
@@ -203,7 +204,7 @@ Pipe.prototype.configure = function configure() {
   //
   // Catch all form submits.
   //
-  root.addEventListener('submit', this.submit.bind(this));
+  root.addEventListener('submit', this.submit.bind(this), false);
 };
 
 /**
@@ -225,6 +226,7 @@ Pipe.prototype.IEV = Pagelet.prototype.IEV;
  */
 Pipe.prototype.arrive = function arrive(name, data) {
   if (!this.has(name)) this.create(name, data);
+
   return this;
 };
 
@@ -352,13 +354,53 @@ Pipe.prototype.free = function free(pagelet) {
  * Setup a real-time connection to the pagelet server.
  *
  * @param {String} url The server address.
- * @param {Object} options The primus configuration.
+ * @param {Object} options The Primus configuration.
  * @api private
  */
 Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
   var orchestrator = this.orchestrate = this.stream.substream('pipe::orchestrate');
 };
+
+/**
+ * Returns a list of introduced globals in this page, this allows us to do
+ * things.
+ *
+ * @returns {Array} List of introduced globals.
+ * @api private
+ */
+Pipe.prototype.globals = (function globals() {
+  var global = (function () { return this; }()) || window
+    , scripts = document.getElementsByTagName('script')
+    , appendTo = scripts[scripts.length - 1];
+
+  //
+  // Nuke the references, they are not needed anymore
+  //
+  scripts = null;
+
+  return function detect() {
+    var i = document.createElement('iframe')
+      , clean;
+
+    //
+    // Get a clean `global` variable by creating a new iframe.
+    //
+    i.style.display = 'none';
+    appendTo.appendChild(i);
+    i.src = 'about:blank';
+
+    clean = i.contentWindow || i.contentDocument;
+    appendTo.removeChild(i);
+
+    //
+    // Detect the globals and return them.
+    //
+    return Object.keys(global).filter(function filter(key) {
+      return !(key in clean);
+    });
+  };
+})();
 
 //
 // Expose the pipe
@@ -720,13 +762,13 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.name = name;
 
   //
-  // Create a real-time substream over which we can communicate over without.
+  // Create a real-time Substream over which we can communicate over without.
   //
   this.substream = this.stream.substream('pagelet::'+ this.name);
   this.substream.on('data', function data(packet) { pagelet.processor(packet); });
   this.orchestrate.write({
     type: 'configure', id: data.id,
-    name: name, page: location.pathname
+    name: name, url: this.pipe.url
   });
 
   this.css = collection.array(data.css);    // CSS for the Page.
