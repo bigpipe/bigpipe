@@ -487,6 +487,7 @@ Pipe.prototype.define = function define(pages, done) {
  * iterated over for when a page has a authorization method.
  *
  * @param {String} url The URL we need to find.
+ * @param {String} method HTTP method
  * @returns {Array} Array full of constructors, or nothing.
  * @api public
  */
@@ -586,10 +587,9 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
    *
    * @param {Error} err We've encountered an error while generating shizzle.
    * @param {Page} page The page instance.
-   * @param {Object} data Optional incoming data.
    * @api private
    */
-  function completed(err, page, data) {
+  function completed(err, page) {
     //
     // Release the page again when we receive a `free` event.
     //
@@ -611,68 +611,21 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
         debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.message);
       });
       page.domain.run(function run() {
-        run.configure(req, res, data);
+        run.configure(req, res);
       });
     } else {
-      page.configure(req, res, data);
+      page.configure(req, res);
     }
   }
 
+  //
+  // Run middleware layers first, after iterate pages and run page#configure.
+  //
   async.forEach(this.layers, function middleware(layer, next) {
     layer.call(pipe, req, res, next);
-  }, function eached(err) {
-    if (req.method === 'POST') {
-      debug('received a POST request, handling the POST while iterating over pagelets');
-      async.parallel({
-        data: pipe.post.bind(pipe, req),
-        page: iterate
-      }, function processed(err, result) {
-        result = result || {};
-        completed(err, result.page, result.data);
-      });
-    } else {
-      iterate(completed);
-    }
-  });
+  }, iterate.bind(pipe, completed));
 
   return this;
-};
-
-/**
- * Process incoming POST requests.
- *
- * @param {Request} rea HTTP request
- * @param {Fucntion} fn Completion callback.
- * @api private
- */
-Pipe.prototype.post = function post(req, fn) {
-  var bytes = this.bytes
-    , received = 0
-    , buffers = []
-    , err;
-
-  req.on('data', function data(buffer) {
-    received += buffer.length;
-
-    buffers.push(buffer);
-
-    if (bytes && received > bytes) {
-      req.removeListener('data', data);
-      req.destroy(err = new Error('Request was too large and has been destroyed to prevent DDOS.'));
-    }
-  });
-
-  req.once('end', function end() {
-    if (err) return fn(err);
-
-    //
-    // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
-    // broken.
-    //
-    fn(undefined, Buffer.concat(buffers));
-
-    buffers.length = 0;
-  });
 };
 
 /**

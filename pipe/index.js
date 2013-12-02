@@ -103,7 +103,7 @@ Pipe.prototype.submit = function submit(event) {
     form.setAttribute('action', [
       action,
       ~action.indexOf('?') ? '&' : '?',
-      'pagelet=',
+      '_pagelet=',
       name
     ].join(''));
   }
