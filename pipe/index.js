@@ -211,46 +211,6 @@ Pipe.prototype.connect = function connect(url, options) {
   var orchestrator = this.orchestrate = this.stream.substream('pipe::orchestrate');
 };
 
-/**
- * Returns a list of introduced globals in this page, this allows us to do
- * things.
- *
- * @returns {Array} List of introduced globals.
- * @api private
- */
-Pipe.prototype.globals = (function globals() {
-  var global = (function () { return this; }()) || window
-    , scripts = document.getElementsByTagName('script')
-    , appendTo = scripts[scripts.length - 1];
-
-  //
-  // Nuke the references, they are not needed anymore
-  //
-  scripts = null;
-
-  return function detect() {
-    var i = document.createElement('iframe')
-      , clean;
-
-    //
-    // Get a clean `global` variable by creating a new iframe.
-    //
-    i.style.display = 'none';
-    appendTo.appendChild(i);
-    i.src = 'about:blank';
-
-    clean = i.contentWindow || i.contentDocument;
-    appendTo.removeChild(i);
-
-    //
-    // Detect the globals and return them.
-    //
-    return Object.keys(global).filter(function filter(key) {
-      return !(key in clean);
-    });
-  };
-})();
-
 //
 // Expose the pipe
 //

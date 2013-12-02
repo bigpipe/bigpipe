@@ -1,8 +1,16 @@
-/*globals Primus, ActiveXObject, CollectGarbage */
+/*globals Primus */
 'use strict';
 
 var collection = require('./collection')
+  , Fortress = require('fortress')
   , async = require('./async');
+
+//
+// Create one single Fortress instance that orchestrates all iframe based client
+// code. This sandbox variable should never be exposed to the outside world in
+// order to prevent leaking
+//
+var sandbox = new Fortress();
 
 /**
  * Representation of a single pagelet.
@@ -58,6 +66,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
+  this.container = sandbox.create();        // Create an application sandbox.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -194,88 +203,6 @@ Pagelet.prototype.$ = function $(attribute, value) {
 };
 
 /**
- * Create a sandboxed container for the pagelet to run in.
- *
- * @param {String} code The client side code that needs to be sandboxed.
- * @api private
- */
-Pagelet.prototype.sandbox = function sandbox(code) {
-  var script = document.getElementsByTagName('script')[0]
-    , unique = this.name + (+new Date())
-    , pagelet = this
-    , container;
-
-  if (!this.htmlfile) {
-    try {
-      //
-      // Internet Explorer 6/7 require a unique name attribute in order to work.
-      //
-      container = document.createElement('<iframe name="'+ unique +'">');
-    } catch (e) {
-      container = document.createElement('iframe');
-      container.name = unique;
-    }
-
-    //
-    // The iframe needs to be added in to the DOM before we can modify it, make
-    // sure it's remains unseen.
-    //
-    container.style.top = container.style.left = -10000;
-    container.style.position = 'absolute';
-    container.style.display = 'none';
-    script.parentNode.insertBefore(container, script);
-
-    //
-    // Add an error listener so we can register errors with the client code and
-    // know when the code has gone in a fubar state.
-    //
-    container.contentWindow = onerror = function onerror(err) {
-      pagelet.emit('error', err);
-    };
-
-    this.container = container.contentDocument || container.contentWindow.document;
-    this.container.open();
-  } else {
-    this.container = new ActiveXObject('htmlfile');
-  }
-
-  this.container.write('<html><s'+'cript>'+ code +'</s'+'cript></html>');
-  this.container.close();
-
-  this.emit('sandboxed', code, this.container);
-};
-
-/**
- * Prepare the JavaScript code for iframe injection and sandboxing.
- *
- * @param {String} code The client side code of the pagelet.
- * @returns {String}
- * @api private
- */
-Pagelet.prototype.prepare = function prepare(code) {
-  return [
-    //
-    // Force the same domain as our "root" script.
-    //
-    'document.domain="'+ document.domain +'";',
-    '(function (o, h) {',
-
-    //
-    // Eliminate the browsers blocking dialogs, we're in a iframe not a browser.
-    //
-    'for (var i = 0; i < h.length; i++) o[h[i]] = function () {};',
-
-    //
-    // The actual client-side code that needs to be evaluated.
-    // @TODO wrap the client side code with some pagelet references.
-    //
-    code,
-
-    '})(this, ["alert", "prompt", "confirm"]);'
-  ].join('\n');
-};
-
-/**
  * Render the HTML template in to the placeholders.
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
@@ -340,22 +267,6 @@ Pagelet.prototype.parse = function parse() {
 };
 
 /**
- * Does this browser support HTMLfile's. It's build upon the ActiveXObject and
- * allows us to embed a page within a page without triggering any loading
- * indicators. The added benefit is that it doesn't need to be added to the DOM
- * in order for the page and it's resources to load.
- *
- * It's detected using feature detection.
- *
- * @type {Boolean}
- * @private
- */
-Pagelet.prototype.htmlfile = false;
-
-try { Pagelet.prototype.htmlfile = !!new ActiveXObject('htmlfile'); }
-catch (e) {}
-
-/**
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
@@ -372,6 +283,7 @@ Pagelet.prototype.destroy = function destroy() {
   if (this.placeholders) collection.each(this.placeholders, function (root) {
     while (root.firstChild) root.removeChild(root.firstChild);
   });
+  this.placeholders = null;
 
   //
   // Remove the added RPC handlers, make sure we don't delete prototypes.
@@ -382,21 +294,11 @@ Pagelet.prototype.destroy = function destroy() {
     delete this[method];
   }, this);
 
-  this.placeholders = null;
-
-  if (!this.htmlfile) {
-    this.container.parentNode.removeChild(this.container);
-    this.container = null;
-    return;
-  }
-
   //
-  // We need to ensure that all references to the created HTMLFile sandbox are
-  // removed before we call the `CollectGarbage` method of Internet Explorer or
-  // it will not be cleaned up properly.
+  // Remove the sandboxing
   //
+  sandbox.kill(this.container.id);
   this.container = null;
-  CollectGarbage();
 };
 
 //
