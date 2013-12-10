@@ -889,7 +889,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    * - It includes the pipe.js JavaScript client and initialises it.
    * - It includes "core" library files for the page.
    * - It includes "core" css for the page.
-   * - It adds a <noscript> meta refresh for force a sync method.
+   * - It adds a noscript meta refresh to force our sync method.
    *
    * @param {Function} before data
    * @returns {Page} fluent interface
