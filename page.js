@@ -133,6 +133,19 @@ function Page(pipe) {
       writable: true,
       enumerable: false,
       configurable: true
+    },
+
+    /**
+     * The params that we extract from the route.
+     *
+     * @type {Object}
+     * @api private
+     */
+    params: {
+      value: {},
+      writable: true,
+      enumerable: false,
+      configurable: true
     }
   });
 
