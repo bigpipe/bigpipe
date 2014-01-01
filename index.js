@@ -554,14 +554,20 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
    * @api private
    */
   function iterate(done) {
-    var freelist = pages.shift().freelist
+    var constructor = pages.shift()
+      , freelist = constructor.freelist
       , page = freelist.alloc();
 
     debug('iterating over pages for %s testing %s atm', req.url, page.path);
 
+    //
+    // Make sure we parse out all the params from the URL.
+    //
+    page.params = constructor.router.exec(req.url) || {};
+
     if ('function' === typeof page.authorize) {
-      page.req = req; // Configure the res
-      page.res = res; // and the response, needed for plugins..
+      page.res = res;   // and the response, needed for plugins.
+      page.req = req;   // Configure the request.
 
       return page.authorize(req, function authorize(allowed) {
         debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
