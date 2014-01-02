@@ -1020,7 +1020,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
           // broken.
           //
           req.removeListener('data', data);
-          method(undefined, Buffer.concat(buffers), next);
+          method(Buffer.concat(buffers), next);
 
           buffers.length = 0;
         });
