@@ -1,6 +1,7 @@
 'use strict';
 
 var debug = require('debug')('bigpipe:page')
+  , predefine = require('predefine')
   , shared = require('./shared')
   , async = require('async')
   , path = require('path')
@@ -25,131 +26,19 @@ var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8')
  * @api public
  */
 function Page(pipe) {
-  Object.defineProperties(this, {
-    /**
-     * Reference to our template compiler and caching engine.
-     *
-     * @type {Temper}
-     * @private
-     */
-    temper: {
-      enumerable: false,
-      value: pipe.temper
-    },
+  var writable = predefine(this, predefine.WRITABLE)
+    , readable = predefine(this);
 
-    /**
-     * Reference to the asset management.
-     *
-     * @type {Librarian}
-     * @private
-     */
-    compiler: {
-      enumerable: false,
-      value: pipe.compiler
-    },
-
-    /**
-     * The actual Pipe instance.
-     *
-     * @type {Pipe}
-     * @private
-     */
-    pipe: {
-      enumerable: false,
-      value: pipe
-    },
-
-    /**
-     * Contains all disabled pagelets.
-     *
-     * @type {Array}
-     * @private
-     */
-    disabled: {
-      value: [],
-      writable: true,
-      enumerable: false,
-      configurable: true
-    },
-
-    /**
-     * Contains all enabled pagelets.
-     *
-     * @type {Array}
-     * @private
-     */
-    enabled: {
-      value: [],
-      writable: true,
-      enumerable: false,
-      configurable: true
-    },
-
-    /**
-     * Required for EventEmitter, stores the listeners.
-     *
-     * @type {Object}
-     * @private
-     */
-    _events: {
-      value: Object.create(null),
-      writable: true,
-      enumerable: false,
-      configurable: true
-    },
-
-    /**
-     * The incoming HTTP request.
-     *
-     * @type {Request}
-     * @private
-     */
-    req: {
-      value: null,
-      writable: true,
-      enumerable: false,
-      configurable: true
-    },
-
-    /**
-     * The outgoing HTTP response.
-     *
-     * @type {Response}
-     * @private
-     */
-    res: {
-      value: null,
-      writable: true,
-      enumerable: false,
-      configurable: true
-    },
-
-    /**
-     * Counter for the number of processed pagelets.
-     *
-     * @type {Number}
-     * @api private
-     */
-    n: {
-      value: 0,
-      writable: true,
-      enumerable: false,
-      configurable: true
-    },
-
-    /**
-     * The params that we extract from the route.
-     *
-     * @type {Object}
-     * @api private
-     */
-    params: {
-      value: {},
-      writable: true,
-      enumerable: false,
-      configurable: true
-    }
-  });
+  readable('temper', pipe.temper);            // Reference to our template compiler.
+  readable('compiler', pipe.compiler);        // Assert management.
+  readable('pipe', pipe);                     // Actual pipe instance.
+  writable('disabled', []);                   // Contains all disable pagelets.
+  writable('enabled', []);                    // Contains all enabled pagelets.
+  writable('_events', Object.create(null));   // Required for EventEmitter.
+  writable('req', null);                      // Incoming HTTP request.
+  writable('res', null);                      // Incoming HTTP response.
+  writable('n', 0);                           // Number of processed pagelets.
+  writable('params', {});                     // Params extracted from the route.
 
   //
   // Don't allow any further extensions of the object. This improves performance

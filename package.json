@@ -30,7 +30,8 @@
     "smithy": "0.3.x",
     "substream": "0.0.x",
     "temper": "0.0.x",
-    "ws": "0.4.x"
+    "ws": "0.4.x",
+    "predefine": "0.0.0"
   },
   "devDependencies": {
     "chai": "1.8.x",
