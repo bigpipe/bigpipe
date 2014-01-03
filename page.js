@@ -970,7 +970,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
       Object.defineProperty(data, this.pipe.options('head', 'bootstrap'), {
         writable: false,
         enumerable: true,
-        value: head.join('\n')
+        value: head.join('')
       });
 
       //
