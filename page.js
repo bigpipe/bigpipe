@@ -14,7 +14,9 @@ var debug = require('debug')('bigpipe:page')
  * @type {String}
  * @private
  */
-var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8');
+var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8')
+  .split('\n')
+  .join('');
 
 /**
  * A simple object representation of a given page.
