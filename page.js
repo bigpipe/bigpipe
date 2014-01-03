@@ -133,6 +133,19 @@ function Page(pipe) {
       writable: true,
       enumerable: false,
       configurable: true
+    },
+
+    /**
+     * The params that we extract from the route.
+     *
+     * @type {Object}
+     * @api private
+     */
+    params: {
+      value: {},
+      writable: true,
+      enumerable: false,
+      configurable: true
     }
   });
 
@@ -888,7 +901,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
    * - It includes the pipe.js JavaScript client and initialises it.
    * - It includes "core" library files for the page.
    * - It includes "core" css for the page.
-   * - It adds a <noscript> meta refresh for force a sync method.
+   * - It adds a noscript meta refresh to force our sync method.
    *
    * @param {Function} before data
    * @returns {Page} fluent interface
@@ -1016,7 +1029,7 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
           // broken.
           //
           req.removeListener('data', data);
-          method(undefined, Buffer.concat(buffers), next);
+          method(Buffer.concat(buffers), next);
 
           buffers.length = 0;
         });

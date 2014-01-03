@@ -112,6 +112,19 @@ Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
   },
 
   /**
+   * Get the params of the Page.
+   *
+   * @type {Object}
+   * @public
+   */
+  params: {
+    enumerable: false,
+    get: function params() {
+      return this.page.params;
+    }
+  },
+
+  /**
    * Remove the DOM element if we are unauthorized. This will make it easier to
    * create conditional layouts without having to manage the pointless DOM
    * elements.
