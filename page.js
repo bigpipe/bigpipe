@@ -513,7 +513,6 @@ Page.prototype = Object.create(require('eventemitter3').prototype, shared.mixin(
 
         allowed.forEach(function initialize(pagelet) {
           if (pagelet.initialize) pagelet.initialize();
-          page.pipe.expire.set(pagelet.id, pagelet);
         });
 
         // @TODO free disabled pagelets
