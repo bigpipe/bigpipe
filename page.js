@@ -45,7 +45,7 @@ function Page(pipe) {
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
   writable('n', 0);                           // Number of processed pagelets.
-  writable('params', {});                     // Params extracted from the route.
+  writable('params', {});                     // Param extracted from the route.
 
   //
   // Don't allow any further extensions of the object. This improves performance
@@ -257,6 +257,7 @@ Page.readable('error', function error(err) {
   this.emit('free').pipe.status(this.req, this.res, 500, err);
 
   debug('%s - %s captured an error: %s, displaying error page instead', this.method, this.path, err);
+
   if (this.listeners('end').length) this.emit('end');
   return this;
 });
@@ -294,6 +295,7 @@ Page.readable('discover', function discover(before) {
           , page.method, page.path
           , pagelet.name, pagelet.id, allowed ? 'allowed' : 'disallowd'
         );
+
         done(allowed);
       });
     } else {
@@ -301,6 +303,7 @@ Page.readable('discover', function discover(before) {
         , page.method, page.path
         , pagelet.name, pagelet.id
       );
+
       done(true);
     }
   }, function acceptance(allowed) {
@@ -485,8 +488,9 @@ Page.readable('write', function write(pagelet, data, fn) {
 
 /**
  * Dispatch will do the following:
+ *
  *   - merge additional data from http methods or custom supplier
- *   - check mode and shortcircuit if render sync.
+ *   - check mode and short-circuit if render sync.
  *   - write the initial headers so the browser can start working.
  *   - dispatch already queued pagelets.
  *
@@ -625,16 +629,18 @@ Page.readable('setup', function setup() {
   debug('%s - %s is initialising', this.method, this.path);
 
   //
-  // Check if the HTTP method is targetted at a specific pagelet inside the
+  // Check if the HTTP method is targeted at a specific pagelet inside the
   // page. If so, only execute the logic contained in pagelet#method.
   // If no pagelet is targeted, check if the page has an implementation, if
   // all else fails make sure we destroy the request.
   //
   if (~operations.indexOf(method)) {
     if ('_pagelet' in req.query) pagelet = this.has(req.query._pagelet);
+
     if (pagelet && method in pagelet.prototype) {
       method = this.fetch(pagelet.prototype[method]);
       method.pagelet = pagelet.prototype.name;
+
       sub.push(method);
     } else if (method in this) {
       main.push(this.fetch(this[method]));
@@ -646,6 +652,7 @@ Page.readable('setup', function setup() {
   //
   // Fire the main paths for rendering and dispatching content. Both emits
   // can be supplied with a different set of parameters.
+  //
   //  - trigger rendering of page.
   //  - trigger rendering of all pagelets.
   //
@@ -817,8 +824,7 @@ Page.readable('fetch', function fetch(method) {
  * @api private
  */
 Page.readable('configure', function configure(req, res) {
-  var mode = this.mode
-    , page = this
+  var page = this
     , key;
 
   //
@@ -854,8 +860,8 @@ Page.readable('configure', function configure(req, res) {
        'no_pagelet_js' in req.uri.query
     || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
   ) {
-    debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, mode);
-    this.mode = mode = 'render';
+    debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, this.mode);
+    this.mode = 'render';
   }
 
   //

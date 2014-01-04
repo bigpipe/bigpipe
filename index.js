@@ -6,6 +6,7 @@ var debug = require('debug')('bigpipe:server')
   , Route = require('routable')
   , Primus = require('primus')
   , Temper = require('temper')
+  , fuse = require('../fuse')
   , async = require('async')
   , path = require('path')
   , url = require('url')
@@ -85,7 +86,7 @@ function Pipe(server, options) {
   this.discover(this.pages);
 }
 
-require('./fuse')(Pipe, require('eventemitter3'));
+fuse(Pipe, require('eventemitter3'));
 
 /**
  * The current version of the library.
