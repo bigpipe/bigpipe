@@ -17,15 +17,24 @@ describe('fuse', function () {
   });
 
   it('exposes the extend method', function () {
-    expect(fuse.extend).to.be.a('function');
+    function Base() {} function Case() {}
+    fuse(Base, Case);
+
+    expect(Base.extend).to.be.a('function');
   });
 
   it('exposes the mixin method', function () {
-    expect(fuse.mixin).to.be.a('function');
+    function Base() {} function Case() {}
+    fuse(Base, Case);
+
+    expect(Base.prototype.mixin).to.be.a('function');
   });
 
   it('exposes the merge method', function () {
-    expect(fuse.merge).to.be.a('function');
+    function Base() {} function Case() {}
+    fuse(Base, Case);
+
+    expect(Base.prototype.merge).to.be.a('function');
   });
 
   it('adds writable and readable methods to the class', function () {
