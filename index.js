@@ -2,10 +2,10 @@
 
 var debug = require('debug')('bigpipe:server')
   , FreeList = require('freelist').FreeList
+  , predefine = require('predefine')
   , Route = require('routable')
   , Primus = require('primus')
   , Temper = require('temper')
-  , colors = require('colors')
   , async = require('async')
   , path = require('path')
   , url = require('url')
@@ -16,7 +16,6 @@ var debug = require('debug')('bigpipe:server')
 //
 var Compiler = require('./lib/compiler')
   , Pagelet = require('./pagelet')
-  , shared = require('./shared')
   , Page = require('./page');
 
 //
@@ -51,43 +50,42 @@ catch (e) {}
  * @api public
  */
 function Pipe(server, options) {
+  if (!(this instanceof Pipe)) return new Pipe(server, options);
+
   this.options = options = this.options(options || {});
+  var readable = predefine(this);
 
-  this.domains = !!options('domain') && domain;     // Call all requests in a domain.
-  this.statusCodes = Object.create(null);           // Stores error pages.
-  this.cache = options('cache', null);              // Enable URL lookup caching.
-  this.temper = new Temper;                         // Template parser.
-  this.plugins = Object.create(null);               // Plugin storage.
-  this.layers = [];                                 // Middleware layer.
+  readable('domains', !!options('domain') && domain); // Use domains for each req.
+  readable('statusCodes', Object.create(null));       // Stores error pages.
+  readable('cache', options('cache', null));          // Enable URL lookup caching.
+  readable('temper', new Temper());                   // Template parser.
+  readable('plugins', Object.create(null));           // Plugin storage.
+  readable('layers', []);                             // Middleware layer.
+  readable('server', server);                         // HTTP server we work with.
 
-  //
-  // Now that everything is processed, we can setup our internals.
-  //
-  this.server = server;
-  this.primus = new Primus(this.server, {
-    transformer: options('transport', 'websockets'),
-    pathname: options('pathname', '/pagelets'),
-    parser: options('parser', 'json')
-  });
+  readable('primus', new Primus(this.server, {
+    transformer: options('transport', 'websockets'),  // Real-time framework to use.
+    pathname: options('pathname', '/pagelets'),       // Primus pathname.
+    parser: options('parser', 'json'),                // Message parser.
+    plugins: {
+      substream: require('substream')                 // Volatile name spacing.
+    }
+  }));
 
-  this.primus.use('substream', require('substream'));
+  readable('compiler', new Compiler(                  // Asset compiler.
+    options('dist', path.join(process.cwd(), 'dist')), this, {
+      pathname: options('static', '/')
+  }));
 
-  //
-  // Compile the Page's assets.
-  //
-  this.compiler = new Compiler(options('dist', path.join(process.cwd(), 'dist')), this, {
-    pathname: options('static', '/')
-  });
+  readable('pages', this.resolve(                     // The pages we serve.
+    options('pages', __dirname + '/pages'),
+    this.transform) || []
+  );
 
-  //
-  // Process the pages.
-  //
-  this.pages = this.resolve(options('pages', __dirname + '/pages'), this.transform) || [];
   this.discover(this.pages);
 }
 
-Pipe.prototype.__proto__ = require('eventemitter3').prototype;
-Pipe.prototype.emits = shared.emits;
+require('./fuse')(Pipe, require('eventemitter3'));
 
 /**
  * The current version of the library.
@@ -95,7 +93,7 @@ Pipe.prototype.emits = shared.emits;
  * @type {String}
  * @api public
  */
-Pipe.prototype.version = require(__dirname +'/package.json').version;
+Pipe.readable('version', require(__dirname +'/package.json').version);
 
 /**
  * Start listening for incoming requests.
@@ -105,7 +103,7 @@ Pipe.prototype.version = require(__dirname +'/package.json').version;
  * @return {Pipe} fluent interface
  * @api public
  */
-Pipe.prototype.listen = function listen(port, done) {
+Pipe.readable('listen', function listen(port, done) {
   var pipe = this;
 
   pipe.compiler.catalog(this.pages, function init(error) {
@@ -124,7 +122,7 @@ Pipe.prototype.listen = function listen(port, done) {
   });
 
   return pipe;
-};
+});
 
 /**
  * Checks if options exists.
@@ -133,17 +131,17 @@ Pipe.prototype.listen = function listen(port, done) {
  * @returns {Function}
  * @api private
  */
-Pipe.prototype.options = function options(obj) {
+Pipe.writable('options', function options(obj) {
   function get(key, backup) {
     return key in obj ? obj[key] : backup;
   }
 
   //
-  // Allow new options to be be merged in against the orginal object.
+  // Allow new options to be be merged in against the original object.
   //
-  get.merge = shared.merge.bind(get, obj);
+  get.merge = this.merge.bind(get, obj);
   return get;
-};
+});
 
 /**
  * Transform strings, array of strings, objects, things in to the actual
@@ -154,7 +152,7 @@ Pipe.prototype.options = function options(obj) {
  * @returns {Array}
  * @api private
  */
-Pipe.prototype.resolve = function resolve(files, transform) {
+Pipe.readable('resolve', function resolve(files, transform) {
   /**
    * It's not required to supply resolve with instances, we can just
    * automatically require them if they are using the:
@@ -202,7 +200,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
   }
 
   //
-  // Filter out falsy values from above array maps.
+  // Filter out falsie values from above array maps.
   //
   files = files.filter(Boolean).filter(function jsonly(file) {
     var extname = path.extname(file)
@@ -239,7 +237,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
   return transform
     ? files.map(transform.bind(this))
     : files;
-};
+});
 
 /**
  * Discover if the user supplied us with custom error pages so we use that
@@ -249,7 +247,7 @@ Pipe.prototype.resolve = function resolve(files, transform) {
  * @returns {Pipe} fluent interface
  * @api private
  */
-Pipe.prototype.discover = function discover(pages) {
+Pipe.readable('discover', function discover(pages) {
   var catalog = pages || []
     , fivehundered
     , fourofour;
@@ -282,10 +280,10 @@ Pipe.prototype.discover = function discover(pages) {
   this.statusCodes[404] = fourofour;
 
   return this;
-};
+});
 
 /**
- * Render a page from our StatusCodes collection.
+ * Render a page from our `statusCodes` collection.
  *
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
@@ -293,7 +291,7 @@ Pipe.prototype.discover = function discover(pages) {
  * @param {Mixed} data Nothing or something :D
  * @api private
  */
-Pipe.prototype.status = function status(req, res, code, data) {
+Pipe.readable('status', function status(req, res, code, data) {
   if (!(code in this.statusCodes)) {
     throw new Error('Unsupported HTTP code: '+ code +'.');
   }
@@ -308,7 +306,7 @@ Pipe.prototype.status = function status(req, res, code, data) {
   page.configure(req, res);
 
   return this;
-};
+});
 
 /**
  * We need to extract items from the Page prototype and transform it in to
@@ -318,7 +316,7 @@ Pipe.prototype.status = function status(req, res, code, data) {
  * @returns {Page} The upgrade page.
  * @api private
  */
-Pipe.prototype.transform = function transform(Page) {
+Pipe.readable('transform', function transform(Page) {
   var method = Page.prototype.method
     , router = Page.prototype.path
     , pipe = this;
@@ -449,18 +447,18 @@ Pipe.prototype.transform = function transform(Page) {
   });
 
   return Page;
-};
+});
 
 /**
  * Insert page into collection of pages. If page is a manually instantiated
  * Page push it in, otherwise resolve the path, always transform the page. After
  * dependencies are catalogued the callback will be called.
  *
- * @param {Mixed} pages array of composed Page objects or filepath.
+ * @param {Mixed} pages array of composed Page objects or file path.
  * @param {Function} done callback
  * @api public
  */
-Pipe.prototype.define = function define(pages, done) {
+Pipe.readable('define', function define(pages, done) {
   if (!pages) return this;
   if ('function' === typeof pages) pages = [ pages ];
 
@@ -478,7 +476,7 @@ Pipe.prototype.define = function define(pages, done) {
   debug('added a new set of pages to bigpipe');
 
   return this;
-};
+});
 
 /**
  * Find the correct Page constructor based on the given URL.
@@ -491,7 +489,7 @@ Pipe.prototype.define = function define(pages, done) {
  * @returns {Array} Array full of constructors, or nothing.
  * @api public
  */
-Pipe.prototype.find = function find(url, method) {
+Pipe.readable('find', function find(url, method) {
   debug('searching the matching routes for url %s', url);
   if (this.cache && this.cache.has(url)) return this.cache.get(url);
 
@@ -512,7 +510,7 @@ Pipe.prototype.find = function find(url, method) {
   }
 
   return routes;
-};
+});
 
 /**
  * Add a new middleware layer which will run before any Page is executed.
@@ -520,11 +518,11 @@ Pipe.prototype.find = function find(url, method) {
  * @param {Function} use The middleware.
  * @api private
  */
-Pipe.prototype.middleware = function middleware(use) {
+Pipe.readable('middleware', function middleware(use) {
   this.layers.push(use);
 
   return this;
-};
+});
 
 /**
  * Dispatch incoming requests.
@@ -535,7 +533,7 @@ Pipe.prototype.middleware = function middleware(use) {
  * @returns {Pipe} fluent interface
  * @api private
  */
-Pipe.prototype.dispatch = function dispatch(req, res) {
+Pipe.readable('dispatch', function dispatch(req, res) {
   this.decorate(req, res);
 
   //
@@ -632,7 +630,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
   }, iterate.bind(pipe, completed));
 
   return this;
-};
+});
 
 /**
  * Decorate the request object with some extensions.
@@ -641,7 +639,7 @@ Pipe.prototype.dispatch = function dispatch(req, res) {
  * @param {Response} res HTTP response.
  * @api private
  */
-Pipe.prototype.decorate = function decorate(req, res) {
+Pipe.readable('decorate', function decorate(req, res) {
   req.uri = req.uri || url.parse(req.url, true);
   req.query = req.query || req.uri.query;
 
@@ -649,7 +647,7 @@ Pipe.prototype.decorate = function decorate(req, res) {
   // Add some silly HTTP properties for connect.js compatibility.
   //
   req.originalUrl = req.url;
-};
+});
 
 /**
  * Handle incoming real-time requests.
@@ -657,7 +655,7 @@ Pipe.prototype.decorate = function decorate(req, res) {
  * @param {Spark} spark A real-time "socket".
  * @api private
  */
-Pipe.prototype.connection = function connection(spark) {
+Pipe.readable('connection', function connection(spark) {
   //
   // Setup the pipe substream which.
   //
@@ -678,7 +676,7 @@ Pipe.prototype.connection = function connection(spark) {
     var stream = streams[pagelet.name] = spark.substream('pagelet::'+ pagelet.name);
 
     //
-    // Let the pagelet know that we've paird with a substream and spark.
+    // Let the pagelet know that we've paired with a substream and spark.
     //
     if ('function' === typeof pagelet.pair) pagelet.pair(stream, spark);
 
@@ -723,7 +721,7 @@ Pipe.prototype.connection = function connection(spark) {
     //
     debug('connection has ended: %s were still active', Object.keys(streams));
   });
-};
+});
 
 /**
  * Register a new plugin.
@@ -760,7 +758,7 @@ Pipe.prototype.connection = function connection(spark) {
  * @param {Object} plugin The plugin that contains client and server extensions.
  * @api public
  */
-Pipe.prototype.use = function use(name, plugin) {
+Pipe.readable('use', function use(name, plugin) {
   if ('object' === typeof name) {
     plugin = name;
     name = plugin.name;
@@ -797,7 +795,7 @@ Pipe.prototype.use = function use(name, plugin) {
   plugin.server.call(this, this, this.options);
 
   return this;
-};
+});
 
 /**
  * Create a new Pagelet/Pipe server.

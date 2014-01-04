@@ -17,7 +17,6 @@
   ],
   "dependencies": {
     "async": "0.2.x",
-    "colors": "0.6.x",
     "debug": "0.7.x",
     "eventemitter3": "0.0.x",
     "expirable": "0.0.x",
@@ -31,7 +30,7 @@
     "substream": "0.0.x",
     "temper": "0.0.x",
     "ws": "0.4.x",
-    "predefine": "0.0.0"
+    "predefine": "0.0.x"
   },
   "devDependencies": {
     "chai": "1.8.x",

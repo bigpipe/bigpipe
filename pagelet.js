@@ -2,7 +2,7 @@
 
 var debug = require('debug')('bigpipe:pagelet')
   , predefine = require('predefine')
-  , shared = require('./shared')
+  , fuse = require('./fuse')
   , path = require('path');
 
 /**
@@ -20,21 +20,7 @@ function Pagelet() {
   writable('id', null);     // Custom ID of the pagelet.
 }
 
-Pagelet.prototype = Object.create(require('stream').prototype, shared.mixin({
-  constructor: {
-    value: Pagelet,
-    writable: true,
-    enumerable: false,
-    configurable: true
-  }
-}));
-
-Pagelet.writable = predefine(Pagelet.prototype, predefine.WRITABLE);
-Pagelet.readable = predefine(Pagelet.prototype, {
-  configurable: false,
-  enumerable: false,
-  writable: false
-});
+fuse(Pagelet, require('stream'));
 
 /**
  * The name of this pagelet so it can checked to see if's enabled. In addition
@@ -321,19 +307,6 @@ Pagelet.readable('trigger', function trigger(method, args, id, substream) {
 
   return true;
 });
-
-//
-// Make the Pagelet extendable. This allows us to use:
-//
-// ```js
-// Pagelet.extend({
-//   prop: value
-// });
-// ```
-//
-// For extending the prototypes, just like you're used to in Backbone.
-//
-Pagelet.extend = predefine.extend;
 
 //
 // Expose the Pagelet on the exports and parse our the directory. This ensures
