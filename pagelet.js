@@ -103,10 +103,11 @@ Pagelet.writable('engine', '');
  * @public
  */
 Pagelet.readable('params', {
+  enumerable: false,
   get: function params() {
     return this.page.params;
   }
-});
+}, true);
 
 /**
  * Remove the DOM element if we are unauthorized. This will make it easier to
