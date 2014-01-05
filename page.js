@@ -615,8 +615,8 @@ Page.readable('inject', function inject(base, name, view) {
  */
 Page.readable('setup', function setup() {
   var req = this.req
-    , main = [ 'bootstrap' ]
-    , sub = [ 'discover' ]
+    , main = []
+    , sub = []
     , method = req.method.toLowerCase()
     , pagelet;
 
@@ -653,11 +653,11 @@ Page.readable('setup', function setup() {
   // Fire the main paths for rendering and dispatching content. Both emits
   // can be supplied with a different set of parameters.
   //
-  //  - trigger rendering of page.
-  //  - trigger rendering of all pagelets.
+  //  - trigger rendering of page: bootstrap
+  //  - trigger rendering of all pagelets: discover
   //
-  this.emit.apply(this, main);
-  this.emit.apply(this, sub);
+  this.boostrap.apply(this, main);
+  this.discover.apply(this, sub);
 });
 
 /**
@@ -863,12 +863,6 @@ Page.readable('configure', function configure(req, res) {
     debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, this.mode);
     this.mode = 'render';
   }
-
-  //
-  // Listen to events that setup the main BigPipe routes, pages and pagelets.
-  //
-  this.once('bootstrap', this.bootstrap.bind(this));
-  this.once('discover', this.discover.bind(this));
 
   debug('%s - %s is configured', this.method, this.path);
   if (this.initialize) {
