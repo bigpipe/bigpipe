@@ -619,18 +619,17 @@ Page.readable('inject', function inject(base, name, view) {
  * @api private
  */
 Page.readable('setup', function setup() {
-  var req = this.req
-    , main = []
-    , sub = []
-    , method = req.method.toLowerCase()
-    , pagelet;
+  var method = this.req.method.toLowerCase()
+    , pagelet
+    , main
+    , sub
 
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
   // the request once that happens.
   //
-  if (this.res.finished) return req.destroy();
+  if (this.res.finished) return this.req.destroy();
   debug('%s - %s is initialising', this.method, this.path);
 
   //
@@ -640,17 +639,17 @@ Page.readable('setup', function setup() {
   // all else fails make sure we destroy the request.
   //
   if (~operations.indexOf(method)) {
-    if ('_pagelet' in req.query) pagelet = this.has(req.query._pagelet);
+    if ('_pagelet' in this.req.query) pagelet = this.has(this.req.query._pagelet);
 
     if (pagelet && method in pagelet.prototype) {
       method = this.fetch(pagelet.prototype[method]);
       method.pagelet = pagelet.prototype.name;
 
-      sub.push(method);
+      sub = method;
     } else if (method in this) {
-      main.push(this.fetch(this[method]));
+      main = this.fetch(this[method]);
     } else {
-      req.destroy();
+      this.req.destroy();
     }
   }
 
@@ -661,8 +660,8 @@ Page.readable('setup', function setup() {
   //  - trigger rendering of page: bootstrap
   //  - trigger rendering of all pagelets: discover
   //
-  this.bootstrap.apply(this, main);
-  this.discover.apply(this, sub);
+  this.bootstrap(main);
+  this.discover(sub);
 });
 
 /**
