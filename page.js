@@ -398,6 +398,7 @@ Page.readable('pipeline', function render() {
 /**
  * Close the connection once the main page was sent.
  *
+ * @returns {Boolean} Closed the connection.
  * @api private
  */
 Page.readable('done', function done() {
@@ -439,6 +440,7 @@ Page.readable('done', function done() {
   // Everything is processed, close the connection.
   //
   page.res.end();
+  return true;
 });
 
 /**
@@ -526,9 +528,12 @@ Page.readable('dispatch', function dispatch(core, before) {
     output = page.temper.fetch(page.view).server(data);
 
     //
-    // Short-circuit page is in render mode.
+    // Short-circuit page is in render mode as it will just output the data at
+    // once and not asynchronously.
     //
-    if ('render' === page.mode) return page.render(output);
+    if ('render' === page.mode) {
+      return page.render(output);
+    }
 
     //
     // Write the headers.
@@ -685,8 +690,9 @@ Page.readable('has', function has(name) {
  *
  * - It includes the pipe.js JavaScript client and initialises it.
  * - It includes "core" library files for the page.
- * - It includes "core" css for the page.
- * - It adds a noscript meta refresh to force our sync method.
+ * - It includes "core" CSS for the page.
+ * - It adds a noscript meta refresh to force our `render` method which fully
+ *   renders the HTML server side.
  *
  * @param {Function} before data
  * @returns {Page} fluent interface
