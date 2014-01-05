@@ -661,7 +661,7 @@ Page.readable('setup', function setup() {
   //  - trigger rendering of page: bootstrap
   //  - trigger rendering of all pagelets: discover
   //
-  this.boostrap.apply(this, main);
+  this.bootstrap.apply(this, main);
   this.discover.apply(this, sub);
 });
 
