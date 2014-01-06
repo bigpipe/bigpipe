@@ -641,9 +641,11 @@ Page.readable('setup', function setup() {
   // all else fails make sure we destroy the request.
   //
   if (~operations.indexOf(method)) {
-    if ('_pagelet' in this.req.query) pagelet = this.has(this.req.query._pagelet);
+    if ('_pagelet' in this.req.query) {
+      pagelet = this.has(this.req.query._pagelet);
+    }
 
-    if (pagelet && method in pagelet.prototype) {
+    if (pagelet && (method in pagelet.prototype)) {
       sub = this.fetch(function found() {
         var args = arguments;
 
@@ -657,6 +659,8 @@ Page.readable('setup', function setup() {
           return match;
         });
       });
+
+      sub.pagelet = pagelet.prototype.name;
     } else if (method in this) {
       main = this.fetch(this[method]);
     } else {
@@ -823,7 +827,7 @@ Page.readable('fetch', function fetch(method) {
       // broken.
       //
       req.removeListener('data', data);
-      method.call(this, Buffer.concat(buffers), next);
+      method.call(page, Buffer.concat(buffers), next);
 
       buffers.length = 0;
     });
