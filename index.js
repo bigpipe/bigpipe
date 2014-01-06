@@ -68,7 +68,7 @@ function Pipe(server, options) {
     transformer: options('transport', 'websockets'),  // Real-time framework to use.
     pathname: options('pathname', '/pagelets'),       // Primus pathname.
     parser: options('parser', 'json'),                // Message parser.
-    plugins: {
+    plugin: {
       substream: require('substream')                 // Volatile name spacing.
     }
   }));
