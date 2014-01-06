@@ -63,7 +63,7 @@ function Pipe(server, options) {
   readable('plugins', Object.create(null));           // Plugin storage.
   readable('layers', []);                             // Middleware layer.
   readable('server', server);                         // HTTP server we work with.
-  readable('bootstrap', options('head', 'boostrap')); // Property name for bootstrap.
+  readable('bootstrap', options('head', 'bootstrap'));// Property name for bootstrap.
 
   readable('primus', new Primus(this.server, {
     transformer: options('transport', 'websockets'),  // Real-time framework to use.
@@ -707,7 +707,7 @@ Pipe.readable('connection', function connection(spark) {
   orchestrate.on('data', function orchestration(data) {
     switch (data.type) {
       case 'configure':
-        console.log(data);
+        return;
         var pagelet = pipe.expire.get(data.id);
 
         if (pagelet) {
