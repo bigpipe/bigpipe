@@ -653,7 +653,7 @@ Page.readable('setup', function setup() {
         this.enabled.some(function (instance) {
           var match = instance instanceof pagelet;
 
-          if (match) instance.apply(instance, args);
+          if (match) instance[method].apply(instance, args);
           return match;
         });
       });
