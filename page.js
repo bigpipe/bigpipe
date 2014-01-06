@@ -571,6 +571,8 @@ Page.readable('dispatch', function dispatch(core, before) {
   // Check the data provider and supply it with a callback.
   //
   async.series(stack, init);
+
+  return this;
 });
 
 /**
@@ -622,7 +624,7 @@ Page.readable('setup', function setup() {
   var method = this.req.method.toLowerCase()
     , pagelet
     , main
-    , sub
+    , sub;
 
   //
   // It could be that the initialization handled the page rendering through
@@ -642,10 +644,19 @@ Page.readable('setup', function setup() {
     if ('_pagelet' in this.req.query) pagelet = this.has(this.req.query._pagelet);
 
     if (pagelet && method in pagelet.prototype) {
-      method = this.fetch(pagelet.prototype[method]);
-      method.pagelet = pagelet.prototype.name;
+      sub = this.fetch(function found() {
+        var args = arguments;
 
-      sub = method;
+        //
+        // Find the pagelet and pass off the data.
+        //
+        this.enabled.some(function (instance) {
+          var match = instance instanceof pagelet;
+
+          if (match) instance.apply(instance, args);
+          return match;
+        });
+      });
     } else if (method in this) {
       main = this.fetch(this[method]);
     } else {
@@ -764,8 +775,7 @@ Page.readable('bootstrap', function bootstrap(before) {
   //
   // Page and headers are bootstrapped. Dispatch the headers.
   //
-  this.dispatch(data, before);
-  return this;
+  return this.dispatch(data, before);
 });
 
 /**
@@ -814,7 +824,7 @@ Page.readable('fetch', function fetch(method) {
       // broken.
       //
       req.removeListener('data', data);
-      method(Buffer.concat(buffers), next);
+      method.call(this, Buffer.concat(buffers), next);
 
       buffers.length = 0;
     });
