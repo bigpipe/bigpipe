@@ -712,7 +712,6 @@ Page.readable('bootstrap', function bootstrap(before) {
   var library = this.compiler.page(this)
     , path = this.req.uri.pathname
     , charset = this.charset
-    , data = {}
     , head = [];
 
   //
@@ -766,11 +765,11 @@ Page.readable('bootstrap', function bootstrap(before) {
   // Supply data to the view and render after. Make sure the defined head
   // key cannot be overwritten by any custom data.
   //
-  Object.defineProperty(data, this.pipe.options('head', 'bootstrap'), {
+  var data = Object.create(null, predefine.create(this.pipe.bootstrap, {
     writable: false,
     enumerable: true,
     value: head.join('')
-  });
+  }));
 
   //
   // Page and headers are bootstrapped. Dispatch the headers.

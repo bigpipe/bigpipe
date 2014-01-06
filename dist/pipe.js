@@ -1464,6 +1464,7 @@ function Pipe(server, options) {
   this.url = location.pathname;         // The current URL.
   this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
+  this.id = options.id;                 // Unique ID of the page.
 
   EventEmitter.call(this);
 
@@ -1635,7 +1636,9 @@ Pipe.prototype.alloc = function alloc() {
  * @api private
  */
 Pipe.prototype.free = function free(pagelet) {
-  if (this.freelist.length < this.maximum) this.freelist.push(pagelet);
+  if (this.freelist.length < this.maximum) {
+    this.freelist.push(pagelet);
+  }
 };
 
 /**
@@ -1647,7 +1650,7 @@ Pipe.prototype.free = function free(pagelet) {
  */
 Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
-  var orchestrator = this.orchestrate = this.stream.substream('pipe::orchestrate');
+  this.orchestrate = this.stream.substream('pipe::orchestrate');
 };
 
 //
@@ -2029,9 +2032,13 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   this.substream = this.stream.substream('pagelet::'+ this.name);
   this.substream.on('data', function data(packet) { pagelet.processor(packet); });
+
   this.orchestrate.write({
-    type: 'configure', id: data.id,
-    name: name, url: this.pipe.url
+    page: this.pipe.id,                     // Unique id of the page.
+    url: this.pipe.url,                     // The current URL
+    type: 'configure',                      // Message type
+    pagelet: data.id,                       // Unique id of the pagelet.
+    name: name                              // Pagelet name.
   });
 
   this.css = collection.array(data.css);    // CSS for the Page.

@@ -43,7 +43,7 @@ catch (e) {}
  * - static: The pathname for our static assets.
  * - dist: The pathname for the compiled assets.
  * - public: The pathname for public static content.
- * - head: String on which to bind header view data, defaults to bootstrap.
+ * - head: Property name on which to bind header view data, defaults to bootstrap.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -52,8 +52,8 @@ catch (e) {}
  */
 function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
+  options = this.options(options || {});
 
-  this.options = options = this.options(options || {});
   var readable = predefine(this);
 
   readable('domains', !!options('domain') && domain); // Use domains for each req.
@@ -63,6 +63,7 @@ function Pipe(server, options) {
   readable('plugins', Object.create(null));           // Plugin storage.
   readable('layers', []);                             // Middleware layer.
   readable('server', server);                         // HTTP server we work with.
+  readable('bootstrap', options('head', 'boostrap')); // Property name for bootstrap.
 
   readable('primus', new Primus(this.server, {
     transformer: options('transport', 'websockets'),  // Real-time framework to use.
@@ -132,7 +133,7 @@ Pipe.readable('listen', function listen(port, done) {
  * @returns {Function}
  * @api private
  */
-Pipe.writable('options', function options(obj) {
+Pipe.readable('options', function options(obj) {
   function get(key, backup) {
     return key in obj ? obj[key] : backup;
   }
@@ -706,6 +707,7 @@ Pipe.readable('connection', function connection(spark) {
   orchestrate.on('data', function orchestration(data) {
     switch (data.type) {
       case 'configure':
+        console.log(data);
         var pagelet = pipe.expire.get(data.id);
 
         if (pagelet) {

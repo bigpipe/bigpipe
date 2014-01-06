@@ -26,6 +26,7 @@ function Pipe(server, options) {
   this.url = location.pathname;         // The current URL.
   this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
+  this.id = options.id;                 // Unique ID of the page.
 
   EventEmitter.call(this);
 
@@ -197,7 +198,9 @@ Pipe.prototype.alloc = function alloc() {
  * @api private
  */
 Pipe.prototype.free = function free(pagelet) {
-  if (this.freelist.length < this.maximum) this.freelist.push(pagelet);
+  if (this.freelist.length < this.maximum) {
+    this.freelist.push(pagelet);
+  }
 };
 
 /**
@@ -209,7 +212,7 @@ Pipe.prototype.free = function free(pagelet) {
  */
 Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
-  var orchestrator = this.orchestrate = this.stream.substream('pipe::orchestrate');
+  this.orchestrate = this.stream.substream('pipe::orchestrate');
 };
 
 //

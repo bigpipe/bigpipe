@@ -57,9 +57,13 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   this.substream = this.stream.substream('pagelet::'+ this.name);
   this.substream.on('data', function data(packet) { pagelet.processor(packet); });
+
   this.orchestrate.write({
-    type: 'configure', id: data.id,
-    name: name, url: this.pipe.url
+    page: this.pipe.id,                     // Unique id of the page.
+    url: this.pipe.url,                     // The current URL
+    type: 'configure',                      // Message type
+    pagelet: data.id,                       // Unique id of the pagelet.
+    name: name                              // Pagelet name.
   });
 
   this.css = collection.array(data.css);    // CSS for the Page.
