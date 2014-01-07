@@ -43,7 +43,9 @@ module.exports = function fuse(Base, inherits) {
     var self = this;
 
     return function emit(arg) {
-      self.emit(event, parser ? parser.apply(self, arguments) : arg);
+      if (!self.listeners(event).length) return false;
+
+      return self.emit(event, parser ? parser.apply(self, arguments) : arg);
     };
   });
 
