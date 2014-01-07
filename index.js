@@ -2,6 +2,7 @@
 
 var debug = require('debug')('bigpipe:server')
   , FreeList = require('freelist').FreeList
+  , Compiler = require('./lib/compiler')
   , predefine = require('predefine')
   , Route = require('routable')
   , Primus = require('primus')
@@ -11,13 +12,6 @@ var debug = require('debug')('bigpipe:server')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
-
-//
-// Library internals.
-//
-var Compiler = require('./lib/compiler')
-  , Pagelet = require('./pagelet')
-  , Page = require('./page');
 
 //
 // Try to detect if we've got domains support. So we can easily serve 500 error
@@ -112,8 +106,8 @@ Pipe.readable('listen', function listen(port, done) {
     if (error) return done(error);
 
     pipe.primus.on('connection', pipe.connection.bind(pipe));
-    pipe.server.on('request', pipe.dispatch.bind(pipe));
     pipe.server.on('listening', pipe.emits('listening'));
+    pipe.server.on('request', pipe.dispatch.bind(pipe));
     pipe.server.on('error', pipe.emits('error'));
 
     //
@@ -777,7 +771,9 @@ Pipe.createServer = function createServer(port, options) {
     //
     // Apply plugins is available.
     //
-    if ('plugins' in options) options.plugins.map(pipe.use.bind(pipe));
+    if ('plugins' in options) {
+      options.plugins.map(pipe.use.bind(pipe));
+    }
   });
 
   return pipe;
@@ -786,8 +782,8 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = Pagelet;
-Pipe.Page = Page;
+Pipe.Pagelet = require('./pagelet');
+Pipe.Page = require('./page');
 
 //
 // Expose the constructor.
