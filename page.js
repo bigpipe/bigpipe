@@ -67,13 +67,22 @@ fuse(Page, require('eventemitter3'));
 Page.writable('path', '/');
 
 /**
- * Character set for page. Setting this to null will not include the meta
+ * <meta> character set for page. Setting this to null will not include the meta
  * charset. However this is not advised as this will reduce performance.
  *
  * @type {String}
- * @api private
+ * @public
  */
-Page.writable('charset', 'utf-8');
+Page.writable('charset', 'UTF-8');
+
+/**
+ * The Content-Type of the response. This defaults to text/html with a charset
+ * preset. The charset does not inherit it's value from the `charset` option.
+ *
+ * @type {String}
+ * @public
+ */
+Page.writable('contentType', 'text/html; charset=UTF-8');
 
 /**
  * Which HTTP methods should this page accept. It can be a string, comma
@@ -117,9 +126,9 @@ Page.writable('authorize', null);
  * With what kind of generation mode do we need to output the generated
  * pagelets. We're supporting 3 different modes:
  *
- * - render, fully render the page without any fancy flushing.
- * - async, render all pagelets async and flush them as fast as possible.
- * - pipe, same as async but in the specified order.
+ * - sync:      Fully render the page without any fancy flushing.
+ * - async:     Render all pagelets async and flush them as fast as possible.
+ * - pipeline:  Same as async but in the specified order.
  *
  * @type {String}
  * @public
@@ -333,7 +342,7 @@ Page.readable('discover', function discover(before) {
 });
 
 /**
- * Mode: Render
+ * Mode: sync
  * Output the pagelets fully rendered in the HTML template.
  * @TODO rewrite, not working against altered renderer.
  *
@@ -341,7 +350,7 @@ Page.readable('discover', function discover(before) {
  * @returns {Page} fluent interface
  * @api private
  */
-Page.readable('render', function render(base) {
+Page.readable('sync', function render(base) {
   var page = this;
 
   debug('%s - %s is rendering the pagelets in `render` mode', this.method, this.path);
@@ -528,11 +537,11 @@ Page.readable('dispatch', function dispatch(core, before) {
     output = page.temper.fetch(page.view).server(data);
 
     //
-    // Short-circuit page is in render mode as it will just output the data at
+    // Short-circuit page is in sync mode as it will just output the data at
     // once and not asynchronously.
     //
-    if ('render' === page.mode) {
-      return page.render(output);
+    if ('sync' === page.mode) {
+      return page.sync(output);
     }
 
     //
@@ -683,8 +692,8 @@ Page.readable('setup', function setup() {
  * Helper to check if the page has pagelet by name, must use prototype.name
  * since pagelets are not always constructed yet.
  *
- * @param {String} name of pagelet
- * @returns {Boolean}
+ * @param {String} name Name of the pagelet.
+ * @returns {Pagelet} The constructor of a matching Pagelet.
  * @api public
  */
 Page.readable('has', function has(name) {
@@ -705,7 +714,7 @@ Page.readable('has', function has(name) {
  * - It includes the pipe.js JavaScript client and initialises it.
  * - It includes "core" library files for the page.
  * - It includes "core" CSS for the page.
- * - It adds a noscript meta refresh to force our `render` method which fully
+ * - It adds a noscript meta refresh to force our `sync` method which fully
  *   renders the HTML server side.
  *
  * @param {Function} before data
@@ -719,11 +728,13 @@ Page.readable('bootstrap', function bootstrap(before) {
     , head = [];
 
   //
-  // Add the character set asap for performance, defaults to UTF-8.
+  // Add a meta charset so the browser knows the encoding of the content so it
+  // will not buffer it up in memory to make an educated guess. This will ensure
+  // that the HTML is shown as fast as possible.
   //
   if (charset) head.push('<meta charset="' + charset + '">');
 
-  if (this.mode !== 'render') {
+  if (this.mode !== 'sync') {
     head.push(
       '<noscript>',
         '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1">',
@@ -879,7 +890,7 @@ Page.readable('configure', function configure(req, res) {
     || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
   ) {
     debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, this.mode);
-    this.mode = 'render';
+    this.mode = 'sync';
   }
 
   debug('%s - %s is configured', this.method, this.path);
