@@ -236,8 +236,8 @@ Page.readable('redirect', function redirect(location, status) {
   this.res.setHeader('Location', location);
   this.res.end();
 
-  debug('%s - %s is redirecting to %s', this.method, this.path, location);
   if (this.listeners('end').length) this.emit('end');
+  return this.debug('is redirecting to %s', location);
 });
 
 /**
@@ -247,12 +247,10 @@ Page.readable('redirect', function redirect(location, status) {
  * @api public
  */
 Page.readable('notFound', function notFound() {
-  debug('%s - %s is not found, returning Page to freelist and 404-ing', this.method, this.path);
-
   this.emit('free').pipe.status(this.req, this.res, 404);
   if (this.listeners('end').length) this.emit('end');
 
-  return this;
+  return this.debug('is not found, returning Page to freelist and 404-ing');
 });
 
 /**
@@ -265,10 +263,8 @@ Page.readable('error', function error(err) {
   err = err || new Error('Internal Server Error');
   this.emit('free').pipe.status(this.req, this.res, 500, err);
 
-  debug('%s - %s captured an error: %s, displaying error page instead', this.method, this.path, err);
-
   if (this.listeners('end').length) this.emit('end');
-  return this;
+  return this.debug('captured an error: %s, displaying error page instead', err);
 });
 
 /**
@@ -300,16 +296,14 @@ Page.readable('discover', function discover(before) {
     //
     if ('function' === typeof pagelet.authorize) {
       pagelet.authorize(req, function (allowed) {
-        debug('%s - %s pagelet %s/%s was %s on the page'
-          , page.method, page.path
+        page.debug('pagelet %s/%s was %s on the page'
           , pagelet.name, pagelet.id, allowed ? 'allowed' : 'disallowd'
         );
 
         done(allowed);
       });
     } else {
-      debug('%s - %s pagelet %s/%s had no authorization function and is allowed on page'
-        , page.method, page.path
+      page.debug('pagelet %s/%s had no authorization function and is allowed on page'
         , pagelet.name, pagelet.id
       );
 
@@ -334,7 +328,7 @@ Page.readable('discover', function discover(before) {
     });
 
     // @TODO free disabled pagelets
-    debug('%s - %s initialised all allowed pagelets', page.method, page.path);
+    page.debug('initialised all allowed pagelets');
     page[page.mode](before);
   });
 
@@ -353,8 +347,6 @@ Page.readable('discover', function discover(before) {
 Page.readable('sync', function render(base) {
   var page = this;
 
-  debug('%s - %s is rendering the pagelets in `render` mode', this.method, this.path);
-
   async.forEach(this.enabled, function each(pagelet, next) {
     pagelet.renderer(next);
   }, function done(err, data) {
@@ -370,7 +362,7 @@ Page.readable('sync', function render(base) {
     page.done();
   });
 
-  return this;
+  return this.debug('is rendering the pagelets in `render` mode');
 });
 
 /**
@@ -386,12 +378,13 @@ Page.readable('async', function render(before) {
   // Render each pagelet, if the request method was POST/PUT #before will
   // be called prior to calling the renderer of the specific pagelet.
   //
-  debug('%s - %s is rendering the pagelets in `async` mode', this.method, this.path);
   async.parallel(this.enabled.map(function mapRenderer(pagelet) {
     return before && before.pagelet === pagelet.name
       ? before.bind(page, pagelet.renderer.bind(pagelet))
       : pagelet.renderer.bind(pagelet);
   }), this.done.bind(this));
+
+  return this.debug('is rendering the pagelets in `async` mode');
 });
 
 /**
@@ -401,7 +394,7 @@ Page.readable('async', function render(before) {
  * @api private
  */
 Page.readable('pipeline', function render() {
-  debug('%s - %s is rendering the pagelets in `pipeline` mode', this.method, this.path);
+  return this.debug('is rendering the pagelets in `pipeline` mode');
 });
 
 /**
@@ -417,8 +410,8 @@ Page.readable('done', function done() {
   // Do not close the connection before the main page has sent headers.
   //
   if (page.n !== page.pagelets.length) {
-    debug('%s - %s not all pagelets have been written, (%s out of %s)',
-      this.name, this.id, this.n, this.pagelets.length
+    this.debug('%s - %s not all pagelets have been written, (%s out of %s)',
+      this.n, this.pagelets.length
     );
     return false;
   }
@@ -429,8 +422,7 @@ Page.readable('done', function done() {
   page.disabled.filter(function filter(pagelet) {
     return !!pagelet.remove;
   }).forEach(function each(pagelet) {
-    debug('%s - %s is instructing removal of the %s/%s pagelet'
-      , page.method, page.path
+    page.debug('is instructing removal of the %s/%s pagelet'
       , pagelet.name, pagelet.id
     );
 
@@ -441,7 +433,7 @@ Page.readable('done', function done() {
   // Send the remaining trailer headers if we have them queued.
   //
   if (page.res.trailer) {
-    debug('%s - %s adding trailer headers', this.method, this.path);
+    this.debug('adding trailer headers');
     page.res.addTrailers(page.res.trailers);
   }
 
@@ -467,9 +459,8 @@ Page.readable('write', function write(pagelet, data, fn) {
     , frag = this.compiler.pagelet(pagelet)
     , output;
 
-  debug('%s - %s writing pagelet %s/%s\'s response'
-    , this.method, this.path
-    , pagelet.name, pagelet.id
+  this.debug('%s - %s writing pagelet %s/%s\'s response',
+    pagelet.name, pagelet.id
   );
 
   frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
@@ -641,7 +632,7 @@ Page.readable('setup', function setup() {
   // the request once that happens.
   //
   if (this.res.finished) return this.req.destroy();
-  debug('%s - %s is initialising', this.method, this.path);
+  this.debug('is initialising');
 
   //
   // Check if the HTTP method is targeted at a specific pagelet inside the
@@ -771,10 +762,9 @@ Page.readable('bootstrap', function bootstrap(before) {
 
   // @TODO rel prefetch for resources that are used on the next page?
   // @TODO cache manifest.
-  // @TODO rel dns prefetch.
 
   this.res.statusCode = this.statusCode;
-  this.res.setHeader('Content-Type', 'text/html');
+  this.res.setHeader('Content-Type', this.contentType);
 
   //
   // Supply data to the view and render after. Make sure the defined head
@@ -790,59 +780,6 @@ Page.readable('bootstrap', function bootstrap(before) {
   // Page and headers are bootstrapped. Dispatch the headers.
   //
   return this.dispatch(data, before);
-});
-
-/**
- * Delegate processed and received data to the supplied page#method
- *
- * @param {Function} method page delegation method
- * @returns {Function} processor
- * @api private
- */
-Page.readable('fetch', function fetch(method) {
-  var page = this;
-
-  /**
-   * Process incoming request.
-   *
-   * @param {Fucntion} next completion callback.
-   * @api private
-   */
-  return function process(next) {
-    var bytes = page.bytes
-      , req = page.req
-      , received = 0
-      , buffers = []
-      , err;
-
-    function data(buffer) {
-      received += buffer.length;
-
-      buffers.push(buffer);
-
-      if (bytes && received > bytes) {
-        req.removeListener('data', data);
-        req.destroy(err = new Error('Request was too large and has been destroyed to prevent DDOS.'));
-      }
-    }
-
-    //
-    // Only process data if we received any.
-    //
-    req.on('data', data);
-    req.once('end', function end() {
-      if (err) return next(err);
-
-      //
-      // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
-      // broken.
-      //
-      req.removeListener('data', data);
-      method.call(page, Buffer.concat(buffers), next);
-
-      buffers.length = 0;
-    });
-  };
 });
 
 /**
@@ -862,13 +799,8 @@ Page.readable('configure', function configure(req, res) {
   this.removeAllListeners();
   this.queue.length = this.n = 0;
 
-  for (key in this.enabled) {
-    delete this.enabled[key];
-  }
-
-  for (key in this.disabled) {
-    delete this.disabled[key];
-  }
+  predefine.remove(this.enabled);
+  predefine.remove(this.disabled);
 
   this.req = req;
   this.res = res;
@@ -889,23 +821,22 @@ Page.readable('configure', function configure(req, res) {
        'no_pagelet_js' in req.uri.query
     || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
   ) {
-    debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, this.mode);
+    this.debug('forcing `render` mode instead of %s', this.mode);
     this.mode = 'sync';
   }
 
-  debug('%s - %s is configured', this.method, this.path);
-  if (this.initialize) {
-    if (this.initialize.length) {
-      debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
-      this.initialize(this.setup.bind(this));
-    } else {
-      this.initialize();
-      this.setup();
-    }
-  } else {
-    this.setup();
-  }
+  return this;
+});
 
+/**
+ * Simple logger module that prefixes debug with some extra information.
+ *
+ * @api private
+ */
+Page.readable('debug', function log() {
+  var args = Array.prototype.slice.call(1, arguments);
+
+  debug.apply(debug, ['%s - %s: '+ arguments[0], this.method, this.path].concat(args));
   return this;
 });
 
