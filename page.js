@@ -41,6 +41,7 @@ function Page(pipe) {
   readable('pipe', pipe);                     // Actual pipe instance.
   writable('disabled', []);                   // Contains all disable pagelets.
   writable('enabled', []);                    // Contains all enabled pagelets.
+  writable('queue', []);                      // Write queue that will be flushed.
   writable('_events', Object.create(null));   // Required for EventEmitter.
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
@@ -206,14 +207,6 @@ Page.writable('parsers', {});
  */
 Page.writable('dependencies', {});
 
-/**
- * Keep track of rendered pagelets.
- *
- * @type {Array}
- * @private
- */
-Page.writable('queue', []);
-
 //
 // !IMPORTANT
 //
@@ -237,7 +230,7 @@ Page.readable('redirect', function redirect(location, status) {
   this.res.end();
 
   if (this.listeners('end').length) this.emit('end');
-  return this.debug('is redirecting to %s', location);
+  return this.debug('Redirecting to %s', location);
 });
 
 /**
@@ -250,7 +243,7 @@ Page.readable('notFound', function notFound() {
   this.emit('free').pipe.status(this.req, this.res, 404);
   if (this.listeners('end').length) this.emit('end');
 
-  return this.debug('is not found, returning Page to freelist and 404-ing');
+  return this.debug('Not found, returning Page to freelist and 404-ing');
 });
 
 /**
@@ -264,23 +257,29 @@ Page.readable('error', function error(err) {
   this.emit('free').pipe.status(this.req, this.res, 500, err);
 
   if (this.listeners('end').length) this.emit('end');
-  return this.debug('captured an error: %s, displaying error page instead', err);
+  return this.debug('Captured an error: %s, displaying error page instead', err);
 });
 
 /**
  * Discover pagelets that we're allowed to use.
  *
- * @param {Function} before iterative function to execute before render.
  * @returns {Page} fluent interface
  * @api private
  */
-Page.readable('discover', function discover(before) {
-  if (!this.pagelets.length) return this;
+Page.readable('discover', function discover() {
+  if (!this.pagelets.length) {
+    this.emit('discover');
+    return this;
+  }
 
   var req = this.req
     , page = this
     , pagelets;
 
+  //
+  // Allocate new pagelets for this page and configure them so we can actually
+  // use them during authorization.
+  //
   pagelets = this.pagelets.map(function allocate(Pagelet) {
     return Pagelet.freelist.alloc().configure(page);
   });
@@ -295,20 +294,10 @@ Page.readable('discover', function discover(before) {
     // need to call and figure out if the pagelet is available.
     //
     if ('function' === typeof pagelet.authorize) {
-      pagelet.authorize(req, function (allowed) {
-        page.debug('pagelet %s/%s was %s on the page'
-          , pagelet.name, pagelet.id, allowed ? 'allowed' : 'disallowd'
-        );
-
-        done(allowed);
-      });
-    } else {
-      page.debug('pagelet %s/%s had no authorization function and is allowed on page'
-        , pagelet.name, pagelet.id
-      );
-
-      done(true);
+      return pagelet.authorize(req, done);
     }
+
+    done(true);
   }, function acceptance(allowed) {
     page.enabled = allowed;
 
@@ -317,10 +306,7 @@ Page.readable('discover', function discover(before) {
     // the pagelet is not included in or allowed for the current page.
     //
     page.disabled = pagelets.filter(function disabled(pagelet) {
-      var allow = !~allowed.indexOf(pagelet);
-      if (allow && before && before.pagelet === pagelet.name) page.req.destroy();
-
-      return allow;
+      return !~allowed.indexOf(pagelet);
     });
 
     allowed.forEach(function initialize(pagelet) {
@@ -328,8 +314,8 @@ Page.readable('discover', function discover(before) {
     });
 
     // @TODO free disabled pagelets
-    page.debug('initialised all allowed pagelets');
-    page[page.mode](before);
+    page.debug('Initialised all allowed pagelets');
+    page.emit('discover');
   });
 
   return this;
@@ -359,10 +345,10 @@ Page.readable('sync', function render(base) {
       base = page.inject(base, pagelet.name, view(data[index]));
     });
 
-    page.done();
+    page.end();
   });
 
-  return this.debug('is rendering the pagelets in `render` mode');
+  return this.debug('Rendering the pagelets in `sync` mode');
 });
 
 /**
@@ -372,19 +358,16 @@ Page.readable('sync', function render(base) {
  * @api private
  */
 Page.readable('async', function render(before) {
-  var page = this;
+  return this.debug('Rendering the pagelets in `async` mode');
+});
 
-  //
-  // Render each pagelet, if the request method was POST/PUT #before will
-  // be called prior to calling the renderer of the specific pagelet.
-  //
-  async.parallel(this.enabled.map(function mapRenderer(pagelet) {
-    return before && before.pagelet === pagelet.name
-      ? before.bind(page, pagelet.renderer.bind(pagelet))
-      : pagelet.renderer.bind(pagelet);
-  }), this.done.bind(this));
+Page.readable('adfjadfjasd;lfkjas;dlfja', function () {
+  var pagelet = this.get(this.req.query._pagelet)
+    , buffer = this.read(); // Start buffering the incoming POST request.
 
-  return this.debug('is rendering the pagelets in `async` mode');
+  if (pagelet) {
+    if ('function' === typeof pagelet.authorize) {}
+  }
 });
 
 /**
@@ -394,7 +377,7 @@ Page.readable('async', function render(before) {
  * @api private
  */
 Page.readable('pipeline', function render() {
-  return this.debug('is rendering the pagelets in `pipeline` mode');
+  return this.debug('Rendering the pagelets in `pipeline` mode');
 });
 
 /**
@@ -403,7 +386,7 @@ Page.readable('pipeline', function render() {
  * @returns {Boolean} Closed the connection.
  * @api private
  */
-Page.readable('done', function done() {
+Page.readable('end', function end() {
   var page = this;
 
   //
@@ -422,7 +405,7 @@ Page.readable('done', function done() {
   page.disabled.filter(function filter(pagelet) {
     return !!pagelet.remove;
   }).forEach(function each(pagelet) {
-    page.debug('is instructing removal of the %s/%s pagelet'
+    page.debug('Instructing removal of the %s/%s pagelet'
       , pagelet.name, pagelet.id
     );
 
@@ -433,8 +416,11 @@ Page.readable('done', function done() {
   // Send the remaining trailer headers if we have them queued.
   //
   if (page.res.trailer) {
-    this.debug('adding trailer headers');
+    this.debug('Adding trailer headers');
     page.res.addTrailers(page.res.trailers);
+
+    delete page.res.trailers;   // Remove newly added object
+    delete page.res.trailer;    // Remove boolean flag.
   }
 
   //
@@ -445,7 +431,7 @@ Page.readable('done', function done() {
 });
 
 /**
- * Write a new pagelet to the request.
+ * Process the pagelet for an async or pipeline based render flow.
  *
  * @param {Pagelet} pagelet Pagelet instance.
  * @param {Mixed} data The data returned from Pagelet.render().
@@ -456,8 +442,7 @@ Page.readable('write', function write(pagelet, data, fn) {
   data = data || {};
 
   var view = this.temper.fetch(pagelet.view).server
-    , frag = this.compiler.pagelet(pagelet)
-    , output;
+    , frag = this.compiler.pagelet(pagelet);
 
   this.debug('%s - %s writing pagelet %s/%s\'s response',
     pagelet.name, pagelet.id
@@ -469,20 +454,35 @@ Page.readable('write', function write(pagelet, data, fn) {
   frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
   frag.processed = ++this.n;    // Amount of pagelets processed.
 
-  output = fragment
-    .replace(/\{pagelet::name\}/g, pagelet.name)
-    .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
-    .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''));
+  this.queue.push(
+    fragment
+      .replace(/\{pagelet::name\}/g, pagelet.name)
+      .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
+      .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
+  );
 
-  this.res.write(output, 'utf-8', fn);
+  if (fn) this.once('flush', fn);
+  return this.flush();
+});
+
+/**
+ * Flush all queued rendered pagelets to the request object.
+ *
+ * @api private
+ */
+Page.readable('flush', function flush() {
+  var page = this;
+
+  this.res.write(this.queue.join(''), 'utf-8', this.emits('flush'));
+  this.queue.length = 0;
 
   //
   // Optional write confirmation, it got added in more recent versions of
   // node, so if it's not supported we're just going to call the callback
   // our selfs.
   //
-  if (this.res.write.length !== 3 && 'function' === typeof fn) {
-    fn();
+  if (this.res.write.length !== 3) {
+    this.emit('flush');
   }
 
   return this;
@@ -561,7 +561,7 @@ Page.readable('dispatch', function dispatch(core, before) {
     // Write the remaining queued pagelets, if no pagelets
     // are remaining the response will be closed.
     //
-    async.parallel(page.queue, page.done.bind(page));
+    async.parallel(page.queue, page.end.bind(page));
   }
 
   if ('function' === typeof before) stack.push(before.bind(this));
@@ -632,7 +632,7 @@ Page.readable('setup', function setup() {
   // the request once that happens.
   //
   if (this.res.finished) return this.req.destroy();
-  this.debug('is initialising');
+  this.debug('Initialising');
 
   //
   // Check if the HTTP method is targeted at a specific pagelet inside the
@@ -688,6 +688,8 @@ Page.readable('setup', function setup() {
  * @api public
  */
 Page.readable('has', function has(name) {
+  if (!name) return undefined;
+
   var pagelets = this.pagelets
     , i = pagelets.length;
 
@@ -696,6 +698,24 @@ Page.readable('has', function has(name) {
   }
 
   return pagelets[i];
+});
+
+/**
+ * Get and initialise a given Pagelet.
+ *
+ * @param {String} name Name of the pagelet.
+ * @returns {Pagelet} The created pagelet instance.
+ * @api public
+ */
+Page.readable('get', function get(name) {
+  var Pagelet = this.has(name)
+    , pagelet;
+
+  if (!Pagelet) return undefined;
+
+  pagelet = Pagelet.freelist.alloc().configure(this);
+
+  return pagelet;
 });
 
 /**
@@ -713,8 +733,7 @@ Page.readable('has', function has(name) {
  * @api private
  */
 Page.readable('bootstrap', function bootstrap(before) {
-  var library = this.compiler.page(this)
-    , path = this.req.uri.pathname
+  var path = this.req.uri.pathname
     , charset = this.charset
     , head = [];
 
@@ -725,6 +744,17 @@ Page.readable('bootstrap', function bootstrap(before) {
   //
   if (charset) head.push('<meta charset="' + charset + '">');
 
+  //
+  // BigPipe depends heavily on the support of JavaScript in browsers as the
+  // rendering of the page's components is done through JavaScript. When the
+  // user has JavaScript disabled they will see a blank page instead. To prevent
+  // this from happening we're injecting a `noscript` tag in to the page which
+  // forces the `sync` render mode.
+  //
+  // Also when we have JavaScript enabled make sure the user doesn't accidentally
+  // force them selfs in to a `sync` render mode as the URL could have been
+  // shared through social media
+  //
   if (this.mode !== 'sync') {
     head.push(
       '<noscript>',
@@ -740,13 +770,10 @@ Page.readable('bootstrap', function bootstrap(before) {
     );
   }
 
-  if (library.css) library.css.forEach(function inject(url) {
-    head.push('<link rel="stylesheet" href="'+ url +'">');
-  });
-
-  library.js.forEach(function inject(url) {
-    head.push('<script type="text/javascript" src="'+ url +'"></script>');
-  });
+  //
+  // Add all required assets and dependencies to the HEAD of the page.
+  //
+  this.compiler.page(this, head);
 
   //
   // Initialise the library.
@@ -776,10 +803,7 @@ Page.readable('bootstrap', function bootstrap(before) {
     value: head.join('')
   }));
 
-  //
-  // Page and headers are bootstrapped. Dispatch the headers.
-  //
-  return this.dispatch(data, before);
+  // @TODO actually write it.
 });
 
 /**
@@ -825,7 +849,7 @@ Page.readable('configure', function configure(req, res) {
     this.mode = 'sync';
   }
 
-  return this;
+  return this[this.mode]();
 });
 
 /**
