@@ -30,7 +30,8 @@
     "substream": "0.0.x",
     "temper": "0.0.x",
     "ws": "0.4.x",
-    "predefine": "0.0.x"
+    "predefine": "0.0.x",
+    "formidable": "1.0.x"
   },
   "devDependencies": {
     "chai": "1.8.x",

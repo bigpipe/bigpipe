@@ -219,10 +219,8 @@ Pagelet.readable('configure', function configure(page) {
     return Math.random().toString(36).substring(2).toUpperCase();
   }).join('-');
 
-  this.removeAllListeners();
-
   debug('configuring %s/%s', this.name, this.id);
-  return this;
+  return this.removeAllListeners();
 });
 
 /**
@@ -245,17 +243,7 @@ Pagelet.readable('renderer', function renderer(fn) {
       return fn(new Error('Response was closed, unable to write Pagelet'));
     }
 
-    //
-    // The main page and headers were written, flush pagelet immediately.
-    //
-    if (page.res._headerSent) return page.write(pagelet, data, fn);
-
-    //
-    // The main page is not written to the client yet,
-    // delay the pagelet and trigger the callback.
-    //
-    page.queue.push(page.write.bind(page, pagelet, data));
-    fn();
+    page.write(pagelet, data, fn);
   });
 });
 

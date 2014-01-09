@@ -1,6 +1,7 @@
 'use strict';
 
-var debug = require('debug')('bigpipe:page')
+var Formidable = require('formidable').IncomingForm
+  , debug = require('debug')('bigpipe:page')
   , predefine = require('predefine')
   , async = require('async')
   , fuse = require('./fuse')
@@ -267,10 +268,7 @@ Page.readable('error', function error(err) {
  * @api private
  */
 Page.readable('discover', function discover() {
-  if (!this.pagelets.length) {
-    this.emit('discover');
-    return this;
-  }
+  if (!this.pagelets.length) return this.emit('discover');
 
   var req = this.req
     , page = this
@@ -317,8 +315,6 @@ Page.readable('discover', function discover() {
     page.debug('Initialised all allowed pagelets');
     page.emit('discover');
   });
-
-  return this;
 });
 
 /**
@@ -355,17 +351,17 @@ Page.readable('sync', function render(base) {
  *
  * @api private
  */
-Page.readable('async', function render(before) {
+Page.readable('async', function render(data) {
+  this.once('discover', function discovered() {
+    async.each(this.enabled, function (pagelet, next) {
+      pagelet.renderer(next);
+    }, this.end);
+  });
+
+  this.bootstrap(data);
+  this.discover();
+
   return this.debug('Rendering the pagelets in `async` mode');
-});
-
-Page.readable('adfjadfjasd;lfkjas;dlfja', function () {
-  var pagelet = this.get(this.req.query._pagelet)
-    , buffer = this.read(); // Start buffering the incoming POST request.
-
-  if (pagelet) {
-    if ('function' === typeof pagelet.authorize) {}
-  }
 });
 
 /**
@@ -376,6 +372,65 @@ Page.readable('adfjadfjasd;lfkjas;dlfja', function () {
  */
 Page.readable('pipeline', function render() {
   return this.debug('Rendering the pagelets in `pipeline` mode');
+});
+
+/**
+ *
+ * @param {Function} fn Completion callback.
+ * @returns {Form}
+ * @api private
+ */
+Page.readable('read', function read(fn) {
+  var form = new Formidable(this.req)
+    , fields = {}
+    , files = {}
+    , context
+    , before;
+
+  form.on('progress', function progress(received, expected) {
+    //
+    // @TODO if we're not sure yet if we should handle this form, we should only
+    // buffer it to a predefined amount of bytes. Once that limit is reached we
+    // need to `form.pause()` so the client stops uploading data. Once we're
+    // given the heads up, we can safely resume the form and it's uploading.
+    //
+  }).on('field', function field(key, value) {
+    fields[key] = value;
+  }).on('file', function file(key, value) {
+    files[key] = value;
+  }).on('error', function error(err) {
+    if (fn) fn(err);
+
+    fields = files = {};
+  }).on('end', function end() {
+    form.removeAllListeners();
+
+    if (before) {
+      before.call(context, fields, files, fn);
+    }
+  });
+
+  /**
+   * Add a hook for adding a completion callback.
+   *
+   * @param {Function} callback
+   * @returns {Form}
+   * @api public
+   */
+  form.before = function befores(callback, context) {
+    if (form.listeners('end').length)  {
+      form.resume();      // Resume a possiblely buffered post.
+
+      before = callback;
+      context = context;
+      return form;
+    }
+
+    callback.call(context, fields, files, fn);
+    return form;
+  };
+
+  return form;
 });
 
 /**
@@ -599,17 +654,21 @@ Page.readable('setup', function setup() {
  * since pagelets are not always constructed yet.
  *
  * @param {String} name Name of the pagelet.
+ * @param {String}
  * @returns {Pagelet} The constructor of a matching Pagelet.
  * @api public
  */
-Page.readable('has', function has(name) {
+Page.readable('has', function has(name, enabled) {
   if (!name) return undefined;
 
-  var pagelets = this.pagelets
+  var pagelets = enabled ? this.enabled : this.pagelets
     , i = pagelets.length;
 
   while (i--) {
-    if (pagelets[i].prototype.name === name) break;
+    if (
+       pagelets[i].prototype && pagelets[i].prototype.name === name
+    || pagelets[i].name === name
+    ) break;
   }
 
   return pagelets[i];
@@ -623,10 +682,15 @@ Page.readable('has', function has(name) {
  * @api public
  */
 Page.readable('get', function get(name) {
-  var Pagelet = this.has(name)
+  var Pagelet = this.has(name) || this.has(name, true)
     , pagelet;
 
-  if (!Pagelet) return undefined;
+  //
+  // It could be that Pagelet is undefined if nothing is initialised or it could
+  // be previously initialised pagelet. As it's already initialised, we can
+  // simply return it.
+  //
+  if ('function' !== typeof Pagelet) return Pagelet;
 
   pagelet = Pagelet.freelist.alloc().configure(this);
 
@@ -738,11 +802,15 @@ Page.readable('bootstrap', function bootstrap(data) {
       this.trailers[name] = value;
       this.trailer = true;
     } else {
+      //
+      // All data is still queued and we haven't written any headers yet, so
+      // add more headers.
+      //
       this.__setHeader(name, value);
     }
   };
 
-  return this.flush();
+  this.flush();
 });
 
 /**
@@ -753,9 +821,6 @@ Page.readable('bootstrap', function bootstrap(data) {
  * @api private
  */
 Page.readable('configure', function configure(req, res) {
-  var page = this
-    , key;
-
   //
   // Clear any previous listeners, the counter and added pagelets.
   //
@@ -784,15 +849,44 @@ Page.readable('configure', function configure(req, res) {
        'no_pagelet_js' in req.uri.query
     || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
   ) {
-    this.debug('forcing `render` mode instead of %s', this.mode);
+    this.debug('forcing `sync` mode instead of %s due lack of HTTP 1.1', this.mode);
     this.mode = 'sync';
   }
 
-  return this[this.mode]();
+  var pagelet = this.get(this.req.query._pagelet)
+    , method = this.req.method.toLowerCase()
+    , page = this;
+
+  if (~operations.indexOf(method)) {
+    var reader = this.read();
+
+    if (pagelet && method in pagelet) {
+      pagelet.authorize(this.req, function auth(accepted) {
+        if (!accepted) {
+          if (method in page) {
+            reader.before(page[method], page);
+          } else {
+            page.req.destroy();
+          }
+        }
+      });
+    } else if (method in page) {
+      reader.before(page[method], page);
+    } else {
+      this.req.destroy();
+      this[this.mode]();
+    }
+  } else {
+    this[this.mode]();
+  }
+
+  return this;
 });
 
 /**
- * Simple logger module that prefixes debug with some extra information.
+ * Simple logger module that prefixes debug with some extra information. It
+ * prefixes the debug statement with the method that was used as well as the
+ * entry path.
  *
  * @api private
  */
