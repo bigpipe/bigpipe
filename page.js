@@ -355,7 +355,7 @@ Page.readable('async', function render(data) {
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
       pagelet.renderer(next);
-    }, this.end);
+    }, this.end.bind(this));
   });
 
   this.bootstrap(data);
@@ -539,8 +539,6 @@ Page.readable('flush', function flush() {
   if (this.res.write.length !== 3) {
     this.emit('flush');
   }
-
-  if (this.n === this.enabled.length) this.end();
 
   return this;
 });
