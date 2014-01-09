@@ -344,8 +344,6 @@ Page.readable('sync', function render(base) {
       // @TODO also remove the pagelets that we're disabled.
       base = page.inject(base, pagelet.name, view(data[index]));
     });
-
-    page.end();
   });
 
   return this.debug('Rendering the pagelets in `sync` mode');
@@ -392,9 +390,9 @@ Page.readable('end', function end() {
   //
   // Do not close the connection before the main page has sent headers.
   //
-  if (page.n !== page.pagelets.length) {
+  if (page.n !== page.enabled.length) {
     this.debug('%s - %s not all pagelets have been written, (%s out of %s)',
-      this.n, this.pagelets.length
+      this.n, this.enabled.length
     );
     return false;
   }
@@ -402,7 +400,7 @@ Page.readable('end', function end() {
   //
   // Write disabled pagelets so the client can remove all empty placeholders.
   //
-  page.disabled.filter(function filter(pagelet) {
+  this.disabled.filter(function filter(pagelet) {
     return !!pagelet.remove;
   }).forEach(function each(pagelet) {
     page.debug('Instructing removal of the %s/%s pagelet'
@@ -419,14 +417,16 @@ Page.readable('end', function end() {
     this.debug('Adding trailer headers');
     page.res.addTrailers(page.res.trailers);
 
-    delete page.res.trailers;   // Remove newly added object
-    delete page.res.trailer;    // Remove boolean flag.
+    page.res.setHeader = page.res.__setHeader;
+    delete page.res.__setHeader;  // Remove reference to previous function.
+    delete page.res.trailers;     // Remove newly added object.
+    delete page.res.trailer;      // Remove boolean flag.
   }
 
   //
   // Everything is processed, close the connection.
   //
-  page.res.end();
+  this.res.end();
   return true;
 });
 
@@ -485,92 +485,7 @@ Page.readable('flush', function flush() {
     this.emit('flush');
   }
 
-  return this;
-});
-
-/**
- * Dispatch will do the following:
- *
- *   - merge additional data from http methods or custom supplier
- *   - check mode and short-circuit if render sync.
- *   - write the initial headers so the browser can start working.
- *   - dispatch already queued pagelets.
- *
- * @param {String} core data, e.g. the header
- * @param {Function} before iterative function to execute before render.
- * @api private
- */
-Page.readable('dispatch', function dispatch(core, before) {
-  var page = this
-    , stack = []
-    , output;
-
-  /**
-   * Write content to the client, data is merged before that in
-   * the following order: {} - post - custom data - core.
-   *
-   * @param {Error} err
-   * @param {Mixed} data
-   * @api private
-   */
-  function init(err, data) {
-    if (err) page.error(new Error('Providing custom data to Page instance failed'));
-
-    //
-    // Merge all data.
-    //
-    data.push(core);
-    data = data.reduce(page.merge, {});
-
-    //
-    // Generate the main page via temper.
-    //
-    output = page.temper.fetch(page.view).server(data);
-
-    //
-    // Short-circuit page is in sync mode as it will just output the data at
-    // once and not asynchronously.
-    //
-    if ('sync' === page.mode) {
-      return page.sync(output);
-    }
-
-    //
-    // Write the headers.
-    //
-    page.res.write(output);
-
-    //
-    // Hack: As we've already send out our initial headers, all other headers
-    // need to be send as "trailing" headers. But none of the modules in the
-    // node's ecosystem are written in a way that they support trailing
-    // headers. They are all focused on a simple request/response pattern so
-    // we need to override the `setHeader` method so it sends trailer headers
-    // instead.
-    //
-    page.res.trailers = {};
-    page.res.trailer = false;
-    page.res.setHeader = function setHeader(key, value) {
-      this.trailers[key] = value;
-      this.trailer = true;
-
-      return this;
-    };
-
-    //
-    // Write the remaining queued pagelets, if no pagelets
-    // are remaining the response will be closed.
-    //
-    async.parallel(page.queue, page.end.bind(page));
-  }
-
-  if ('function' === typeof before) stack.push(before.bind(this));
-  if ('function' === typeof page.data) stack.push(page.data.bind(this));
-
-  //
-  // Check the data provider and supply it with a callback.
-  //
-  async.series(stack, init);
+  if (this.n === this.enabled.length) this.end();
 
   return this;
 });
@@ -728,14 +643,16 @@ Page.readable('get', function get(name) {
  * - It adds a noscript meta refresh to force our `sync` method which fully
  *   renders the HTML server side.
  *
- * @param {Function} before data
+ * @param {Object} data Data for the template.
  * @returns {Page} fluent interface
  * @api private
  */
-Page.readable('bootstrap', function bootstrap(before) {
+Page.readable('bootstrap', function bootstrap(data) {
   var path = this.req.uri.pathname
     , charset = this.charset
     , head = [];
+
+  data = data || {};
 
   //
   // Add a meta charset so the browser knows the encoding of the content so it
@@ -797,13 +714,35 @@ Page.readable('bootstrap', function bootstrap(before) {
   // Supply data to the view and render after. Make sure the defined head
   // key cannot be overwritten by any custom data.
   //
-  var data = Object.create(null, predefine.create(this.pipe.bootstrap, {
+  Object.defineProperties(data, predefine.create(this.pipe.bootstrap, {
     writable: false,
     enumerable: true,
     value: head.join('')
   }));
 
-  // @TODO actually write it.
+  this.queue.push(this.temper.fetch(this.view).server(data));
+
+  //
+  // Hack: As we've already send out our initial headers, all other headers
+  // need to be send as "trailing" headers. But none of the modules in the
+  // node's ecosystem are written in a way that they support trailing
+  // headers. They are all focused on a simple request/response pattern so
+  // we need to override the `setHeader` method so it sends trailer headers
+  // instead.
+  //
+  this.res.trailers = {};
+  this.res.trailer = false;
+  this.res.__setHeader = this.res.setHeader;
+  this.res.setHeader = function setHeader(name, value) {
+    if (this._header) {
+      this.trailers[name] = value;
+      this.trailer = true;
+    } else {
+      this.__setHeader(name, value);
+    }
+  };
+
+  return this.flush();
 });
 
 /**
