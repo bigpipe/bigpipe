@@ -375,13 +375,14 @@ Page.readable('pipeline', function render() {
 });
 
 /**
+ * Start buffering and reading the incoming request.
  *
- * @param {Function} fn Completion callback.
  * @returns {Form}
  * @api private
  */
-Page.readable('read', function read(fn) {
-  var form = new Formidable(this.req)
+Page.readable('read', function read() {
+  var form = new Formidable()
+    , page = this
     , fields = {}
     , files = {}
     , context
@@ -399,14 +400,13 @@ Page.readable('read', function read(fn) {
   }).on('file', function file(key, value) {
     files[key] = value;
   }).on('error', function error(err) {
-    if (fn) fn(err);
-
+    page[page.mode](err);
     fields = files = {};
   }).on('end', function end() {
     form.removeAllListeners();
 
     if (before) {
-      before.call(context, fields, files, fn);
+      before.call(context, fields, files, page[page.mode].bind(page));
     }
   });
 
@@ -417,20 +417,21 @@ Page.readable('read', function read(fn) {
    * @returns {Form}
    * @api public
    */
-  form.before = function befores(callback, context) {
+  form.before = function befores(callback, contexts) {
     if (form.listeners('end').length)  {
-      form.resume();      // Resume a possiblely buffered post.
+      form.resume();      // Resume a possible buffered post.
 
       before = callback;
-      context = context;
+      context = contexts;
+
       return form;
     }
 
-    callback.call(context, fields, files, fn);
+    callback.call(context, fields, files, page[page.mode].bind(page));
     return form;
   };
 
-  return form;
+  return form.parse(this.req);
 });
 
 /**
@@ -580,71 +581,6 @@ Page.readable('inject', function inject(base, name, view) {
   });
 
   return base;
-});
-
-/**
- * We've been initialized, proceed with rendering if needed.
- * @TODO free the page if initialization already terminated the request
- *
- * @api private
- */
-Page.readable('setup', function setup() {
-  var method = this.req.method.toLowerCase()
-    , pagelet
-    , main
-    , sub;
-
-  //
-  // It could be that the initialization handled the page rendering through
-  // a `page.redirect()` or a `page.notFound()` call so we should terminate
-  // the request once that happens.
-  //
-  if (this.res.finished) return this.req.destroy();
-  this.debug('Initialising');
-
-  //
-  // Check if the HTTP method is targeted at a specific pagelet inside the
-  // page. If so, only execute the logic contained in pagelet#method.
-  // If no pagelet is targeted, check if the page has an implementation, if
-  // all else fails make sure we destroy the request.
-  //
-  if (~operations.indexOf(method)) {
-    if ('_pagelet' in this.req.query) {
-      pagelet = this.has(this.req.query._pagelet);
-    }
-
-    if (pagelet && (method in pagelet.prototype)) {
-      sub = this.fetch(function found() {
-        var args = arguments;
-
-        //
-        // Find the pagelet and pass off the data.
-        //
-        this.enabled.some(function (instance) {
-          var match = instance instanceof pagelet;
-
-          if (match) instance[method].apply(instance, args);
-          return match;
-        });
-      });
-
-      sub.pagelet = pagelet.prototype.name;
-    } else if (method in this) {
-      main = this.fetch(this[method]);
-    } else {
-      this.req.destroy();
-    }
-  }
-
-  //
-  // Fire the main paths for rendering and dispatching content. Both emits
-  // can be supplied with a different set of parameters.
-  //
-  //  - trigger rendering of page: bootstrap
-  //  - trigger rendering of all pagelets: discover
-  //
-  this.bootstrap(main);
-  this.discover(sub);
 });
 
 /**
@@ -857,17 +793,24 @@ Page.readable('configure', function configure(req, res) {
 
   if (~operations.indexOf(method)) {
     var reader = this.read();
+    this.debug('Processing %s request', method);
 
     if (pagelet && method in pagelet) {
-      pagelet.authorize(this.req, function auth(accepted) {
-        if (!accepted) {
-          if (method in page) {
-            reader.before(page[method], page);
+      if (pagelet.authorize) {
+        pagelet.authorize(this.req, function auth(accepted) {
+          if (!accepted) {
+            if (method in page) {
+              reader.before(page[method], page);
+            } else {
+              page.req.destroy();
+            }
           } else {
-            page.req.destroy();
+            reader.before(pagelet[method], pagelet);
           }
-        }
-      });
+        });
+      } else {
+        reader.before(pagelet[method], pagelet);
+      }
     } else if (method in page) {
       reader.before(page[method], page);
     } else {
