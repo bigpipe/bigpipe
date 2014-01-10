@@ -43,6 +43,7 @@ function Page(pipe) {
   writable('disabled', []);                   // Contains all disable pagelets.
   writable('enabled', []);                    // Contains all enabled pagelets.
   writable('queue', []);                      // Write queue that will be flushed.
+  writable('flushed', false);                 // Is the queue flushed.
   writable('_events', Object.create(null));   // Required for EventEmitter.
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
@@ -238,6 +239,7 @@ Page.readable('redirect', function redirect(location, status) {
  * Well, actually, never mind, we shouldn't accept this page so we should
  * render our 404 page instead.
  *
+ * @TODO we might need to kill the `req` to nuke uploads.
  * @api public
  */
 Page.readable('notFound', function notFound() {
@@ -250,6 +252,7 @@ Page.readable('notFound', function notFound() {
 /**
  * We've gotten a captured error and we should show a error page.
  *
+ * @TODO we might need to kill the `req` to nuke uploads.
  * @param {Error} err The error message.
  * @api public
  */
@@ -524,10 +527,17 @@ Page.readable('write', function write(pagelet, data, fn) {
 /**
  * Flush all queued rendered pagelets to the request object.
  *
+ * @param {Boolean} flushing Should flush the queued data.
  * @api private
  */
-Page.readable('flush', function flush() {
+Page.readable('flush', function flush(flushing) {
   var page = this;
+
+  //
+  // Only write the data to the response if we're allowed to flush.
+  //
+  if ('boolean' === typeof flushing) this.flushed = flushing;
+  if (!this.flushed) return this;
 
   this.res.write(this.queue.join(''), 'utf-8', this.emits('flush'));
   this.queue.length = 0;
@@ -641,14 +651,23 @@ Page.readable('get', function get(name) {
  * - It adds a noscript meta refresh to force our `sync` method which fully
  *   renders the HTML server side.
  *
+ * @param {Error} err An Error has been received while receiving data.
  * @param {Object} data Data for the template.
  * @returns {Page} fluent interface
  * @api private
  */
-Page.readable('bootstrap', function bootstrap(data) {
+Page.readable('bootstrap', function bootstrap(err, data) {
   var path = this.req.uri.pathname
     , charset = this.charset
     , head = [];
+
+  //
+  // It could be that the initialization handled the page rendering through
+  // a `page.redirect()` or a `page.notFound()` call so we should terminate
+  // the request once that happens.
+  //
+  if (this.res.finished) return this.req.destroy();
+  if (err) return this.error
 
   data = data || {};
 
@@ -744,7 +763,7 @@ Page.readable('bootstrap', function bootstrap(data) {
     }
   };
 
-  this.flush();
+  this.flush(true);
 });
 
 /**
