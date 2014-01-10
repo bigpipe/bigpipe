@@ -667,9 +667,9 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   // the request once that happens.
   //
   if (this.res.finished) return this.req.destroy();
-  if (err) return this.error
+  if (err) return this.error(err);
 
-  data = data || {};
+  data = this.mixin(data || {}, this.data || {});
 
   //
   // Add a meta charset so the browser knows the encoding of the content so it
@@ -806,6 +806,27 @@ Page.readable('configure', function configure(req, res) {
     this.mode = 'sync';
   }
 
+  if (this.initialize) {
+    if (this.initialize.length) {
+      this.debug('Waiting for `initialize` method before rendering');
+      this.initialize(this.render.bind(this));
+    } else {
+      this.initialize();
+      this.render();
+    }
+  } else {
+    this.render();
+  }
+
+  return this;
+});
+
+/**
+ * Render execution flow.
+ *
+ * @api private
+ */
+Page.readable('render', function () {
   var pagelet = this.get(this.req.query._pagelet)
     , method = this.req.method.toLowerCase()
     , page = this;
@@ -839,8 +860,6 @@ Page.readable('configure', function configure(req, res) {
   } else {
     this[this.mode]();
   }
-
-  return this;
 });
 
 /**
