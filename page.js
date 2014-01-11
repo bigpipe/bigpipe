@@ -447,6 +447,11 @@ Page.readable('end', function end() {
   var page = this;
 
   //
+  // The connection was already closed, no need to futher process it.
+  //
+  if (this.res.finished) return true;
+
+  //
   // Do not close the connection before the main page has sent headers.
   //
   if (page.n !== page.enabled.length) {
@@ -468,19 +473,6 @@ Page.readable('end', function end() {
 
     page.write(pagelet);
   });
-
-  //
-  // Send the remaining trailer headers if we have them queued.
-  //
-  if (page.res.trailer) {
-    this.debug('Adding trailer headers');
-    page.res.addTrailers(page.res.trailers);
-
-    page.res.setHeader = page.res.__setHeader;
-    delete page.res.__setHeader;  // Remove reference to previous function.
-    delete page.res.trailers;     // Remove newly added object.
-    delete page.res.trailer;      // Remove boolean flag.
-  }
 
   //
   // Everything is processed, close the connection.
@@ -738,31 +730,6 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   }));
 
   this.queue.push(this.temper.fetch(this.view).server(data));
-
-  //
-  // Hack: As we've already send out our initial headers, all other headers
-  // need to be send as "trailing" headers. But none of the modules in the
-  // node's ecosystem are written in a way that they support trailing
-  // headers. They are all focused on a simple request/response pattern so
-  // we need to override the `setHeader` method so it sends trailer headers
-  // instead.
-  //
-  this.res.trailers = {};
-  this.res.trailer = false;
-  this.res.__setHeader = this.res.setHeader;
-  this.res.setHeader = function setHeader(name, value) {
-    if (this._header) {
-      this.trailers[name] = value;
-      this.trailer = true;
-    } else {
-      //
-      // All data is still queued and we haven't written any headers yet, so
-      // add more headers.
-      //
-      this.__setHeader(name, value);
-    }
-  };
-
   this.flush(true);
 });
 

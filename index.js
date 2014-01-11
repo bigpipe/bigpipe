@@ -22,6 +22,11 @@ var domain;
 try { domain = require('domain'); }
 catch (e) {}
 
+//
+// Automatically add trailers support to Node.js.
+//
+var trailers = require('trailers');
+
 /**
  * Our pagelet management.
  *
