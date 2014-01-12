@@ -2,7 +2,9 @@
 
 var Formidable = require('formidable').IncomingForm
   , debug = require('debug')('bigpipe:page')
+  , FreeList = require('freelist').FreeList
   , predefine = require('predefine')
+  , Route = require('routable')
   , async = require('async')
   , fuse = require('./fuse')
   , path = require('path')
@@ -843,9 +845,19 @@ Page.readable('debug', function log() {
   return this;
 });
 
-//
-// Expose the Page on the exports and parse our the directory.
-//
+/**
+ * Expose a clean way of setting the proper directory for the templates and
+ * relative resolving of pagelets.
+ *
+ * ```js
+ * Page.extend({
+ *   ..
+ * }).on(module);
+ * ```
+ *
+ * @param {Module} module The reference to the module object.
+ * @api public
+ */
 Page.on = function on(module) {
   var dir = this.prototype.directory = this.prototype.directory || path.dirname(module.filename)
     , pagelets = this.prototype.pagelets
@@ -858,6 +870,84 @@ Page.on = function on(module) {
 
   module.exports = this;
   return this;
+};
+
+/**
+ * Optimize the prototypes of the Page to reduce work when we're actually
+ * serving the requests.
+ *
+ * @param {BigPipe} pipe The BigPipe instance.
+ * @api private
+ */
+Page.optimize = function optimize(pipe) {
+  var method = this.prototype.method
+    , router = this.prototype.path
+    , Page = this;
+
+    //
+    // This page has already been processed, bailout.
+    //
+    if (Page.properties) return Page;
+
+    //
+    // Parse the methods to an array of accepted HTTP methods. We'll only accept
+    // there requests and should deny every other possible method.
+    //
+    if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
+    method = method.filter(Boolean).map(function transformation(method) {
+      return method.toUpperCase();
+    });
+
+    //
+    // Update the pagelets, if any.
+    //
+    if (Page.prototype.pagelets) {
+      Page.prototype.pagelets = pipe.resolve(
+        Page.prototype.pagelets,
+        function map(Pagelet) {
+          return Pagelet.optimize(pipe);
+        }
+      );
+    }
+
+    //
+    // The view property is a mandatory but it's quite silly to enforce this if
+    // the page is just doing a redirect. We can check for this edge case by
+    // checking if the set statusCode is in the 300~ range.
+    //
+    if (Page.prototype.view) {
+      Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
+      pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
+    } else if (!(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)) {
+      throw new Error('The page for path '+ Page.prototype.path +' should have a .view property.');
+    }
+
+    //
+    // Unique id per page. This is used to track back which page was actually
+    // rendered for the front-end so we can retrieve pagelets much easier.
+    //
+    Page.prototype.id = [1, 1, 1, 1].map(function generator() {
+      return Math.random().toString(36).substring(2).toUpperCase();
+    }).join('');
+
+    //
+    // Add the properties to the page.
+    //
+    pipe.emit('transform::page', Page);                 // Emit tranform event for plugins.
+    Page.properties = Object.keys(Page.prototype);      // All properties before init.
+    Page.router = new Route(router);                    // Actual HTTP route.
+    Page.method = method;                               // Available HTTP methods.
+    Page.id = router.toString() +'&&'+ method.join();   // Unique id.
+
+    //
+    // Setup a FreeList for the page so we can re-use the page instances and
+    // reduce garbage collection to a bare minimum.
+    //
+    Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function allocate() {
+      return new Page(pipe);
+    });
+
+    return Page;
 };
 
 //

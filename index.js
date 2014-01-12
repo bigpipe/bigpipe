@@ -1,10 +1,8 @@
 'use strict';
 
 var debug = require('debug')('bigpipe:server')
-  , FreeList = require('freelist').FreeList
   , Compiler = require('./lib/compiler')
   , predefine = require('predefine')
-  , Route = require('routable')
   , Primus = require('primus')
   , Temper = require('temper')
   , fuse = require('./fuse')
@@ -318,136 +316,7 @@ Pipe.readable('status', function status(req, res, code, data) {
  * @api private
  */
 Pipe.readable('transform', function transform(Page) {
-  var method = Page.prototype.method
-    , router = Page.prototype.path
-    , pipe = this;
-
-  //
-  // This page has already been processed, bailout.
-  //
-  if (Page.properties) return Page;
-
-  //
-  // Parse the methods to an array of accepted HTTP methods. We'll only accept
-  // there requests and should deny every other possible method.
-  //
-  if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
-  method = method.filter(Boolean).map(function transformation(method) {
-    return method.toUpperCase();
-  });
-
-  //
-  // Update the pagelets, if any.
-  //
-  if (Page.prototype.pagelets) {
-    var pagelets = this.resolve(Page.prototype.pagelets, function map(Pagelet) {
-      //
-      // This pagelet has already been processed before as pages can share
-      // pagelets.
-      //
-      if (Pagelet.properties) return Pagelet;
-
-      debug('transforming pagelet: %s', Pagelet.prototype.name);
-
-      var prototype = Pagelet.prototype
-        , dir = prototype.directory;
-
-      if (prototype.view) {
-        Pagelet.prototype.view = path.resolve(dir, prototype.view);
-        pipe.temper.prefetch(Pagelet.prototype.view, Pagelet.prototype.engine);
-      }
-
-      if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
-      if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
-
-      //
-      // Make sure that all our dependencies are also directly mapped to an
-      // absolute URL.
-      //
-      if (prototype.dependencies) {
-        Pagelet.prototype.dependencies = prototype.dependencies.map(function each(dep) {
-          if (/^(http:|https:)?\/\//.test(dep)) return dep;
-          return path.resolve(dir, dep);
-        });
-      }
-
-      //
-      // Aliasing, some methods can be written with different names or american
-      // vs Britain vs old english. For example `initialise` vs `initialize` but
-      // also the use of CAPS like `RPC` vs `rpc`
-      //
-      if (Array.isArray(prototype.rpc) && !prototype.RPC.length) {
-        Pagelet.prototype.RPC = prototype.rpc;
-      }
-
-      if ('function' === typeof prototype.initialise) {
-        Pagelet.prototype.initialize = prototype.initialise;
-      }
-
-      //
-      // Allow plugins to hook in the transformation process, so emit it when
-      // all our transformations are done and before we create a copy of the
-      // "fixed" properties which later can be re-used again to restore
-      // a generated instance to it's original state.
-      //
-      pipe.emit('transform::pagelet', Pagelet);
-      Pagelet.properties = Object.keys(Pagelet.prototype);
-
-      //
-      // Setup a FreeList for the pagelets so we can re-use the pagelet
-      // instances and reduce garbage collection.
-      //
-      Pagelet.freelist = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function allocate() {
-        return new Pagelet;
-      });
-
-      return Pagelet;
-    });
-
-    //
-    // Save the transformed pagelets.
-    //
-    Page.prototype.pagelets = pagelets;
-  }
-
-  //
-  // The view property is a mandatory but it's quite silly to enforce this if
-  // the page is just doing a redirect. We can check for this edge case by
-  // checking if the set statusCode is in the 300~ range.
-  //
-  if (Page.prototype.view) {
-    Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
-    pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
-  } else if (!(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)) {
-    throw new Error('The page for path '+ Page.prototype.path +' should have a .view property.');
-  }
-
-  //
-  // Unique id per page. This is used to track back which page was actually
-  // rendered for the front-end so we can retrieve pagelets much easier.
-  //
-  Page.prototype.id = [1, 1, 1, 1].map(function generator() {
-    return Math.random().toString(36).substring(2).toUpperCase();
-  }).join('');
-
-  //
-  // Add the properties to the page.
-  //
-  pipe.emit('transform::page', Page);                 // Emit tranform event for plugins.
-  Page.properties = Object.keys(Page.prototype);      // All properties before init.
-  Page.router = new Route(router);                    // Actual HTTP route.
-  Page.method = method;                               // Available HTTP methods.
-  Page.id = router.toString() +'&&'+ method.join();   // Unique id.
-
-  //
-  // Setup a FreeList for the page so we can re-use the page instances and
-  // reduce garbage collection to a bare minimum.
-  //
-  Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function allocate() {
-    return new Page(pipe);
-  });
-
-  return Page;
+  return Page.optimize(this);
 });
 
 /**
@@ -770,6 +639,7 @@ Pipe.createServer = function createServer(port, options) {
   // Now that we've got a server, we can setup the pipe and start listening.
   //
   var pipe = new Pipe(server, options);
+
   pipe.listen(port, function initialized(error) {
     if (error) throw error;
 

@@ -1,6 +1,7 @@
 'use strict';
 
 var debug = require('debug')('bigpipe:pagelet')
+  , FreeList = require('freelist').FreeList
   , predefine = require('predefine')
   , fuse = require('./fuse')
   , path = require('path');
@@ -296,21 +297,95 @@ Pagelet.readable('trigger', function trigger(method, args, id, substream) {
   return true;
 });
 
-//
-// Expose the Pagelet on the exports and parse our the directory. This ensures
-// that we can properly resolve all relative assets:
-//
-// ```js
-// Pagelet.extend({
-//   ..
-// }).on(module);
-// ```
-//
+/**
+ * Expose the Pagelet on the exports and parse our the directory. This ensures
+ * that we can properly resolve all relative assets:
+ *
+ * ```js
+ * Pagelet.extend({
+ *   ..
+ * }).on(module);
+ * ```
+ *
+ * @param {Module} module The reference to the module object.
+ * @api public
+ */
 Pagelet.on = function on(module) {
   this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
   module.exports = this;
 
   return this;
+};
+
+/**
+ * Optimize the prototypes of the Pagelet to reduce work when we're actually
+ * serving the requests.
+ *
+ * @param {BigPipe} pipe The BigPipe instance.
+ * @api private
+ */
+Pagelet.optimize = function optimize(pipe) {
+  var Pagelet = this
+    , prototype = Pagelet.prototype
+    , dir = prototype.directory;
+
+  //
+  // This pagelet has already been processed before as pages can share
+  // pagelets.
+  //
+  if (Pagelet.properties) return Pagelet;
+
+
+  if (prototype.view) {
+    Pagelet.prototype.view = path.resolve(dir, prototype.view);
+    pipe.temper.prefetch(Pagelet.prototype.view, Pagelet.prototype.engine);
+  }
+
+  if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
+  if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
+
+  //
+  // Make sure that all our dependencies are also directly mapped to an
+  // absolute URL.
+  //
+  if (prototype.dependencies) {
+    Pagelet.prototype.dependencies = prototype.dependencies.map(function each(dep) {
+      if (/^(http:|https:)?\/\//.test(dep)) return dep;
+      return path.resolve(dir, dep);
+    });
+  }
+
+  //
+  // Aliasing, some methods can be written with different names or American
+  // vs Britain vs old English. For example `initialise` vs `initialize` but
+  // also the use of CAPS like `RPC` vs `rpc`
+  //
+  if (Array.isArray(prototype.rpc) && !prototype.RPC.length) {
+    Pagelet.prototype.RPC = prototype.rpc;
+  }
+
+  if ('function' === typeof prototype.initialise) {
+    Pagelet.prototype.initialize = prototype.initialise;
+  }
+
+  //
+  // Allow plugins to hook in the transformation process, so emit it when
+  // all our transformations are done and before we create a copy of the
+  // "fixed" properties which later can be re-used again to restore
+  // a generated instance to it's original state.
+  //
+  pipe.emit('transform::pagelet', Pagelet);
+  Pagelet.properties = Object.keys(Pagelet.prototype);
+
+  //
+  // Setup a FreeList for the pagelets so we can re-use the pagelet
+  // instances and reduce garbage collection.
+  //
+  Pagelet.freelist = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function allocate() {
+    return new Pagelet;
+  });
+
+  return Pagelet;
 };
 
 //
