@@ -335,7 +335,6 @@ Pagelet.optimize = function optimize(pipe) {
   //
   if (Pagelet.properties) return Pagelet;
 
-
   if (prototype.view) {
     Pagelet.prototype.view = path.resolve(dir, prototype.view);
     pipe.temper.prefetch(Pagelet.prototype.view, Pagelet.prototype.engine);
