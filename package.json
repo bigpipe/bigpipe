@@ -18,7 +18,7 @@
   "dependencies": {
     "async": "0.2.x",
     "debug": "0.7.x",
-    "eventemitter3": "0.0.x",
+    "eventemitter3": "0.1.x",
     "expirable": "0.0.x",
     "extendable": "0.0.x",
     "fortress": "0.0.x",
