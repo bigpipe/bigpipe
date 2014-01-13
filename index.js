@@ -51,8 +51,10 @@ function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
   options = this.options(options || {});
 
-  var readable = predefine(this);
+  var writable = predefine(this, predefine.WRITABLE)
+    , readable = predefine(this);
 
+  writable('_events', Object.create(null));           // Stores the events.
   readable('domains', !!options('domain') && domain); // Use domains for each req.
   readable('statusCodes', Object.create(null));       // Stores error pages.
   readable('cache', options('cache', null));          // Enable URL lookup caching.
