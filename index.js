@@ -390,7 +390,7 @@ Pipe.readable('find', function find(url, method) {
  * @param {Function} use The middleware.
  * @api private
  */
-Pipe.readable('middleware', function middleware(use) {
+Pipe.readable('before', function before(use) {
   this.layers.push(use);
 
   return this;
