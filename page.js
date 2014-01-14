@@ -260,13 +260,12 @@ Page.readable('notFound', function notFound() {
  */
 Page.readable('error', function error(err) {
   err = err || new Error('Internal Server Error');
-  this.emit('free');
 
   //
   // Delegate the handling of the error back to the pagelet so we can serve
   // a proper 500 error page.
   //
-  this.pipe.status(this.req, this.res, 500, err);
+  this.pipe.status(this.req, this.res, 500, err).emit('free');
 
   if (this.listeners('end').length) this.emit('end');
   return this.debug('Captured an error: %s, displaying error page instead', err);
