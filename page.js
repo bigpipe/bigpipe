@@ -844,10 +844,10 @@ Page.readable('render', function () {
  *
  * @api private
  */
-Page.readable('debug', function log() {
-  var args = Array.prototype.slice.call(1, arguments);
+Page.readable('debug', function log(line) {
+  var args = Array.prototype.slice.call(arguments, 1);
 
-  debug.apply(debug, ['%s - %s: '+ arguments[0], this.method, this.path].concat(args));
+  debug.apply(debug, ['%s - %s: '+line, this.method, this.path].concat(args));
   return this;
 });
 
