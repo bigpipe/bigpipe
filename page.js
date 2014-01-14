@@ -3,10 +3,9 @@
 var Formidable = require('formidable').IncomingForm
   , debug = require('debug')('bigpipe:page')
   , FreeList = require('freelist').FreeList
-  , predefine = require('predefine')
   , Route = require('routable')
   , async = require('async')
-  , fuse = require('./fuse')
+  , fuse = require('fusing')
   , path = require('path')
   , fs = require('fs');
 
@@ -36,8 +35,8 @@ var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8')
  * @api public
  */
 function Page(pipe) {
-  var writable = predefine(this, predefine.WRITABLE)
-    , readable = predefine(this);
+  var writable = Page.predefine(this, Page.predefine.WRITABLE)
+    , readable = Page.predefine(this);
 
   readable('temper', pipe.temper);            // Reference to our template compiler.
   readable('compiler', pipe.compiler);        // Assert management.
@@ -732,7 +731,7 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   // Supply data to the view and render after. Make sure the defined head
   // key cannot be overwritten by any custom data.
   //
-  Object.defineProperties(data, predefine.create(this.pipe.bootstrap, {
+  Object.defineProperties(data, Page.predefine.create(this.pipe.bootstrap, {
     writable: false,
     enumerable: true,
     value: head.join('')
@@ -756,8 +755,8 @@ Page.readable('configure', function configure(req, res) {
   this.removeAllListeners();
   this.queue.length = this.n = 0;
 
-  predefine.remove(this.enabled);
-  predefine.remove(this.disabled);
+  Page.predefine.remove(this.enabled);
+  Page.predefine.remove(this.disabled);
 
   this.req = req;
   this.res = res;

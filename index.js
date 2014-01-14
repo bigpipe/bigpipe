@@ -2,10 +2,9 @@
 
 var debug = require('debug')('bigpipe:server')
   , Compiler = require('./lib/compiler')
-  , predefine = require('predefine')
   , Primus = require('primus')
   , Temper = require('temper')
-  , fuse = require('./fuse')
+  , fuse = require('fusing')
   , async = require('async')
   , path = require('path')
   , url = require('url')
@@ -51,8 +50,8 @@ function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
   options = this.options(options || {});
 
-  var writable = predefine(this, predefine.WRITABLE)
-    , readable = predefine(this);
+  var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
+    , readable = Pipe.predefine(this);
 
   writable('_events', Object.create(null));           // Stores the events.
   readable('domains', !!options('domain') && domain); // Use domains for each req.
@@ -659,7 +658,7 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = require('./pagelet');
+Pipe.Pagelet = require('pagelet');
 Pipe.Page = require('./page');
 
 //
