@@ -67,6 +67,6 @@ module.exports = function connection(spark) {
     //
     // Free all allocated pages and nuke all pagelets.
     //
-    debug('connection has ended: %s were still active', Object.keys(streams));
+    debug('connection has ended: %s were still active', Object.keys(streams).length);
   });
 };
