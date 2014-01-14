@@ -45,6 +45,7 @@ function Page(pipe) {
   writable('enabled', []);                    // Contains all enabled pagelets.
   writable('queue', []);                      // Write queue that will be flushed.
   writable('flushed', false);                 // Is the queue flushed.
+  writable('ended', false);                   // Is the page ended.
   writable('_events', Object.create(null));   // Required for EventEmitter.
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
@@ -251,26 +252,6 @@ Page.readable('notFound', function notFound() {
 });
 
 /**
- * We've gotten a captured error and we should show a error page.
- *
- * @TODO we might need to kill the `req` to nuke uploads.
- * @param {Error} err The error message.
- * @api public
- */
-Page.readable('error', function error(err) {
-  err = err || new Error('Internal Server Error');
-
-  //
-  // Delegate the handling of the error back to the pagelet so we can serve
-  // a proper 500 error page.
-  //
-  this.pipe.status(this.req, this.res, 500, err).emit('free');
-
-  if (this.listeners('end').length) this.emit('end');
-  return this.debug('Captured an error: %s, displaying error page instead', err);
-});
-
-/**
  * Discover pagelets that we're allowed to use.
  *
  * @returns {Page} fluent interface
@@ -331,11 +312,14 @@ Page.readable('discover', function discover() {
  * Output the pagelets fully rendered in the HTML template.
  * @TODO rewrite, not working against altered renderer.
  *
- * @param {String} base The generated base template.
- * @returns {Page} fluent interface
+ * @param {Error} err Failed to process POST.
+ * @param {Object} data Optional data from POST.
+ * @returns {Page} fluent interface.
  * @api private
  */
-Page.readable('sync', function render(base) {
+Page.readable('sync', function render(err, data) {
+  if (err) return this.end(err);
+
   var page = this;
 
   async.forEach(this.enabled, function each(pagelet, next) {
@@ -358,9 +342,14 @@ Page.readable('sync', function render(base) {
  * Mode: Async
  * Output the pagelets as fast as possible.
  *
+ * @param {Error} err Failed to process POST.
+ * @param {Object} data Optional data from POST.
+ * @returns {Page} fluent interface.
  * @api private
  */
-Page.readable('async', function render(data) {
+Page.readable('async', function render(err, data) {
+  if (err) return this.end(err);
+
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
       pagelet.renderer(next);
@@ -377,10 +366,13 @@ Page.readable('async', function render(data) {
  * Mode: pipeline
  * Output the pagelets as fast as possible but in order.
  *
+ * @param {Error} err Failed to process POST.
+ * @param {Object} data Optional data from POST.
+ * @returns {Page} fluent interface.
  * @api private
  */
-Page.readable('pipeline', function render() {
-  return this.debug('Rendering the pagelets in `pipeline` mode');
+Page.readable('pipeline', function render(err, data) {
+  throw new Error('Not Implemented');
 });
 
 /**
@@ -446,16 +438,31 @@ Page.readable('read', function read() {
 /**
  * Close the connection once the main page was sent.
  *
+ * @param {Error} err Optional error argument to trigger the error page.
  * @returns {Boolean} Closed the connection.
  * @api private
  */
-Page.readable('end', function end() {
+Page.readable('end', function end(err) {
   var page = this;
 
   //
-  // The connection was already closed, no need to futher process it.
+  // The connection was already closed, no need to further process it.
   //
-  if (this.res.finished) return true;
+  if (this.res.finished || this.ended) return true;
+
+  //
+  // We've received an error. We need to close down the page and display a 500
+  // error page instead.
+  //
+  // @TODO handle the case when we've already flushed the initial bootstrap code
+  // to the client and we're presented with an error.
+  //
+  if (err) {
+    this.emit('end', err);
+    this.pipe.status(this.req, this.res, 500, err);
+    this.debug('Captured an error: %s, displaying error page instead', err);
+    return this.ended = true;
+  }
 
   //
   // Do not close the connection before the main page has sent headers.
@@ -484,9 +491,10 @@ Page.readable('end', function end() {
   // Everything is processed, close the connection and free the Page instance.
   //
   this.res.end();
+  this.emit('end');
   this.emit('free');
 
-  return true;
+  return this.ended = true;
 });
 
 /**
@@ -666,8 +674,8 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
   // the request once that happens.
   //
-  if (this.res.finished) return this.req.destroy();
-  if (err) return this.error(err);
+  if (this.res.finished) return this;
+  if (err) return this.end(err);
 
   data = this.mixin(data || {}, this.data || {});
 
@@ -738,7 +746,7 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   }));
 
   this.queue.push(this.temper.fetch(this.view).server(data));
-  this.flush(true);
+  return this.flush(true);
 });
 
 /**
@@ -750,10 +758,12 @@ Page.readable('bootstrap', function bootstrap(err, data) {
  */
 Page.readable('configure', function configure(req, res) {
   //
-  // Clear any previous listeners, the counter and added pagelets.
+  // Clear all properties that are set during rendering so they are all reset to
+  // their "factory" settings.
   //
   this.removeAllListeners();
-  this.queue.length = this.n = 0;
+  this.queue.length = this.enabled.length = this.disabled.length = this.n = 0;
+  this.flushed = this.ended = false;
 
   Page.predefine.remove(this.enabled);
   Page.predefine.remove(this.disabled);
@@ -817,7 +827,7 @@ Page.readable('render', function () {
             if (method in page) {
               reader.before(page[method], page);
             } else {
-              page.req.destroy();
+              page[page.mode]();
             }
           } else {
             reader.before(pagelet[method], pagelet);
@@ -829,7 +839,6 @@ Page.readable('render', function () {
     } else if (method in page) {
       reader.before(page[method], page);
     } else {
-      this.req.destroy();
       this[this.mode]();
     }
   } else {
@@ -939,7 +948,7 @@ Page.optimize = function optimize(pipe) {
     //
     // Add the properties to the page.
     //
-    pipe.emit('transform::page', Page);                 // Emit tranform event for plugins.
+    pipe.emit('transform::page', Page);                 // Emit transform event for plugins.
     Page.properties = Object.keys(Page.prototype);      // All properties before init.
     Page.router = new Route(router);                    // Actual HTTP route.
     Page.method = method;                               // Available HTTP methods.
