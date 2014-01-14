@@ -299,6 +299,8 @@ Pipe.readable('status', function status(req, res, code, data) {
   var Page = this.statusCodes[code]
     , page = Page.freelist.alloc();
 
+  page.data = data || {};
+
   page.once('free', function free() {
     Page.freelist.free(page);
   });

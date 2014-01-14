@@ -51,14 +51,6 @@ function Page(pipe) {
   writable('res', null);                      // Incoming HTTP response.
   writable('n', 0);                           // Number of processed pagelets.
   writable('params', {});                     // Param extracted from the route.
-
-  //
-  // Don't allow any further extensions of the object. This improves performance
-  // and forces people to stop maintaining state on the "page". As Object.seal
-  // impacts the performance negatively, we're just gonna enable it for
-  // development only so people will be caught early on.
-  //
-  if ('development' === this.env) Object.seal(this);
 }
 
 fuse(Page, require('eventemitter3'));
@@ -183,7 +175,7 @@ Page.writable('env', (process.env.NODE_ENV || 'development').toLowerCase());
  * @type {Function}
  * @public
  */
-Page.writable('data', null);
+Page.writable('data', {});
 
 /**
  * The pagelets that need to be loaded on this page.
