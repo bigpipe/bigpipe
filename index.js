@@ -109,9 +109,9 @@ Pipe.readable('listen', function listen(port, done) {
   pipe.compiler.catalog(this.pages, function init(error) {
     if (error) return done(error);
 
-    pipe.primus.on('connection', pipe.connection.bind(pipe));
+    pipe.primus.on('connection', pipe.bind(pipe.connection));
     pipe.server.on('listening', pipe.emits('listening'));
-    pipe.server.on('request', pipe.dispatch.bind(pipe));
+    pipe.server.on('request', pipe.bind(pipe.dispatch));
     pipe.server.on('error', pipe.emits('error'));
 
     //
@@ -349,6 +349,23 @@ Pipe.readable('define', function define(pages, done) {
   debug('added a new set of pages to bigpipe');
 
   return this;
+});
+
+/**
+ * Bind performance is horrible. This introduces an extra function call but can
+ * be heavily optimized by the V8 engine. Only use this in cases where you would
+ * normally use `.bind`.
+ *
+ * @param {Function} fn A method of pipe.
+ * @returns {Function}
+ * @api private
+ */
+Pipe.readable('bind', function bind(fn) {
+  var pipe = this;
+
+  return function bound(arg1, arg2, arg3) {
+    fn.call(pipe, arg1, arg2, arg3);
+  };
 });
 
 /**
@@ -650,7 +667,7 @@ Pipe.createServer = function createServer(port, options) {
     // Apply plugins is available.
     //
     if ('plugins' in options) {
-      options.plugins.map(pipe.use.bind(pipe));
+      options.plugins.map(pipe.bind(pipe.use));
     }
   });
 
