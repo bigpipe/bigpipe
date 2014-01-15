@@ -460,7 +460,7 @@ Page.readable('end', function end(err) {
   // Do not close the connection before the main page has sent headers.
   //
   if (page.n !== page.enabled.length) {
-    this.debug('%s - %s not all pagelets have been written, (%s out of %s)',
+    this.debug('Not all pagelets have been written, (%s out of %s)',
       this.n, this.enabled.length
     );
     return false;
@@ -503,9 +503,7 @@ Page.readable('write', function write(pagelet, data, fn) {
   var view = this.temper.fetch(pagelet.view).server
     , frag = this.compiler.pagelet(pagelet);
 
-  this.debug('%s - %s writing pagelet %s/%s\'s response',
-    pagelet.name, pagelet.id
-  );
+  this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
 
   frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
   frag.id = pagelet.id;         // The internal id of the pagelet.
