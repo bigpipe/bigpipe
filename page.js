@@ -1,9 +1,11 @@
 'use strict';
 
-var debug = require('debug')('bigpipe:page')
-  , predefine = require('predefine')
+var Formidable = require('formidable').IncomingForm
+  , debug = require('debug')('bigpipe:page')
+  , FreeList = require('freelist').FreeList
+  , Route = require('routable')
   , async = require('async')
-  , fuse = require('./fuse')
+  , fuse = require('fusing')
   , path = require('path')
   , fs = require('fs');
 
@@ -33,27 +35,22 @@ var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8')
  * @api public
  */
 function Page(pipe) {
-  var writable = predefine(this, predefine.WRITABLE)
-    , readable = predefine(this);
+  var writable = Page.predefine(this, Page.predefine.WRITABLE)
+    , readable = Page.predefine(this);
 
   readable('temper', pipe.temper);            // Reference to our template compiler.
   readable('compiler', pipe.compiler);        // Assert management.
   readable('pipe', pipe);                     // Actual pipe instance.
   writable('disabled', []);                   // Contains all disable pagelets.
   writable('enabled', []);                    // Contains all enabled pagelets.
+  writable('queue', []);                      // Write queue that will be flushed.
+  writable('flushed', false);                 // Is the queue flushed.
+  writable('ended', false);                   // Is the page ended.
   writable('_events', Object.create(null));   // Required for EventEmitter.
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
   writable('n', 0);                           // Number of processed pagelets.
   writable('params', {});                     // Param extracted from the route.
-
-  //
-  // Don't allow any further extensions of the object. This improves performance
-  // and forces people to stop maintaining state on the "page". As Object.seal
-  // impacts the performance negatively, we're just gonna enable it for
-  // development only so people will be caught early on.
-  //
-  if ('development' === this.env) Object.seal(this);
 }
 
 fuse(Page, require('eventemitter3'));
@@ -67,13 +64,22 @@ fuse(Page, require('eventemitter3'));
 Page.writable('path', '/');
 
 /**
- * Character set for page. Setting this to null will not include the meta
+ * <meta> character set for page. Setting this to null will not include the meta
  * charset. However this is not advised as this will reduce performance.
  *
  * @type {String}
- * @api private
+ * @public
  */
-Page.writable('charset', 'utf-8');
+Page.writable('charset', 'UTF-8');
+
+/**
+ * The Content-Type of the response. This defaults to text/html with a charset
+ * preset. The charset does not inherit it's value from the `charset` option.
+ *
+ * @type {String}
+ * @public
+ */
+Page.writable('contentType', 'text/html; charset=UTF-8');
 
 /**
  * Which HTTP methods should this page accept. It can be a string, comma
@@ -117,9 +123,9 @@ Page.writable('authorize', null);
  * With what kind of generation mode do we need to output the generated
  * pagelets. We're supporting 3 different modes:
  *
- * - render, fully render the page without any fancy flushing.
- * - async, render all pagelets async and flush them as fast as possible.
- * - pipe, same as async but in the specified order.
+ * - sync:      Fully render the page without any fancy flushing.
+ * - async:     Render all pagelets async and flush them as fast as possible.
+ * - pipeline:  Same as async but in the specified order.
  *
  * @type {String}
  * @public
@@ -169,7 +175,7 @@ Page.writable('env', (process.env.NODE_ENV || 'development').toLowerCase());
  * @type {Function}
  * @public
  */
-Page.writable('data', null);
+Page.writable('data', {});
 
 /**
  * The pagelets that need to be loaded on this page.
@@ -197,14 +203,6 @@ Page.writable('parsers', {});
  */
 Page.writable('dependencies', {});
 
-/**
- * Keep track of rendered pagelets.
- *
- * @type {Array}
- * @private
- */
-Page.writable('queue', []);
-
 //
 // !IMPORTANT
 //
@@ -227,55 +225,41 @@ Page.readable('redirect', function redirect(location, status) {
   this.res.setHeader('Location', location);
   this.res.end();
 
-  debug('%s - %s is redirecting to %s', this.method, this.path, location);
   if (this.listeners('end').length) this.emit('end');
+  return this.debug('Redirecting to %s', location);
 });
 
 /**
  * Well, actually, never mind, we shouldn't accept this page so we should
  * render our 404 page instead.
  *
+ * @TODO we might need to kill the `req` to nuke uploads.
  * @api public
  */
 Page.readable('notFound', function notFound() {
-  debug('%s - %s is not found, returning Page to freelist and 404-ing', this.method, this.path);
-
   this.emit('free').pipe.status(this.req, this.res, 404);
   if (this.listeners('end').length) this.emit('end');
 
-  return this;
-});
-
-/**
- * We've gotten a captured error and we should show a error page.
- *
- * @param {Error} err The error message.
- * @api public
- */
-Page.readable('error', function error(err) {
-  err = err || new Error('Internal Server Error');
-  this.emit('free').pipe.status(this.req, this.res, 500, err);
-
-  debug('%s - %s captured an error: %s, displaying error page instead', this.method, this.path, err);
-
-  if (this.listeners('end').length) this.emit('end');
-  return this;
+  return this.debug('Not found, returning Page to freelist and 404-ing');
 });
 
 /**
  * Discover pagelets that we're allowed to use.
  *
- * @param {Function} before iterative function to execute before render.
  * @returns {Page} fluent interface
  * @api private
  */
-Page.readable('discover', function discover(before) {
-  if (!this.pagelets.length) return this;
+Page.readable('discover', function discover() {
+  if (!this.pagelets.length) return this.emit('discover');
 
   var req = this.req
     , page = this
     , pagelets;
 
+  //
+  // Allocate new pagelets for this page and configure them so we can actually
+  // use them during authorization.
+  //
   pagelets = this.pagelets.map(function allocate(Pagelet) {
     return Pagelet.freelist.alloc().configure(page);
   });
@@ -290,22 +274,10 @@ Page.readable('discover', function discover(before) {
     // need to call and figure out if the pagelet is available.
     //
     if ('function' === typeof pagelet.authorize) {
-      pagelet.authorize(req, function (allowed) {
-        debug('%s - %s pagelet %s/%s was %s on the page'
-          , page.method, page.path
-          , pagelet.name, pagelet.id, allowed ? 'allowed' : 'disallowd'
-        );
-
-        done(allowed);
-      });
-    } else {
-      debug('%s - %s pagelet %s/%s had no authorization function and is allowed on page'
-        , page.method, page.path
-        , pagelet.name, pagelet.id
-      );
-
-      done(true);
+      return pagelet.authorize(req, done);
     }
+
+    done(true);
   }, function acceptance(allowed) {
     page.enabled = allowed;
 
@@ -314,10 +286,7 @@ Page.readable('discover', function discover(before) {
     // the pagelet is not included in or allowed for the current page.
     //
     page.disabled = pagelets.filter(function disabled(pagelet) {
-      var allow = !~allowed.indexOf(pagelet);
-      if (allow && before && before.pagelet === pagelet.name) page.req.destroy();
-
-      return allow;
+      return !~allowed.indexOf(pagelet);
     });
 
     allowed.forEach(function initialize(pagelet) {
@@ -325,26 +294,25 @@ Page.readable('discover', function discover(before) {
     });
 
     // @TODO free disabled pagelets
-    debug('%s - %s initialised all allowed pagelets', page.method, page.path);
-    page[page.mode](before);
+    page.debug('Initialised all allowed pagelets');
+    page.emit('discover');
   });
-
-  return this;
 });
 
 /**
- * Mode: Render
+ * Mode: sync
  * Output the pagelets fully rendered in the HTML template.
  * @TODO rewrite, not working against altered renderer.
  *
- * @param {String} base The generated base template.
- * @returns {Page} fluent interface
+ * @param {Error} err Failed to process POST.
+ * @param {Object} data Optional data from POST.
+ * @returns {Page} fluent interface.
  * @api private
  */
-Page.readable('render', function render(base) {
-  var page = this;
+Page.readable('sync', function render(err, data) {
+  if (err) return this.end(err);
 
-  debug('%s - %s is rendering the pagelets in `render` mode', this.method, this.path);
+  var page = this;
 
   async.forEach(this.enabled, function each(pagelet, next) {
     pagelet.renderer(next);
@@ -357,59 +325,143 @@ Page.readable('render', function render(base) {
       // @TODO also remove the pagelets that we're disabled.
       base = page.inject(base, pagelet.name, view(data[index]));
     });
-
-    page.done();
   });
 
-  return this;
+  return this.debug('Rendering the pagelets in `sync` mode');
 });
 
 /**
  * Mode: Async
  * Output the pagelets as fast as possible.
  *
+ * @param {Error} err Failed to process POST.
+ * @param {Object} data Optional data from POST.
+ * @returns {Page} fluent interface.
  * @api private
  */
-Page.readable('async', function render(before) {
-  var page = this;
+Page.readable('async', function render(err, data) {
+  if (err) return this.end(err);
 
-  //
-  // Render each pagelet, if the request method was POST/PUT #before will
-  // be called prior to calling the renderer of the specific pagelet.
-  //
-  debug('%s - %s is rendering the pagelets in `async` mode', this.method, this.path);
-  async.parallel(this.enabled.map(function mapRenderer(pagelet) {
-    return before && before.pagelet === pagelet.name
-      ? before.bind(page, pagelet.renderer.bind(pagelet))
-      : pagelet.renderer.bind(pagelet);
-  }), this.done.bind(this));
+  this.once('discover', function discovered() {
+    async.each(this.enabled, function (pagelet, next) {
+      pagelet.renderer(next);
+    }, this.end.bind(this));
+  });
+
+  this.bootstrap(data);
+  this.discover();
+
+  return this.debug('Rendering the pagelets in `async` mode');
 });
 
 /**
  * Mode: pipeline
  * Output the pagelets as fast as possible but in order.
  *
+ * @param {Error} err Failed to process POST.
+ * @param {Object} data Optional data from POST.
+ * @returns {Page} fluent interface.
  * @api private
  */
-Page.readable('pipeline', function render() {
-  debug('%s - %s is rendering the pagelets in `pipeline` mode', this.method, this.path);
+Page.readable('pipeline', function render(err, data) {
+  throw new Error('Not Implemented');
+});
+
+/**
+ * Start buffering and reading the incoming request.
+ *
+ * @returns {Form}
+ * @api private
+ */
+Page.readable('read', function read() {
+  var form = new Formidable()
+    , page = this
+    , fields = {}
+    , files = {}
+    , context
+    , before;
+
+  form.on('progress', function progress(received, expected) {
+    //
+    // @TODO if we're not sure yet if we should handle this form, we should only
+    // buffer it to a predefined amount of bytes. Once that limit is reached we
+    // need to `form.pause()` so the client stops uploading data. Once we're
+    // given the heads up, we can safely resume the form and it's uploading.
+    //
+  }).on('field', function field(key, value) {
+    fields[key] = value;
+  }).on('file', function file(key, value) {
+    files[key] = value;
+  }).on('error', function error(err) {
+    page[page.mode](err);
+    fields = files = {};
+  }).on('end', function end() {
+    form.removeAllListeners();
+
+    if (before) {
+      before.call(context, fields, files, page[page.mode].bind(page));
+    }
+  });
+
+  /**
+   * Add a hook for adding a completion callback.
+   *
+   * @param {Function} callback
+   * @returns {Form}
+   * @api public
+   */
+  form.before = function befores(callback, contexts) {
+    if (form.listeners('end').length)  {
+      form.resume();      // Resume a possible buffered post.
+
+      before = callback;
+      context = contexts;
+
+      return form;
+    }
+
+    callback.call(context, fields, files, page[page.mode].bind(page));
+    return form;
+  };
+
+  return form.parse(this.req);
 });
 
 /**
  * Close the connection once the main page was sent.
  *
+ * @param {Error} err Optional error argument to trigger the error page.
  * @returns {Boolean} Closed the connection.
  * @api private
  */
-Page.readable('done', function done() {
+Page.readable('end', function end(err) {
   var page = this;
+
+  //
+  // The connection was already closed, no need to further process it.
+  //
+  if (this.res.finished || this.ended) return true;
+
+  //
+  // We've received an error. We need to close down the page and display a 500
+  // error page instead.
+  //
+  // @TODO handle the case when we've already flushed the initial bootstrap code
+  // to the client and we're presented with an error.
+  //
+  if (err) {
+    this.emit('end', err);
+    this.pipe.status(this.req, this.res, 500, err);
+    this.debug('Captured an error: %s, displaying error page instead', err);
+    return this.ended = true;
+  }
 
   //
   // Do not close the connection before the main page has sent headers.
   //
-  if (page.n !== page.pagelets.length) {
-    debug('%s - %s not all pagelets have been written, (%s out of %s)',
-      this.name, this.id, this.n, this.pagelets.length
+  if (page.n !== page.enabled.length) {
+    this.debug('Not all pagelets have been written, (%s out of %s)',
+      this.n, this.enabled.length
     );
     return false;
   }
@@ -417,11 +469,10 @@ Page.readable('done', function done() {
   //
   // Write disabled pagelets so the client can remove all empty placeholders.
   //
-  page.disabled.filter(function filter(pagelet) {
+  this.disabled.filter(function filter(pagelet) {
     return !!pagelet.remove;
   }).forEach(function each(pagelet) {
-    debug('%s - %s is instructing removal of the %s/%s pagelet'
-      , page.method, page.path
+    page.debug('Instructing removal of the %s/%s pagelet'
       , pagelet.name, pagelet.id
     );
 
@@ -429,22 +480,17 @@ Page.readable('done', function done() {
   });
 
   //
-  // Send the remaining trailer headers if we have them queued.
+  // Everything is processed, close the connection and free the Page instance.
   //
-  if (page.res.trailer) {
-    debug('%s - %s adding trailer headers', this.method, this.path);
-    page.res.addTrailers(page.res.trailers);
-  }
+  this.res.end();
+  this.emit('end');
+  this.emit('free');
 
-  //
-  // Everything is processed, close the connection.
-  //
-  page.res.end();
-  return true;
+  return this.ended = true;
 });
 
 /**
- * Write a new pagelet to the request.
+ * Process the pagelet for an async or pipeline based render flow.
  *
  * @param {Pagelet} pagelet Pagelet instance.
  * @param {Mixed} data The data returned from Pagelet.render().
@@ -455,13 +501,9 @@ Page.readable('write', function write(pagelet, data, fn) {
   data = data || {};
 
   var view = this.temper.fetch(pagelet.view).server
-    , frag = this.compiler.pagelet(pagelet)
-    , output;
+    , frag = this.compiler.pagelet(pagelet);
 
-  debug('%s - %s writing pagelet %s/%s\'s response'
-    , this.method, this.path
-    , pagelet.name, pagelet.id
-  );
+  this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
 
   frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
   frag.id = pagelet.id;         // The internal id of the pagelet.
@@ -469,108 +511,43 @@ Page.readable('write', function write(pagelet, data, fn) {
   frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
   frag.processed = ++this.n;    // Amount of pagelets processed.
 
-  output = fragment
-    .replace(/\{pagelet::name\}/g, pagelet.name)
-    .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
-    .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''));
+  this.queue.push(
+    fragment
+      .replace(/\{pagelet::name\}/g, pagelet.name)
+      .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
+      .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
+  );
 
-  this.res.write(output, 'utf-8', fn);
+  if (fn) this.once('flush', fn);
+  return this.flush();
+});
+
+/**
+ * Flush all queued rendered pagelets to the request object.
+ *
+ * @param {Boolean} flushing Should flush the queued data.
+ * @api private
+ */
+Page.readable('flush', function flush(flushing) {
+  var page = this;
+
+  //
+  // Only write the data to the response if we're allowed to flush.
+  //
+  if ('boolean' === typeof flushing) this.flushed = flushing;
+  if (!this.flushed) return this;
+
+  this.res.write(this.queue.join(''), 'utf-8', this.emits('flush'));
+  this.queue.length = 0;
 
   //
   // Optional write confirmation, it got added in more recent versions of
   // node, so if it's not supported we're just going to call the callback
   // our selfs.
   //
-  if (this.res.write.length !== 3 && 'function' === typeof fn) {
-    fn();
+  if (this.res.write.length !== 3) {
+    this.emit('flush');
   }
-
-  return this;
-});
-
-/**
- * Dispatch will do the following:
- *
- *   - merge additional data from http methods or custom supplier
- *   - check mode and short-circuit if render sync.
- *   - write the initial headers so the browser can start working.
- *   - dispatch already queued pagelets.
- *
- * @param {String} core data, e.g. the header
- * @param {Function} before iterative function to execute before render.
- * @api private
- */
-Page.readable('dispatch', function dispatch(core, before) {
-  var page = this
-    , stack = []
-    , output;
-
-  /**
-   * Write content to the client, data is merged before that in
-   * the following order: {} - post - custom data - core.
-   *
-   * @param {Error} err
-   * @param {Mixed} data
-   * @api private
-   */
-  function init(err, data) {
-    if (err) page.error(new Error('Providing custom data to Page instance failed'));
-
-    //
-    // Merge all data.
-    //
-    data.push(core);
-    data = data.reduce(page.merge, {});
-
-    //
-    // Generate the main page via temper.
-    //
-    output = page.temper.fetch(page.view).server(data);
-
-    //
-    // Short-circuit page is in render mode as it will just output the data at
-    // once and not asynchronously.
-    //
-    if ('render' === page.mode) {
-      return page.render(output);
-    }
-
-    //
-    // Write the headers.
-    //
-    page.res.write(output);
-
-    //
-    // Hack: As we've already send out our initial headers, all other headers
-    // need to be send as "trailing" headers. But none of the modules in the
-    // node's ecosystem are written in a way that they support trailing
-    // headers. They are all focused on a simple request/response pattern so
-    // we need to override the `setHeader` method so it sends trailer headers
-    // instead.
-    //
-    page.res.trailers = {};
-    page.res.trailer = false;
-    page.res.setHeader = function setHeader(key, value) {
-      this.trailers[key] = value;
-      this.trailer = true;
-
-      return this;
-    };
-
-    //
-    // Write the remaining queued pagelets, if no pagelets
-    // are remaining the response will be closed.
-    //
-    async.parallel(page.queue, page.done.bind(page));
-  }
-
-  if ('function' === typeof before) stack.push(before.bind(this));
-  if ('function' === typeof page.data) stack.push(page.data.bind(this));
-
-  //
-  // Check the data provider and supply it with a callback.
-  //
-  async.series(stack, init);
 
   return this;
 });
@@ -615,87 +592,51 @@ Page.readable('inject', function inject(base, name, view) {
 });
 
 /**
- * We've been initialized, proceed with rendering if needed.
- * @TODO free the page if initialization already terminated the request
- *
- * @api private
- */
-Page.readable('setup', function setup() {
-  var method = this.req.method.toLowerCase()
-    , pagelet
-    , main
-    , sub;
-
-  //
-  // It could be that the initialization handled the page rendering through
-  // a `page.redirect()` or a `page.notFound()` call so we should terminate
-  // the request once that happens.
-  //
-  if (this.res.finished) return this.req.destroy();
-  debug('%s - %s is initialising', this.method, this.path);
-
-  //
-  // Check if the HTTP method is targeted at a specific pagelet inside the
-  // page. If so, only execute the logic contained in pagelet#method.
-  // If no pagelet is targeted, check if the page has an implementation, if
-  // all else fails make sure we destroy the request.
-  //
-  if (~operations.indexOf(method)) {
-    if ('_pagelet' in this.req.query) {
-      pagelet = this.has(this.req.query._pagelet);
-    }
-
-    if (pagelet && (method in pagelet.prototype)) {
-      sub = this.fetch(function found() {
-        var args = arguments;
-
-        //
-        // Find the pagelet and pass off the data.
-        //
-        this.enabled.some(function (instance) {
-          var match = instance instanceof pagelet;
-
-          if (match) instance[method].apply(instance, args);
-          return match;
-        });
-      });
-
-      sub.pagelet = pagelet.prototype.name;
-    } else if (method in this) {
-      main = this.fetch(this[method]);
-    } else {
-      this.req.destroy();
-    }
-  }
-
-  //
-  // Fire the main paths for rendering and dispatching content. Both emits
-  // can be supplied with a different set of parameters.
-  //
-  //  - trigger rendering of page: bootstrap
-  //  - trigger rendering of all pagelets: discover
-  //
-  this.bootstrap(main);
-  this.discover(sub);
-});
-
-/**
  * Helper to check if the page has pagelet by name, must use prototype.name
  * since pagelets are not always constructed yet.
  *
- * @param {String} name of pagelet
- * @returns {Boolean}
+ * @param {String} name Name of the pagelet.
+ * @param {String}
+ * @returns {Pagelet} The constructor of a matching Pagelet.
  * @api public
  */
-Page.readable('has', function has(name) {
-  var pagelets = this.pagelets
+Page.readable('has', function has(name, enabled) {
+  if (!name) return undefined;
+
+  var pagelets = enabled ? this.enabled : this.pagelets
     , i = pagelets.length;
 
   while (i--) {
-    if (pagelets[i].prototype.name === name) break;
+    if (
+       pagelets[i].prototype && pagelets[i].prototype.name === name
+    || pagelets[i].name === name
+    ) break;
   }
 
   return pagelets[i];
+});
+
+/**
+ * Get and initialise a given Pagelet.
+ *
+ * @param {String} name Name of the pagelet.
+ * @returns {Pagelet} The created pagelet instance.
+ * @api public
+ */
+Page.readable('get', function get(name) {
+  var Pagelet = this.has(name) || this.has(name, true)
+    , pagelet;
+
+  //
+  // It could be that Pagelet is undefined if nothing is initialised or it could
+  // be previously initialised pagelet. As it's already initialised, we can
+  // simply return it.
+  //
+  if ('function' !== typeof Pagelet) return Pagelet;
+
+  pagelet = Pagelet.freelist.alloc().configure(this);
+
+  return pagelet;
 });
 
 /**
@@ -705,25 +646,48 @@ Page.readable('has', function has(name) {
  * - It includes the pipe.js JavaScript client and initialises it.
  * - It includes "core" library files for the page.
  * - It includes "core" CSS for the page.
- * - It adds a noscript meta refresh to force our `render` method which fully
+ * - It adds a noscript meta refresh to force our `sync` method which fully
  *   renders the HTML server side.
  *
- * @param {Function} before data
+ * @param {Error} err An Error has been received while receiving data.
+ * @param {Object} data Data for the template.
  * @returns {Page} fluent interface
  * @api private
  */
-Page.readable('bootstrap', function bootstrap(before) {
-  var library = this.compiler.page(this)
-    , path = this.req.uri.pathname
+Page.readable('bootstrap', function bootstrap(err, data) {
+  var path = this.req.uri.pathname
     , charset = this.charset
     , head = [];
 
   //
-  // Add the character set asap for performance, defaults to UTF-8.
+  // It could be that the initialization handled the page rendering through
+  // a `page.redirect()` or a `page.notFound()` call so we should terminate
+  // the request once that happens.
+  //
+  if (this.res.finished) return this;
+  if (err) return this.end(err);
+
+  data = this.mixin(data || {}, this.data || {});
+
+  //
+  // Add a meta charset so the browser knows the encoding of the content so it
+  // will not buffer it up in memory to make an educated guess. This will ensure
+  // that the HTML is shown as fast as possible.
   //
   if (charset) head.push('<meta charset="' + charset + '">');
 
-  if (this.mode !== 'render') {
+  //
+  // BigPipe depends heavily on the support of JavaScript in browsers as the
+  // rendering of the page's components is done through JavaScript. When the
+  // user has JavaScript disabled they will see a blank page instead. To prevent
+  // this from happening we're injecting a `noscript` tag in to the page which
+  // forces the `sync` render mode.
+  //
+  // Also when we have JavaScript enabled make sure the user doesn't accidentally
+  // force them selfs in to a `sync` render mode as the URL could have been
+  // shared through social media
+  //
+  if (this.mode !== 'sync') {
     head.push(
       '<noscript>',
         '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1">',
@@ -738,13 +702,10 @@ Page.readable('bootstrap', function bootstrap(before) {
     );
   }
 
-  if (library.css) library.css.forEach(function inject(url) {
-    head.push('<link rel="stylesheet" href="'+ url +'">');
-  });
-
-  library.js.forEach(function inject(url) {
-    head.push('<script type="text/javascript" src="'+ url +'"></script>');
-  });
+  //
+  // Add all required assets and dependencies to the HEAD of the page.
+  //
+  this.compiler.page(this, head);
 
   //
   // Initialise the library.
@@ -760,78 +721,22 @@ Page.readable('bootstrap', function bootstrap(before) {
 
   // @TODO rel prefetch for resources that are used on the next page?
   // @TODO cache manifest.
-  // @TODO rel dns prefetch.
 
   this.res.statusCode = this.statusCode;
-  this.res.setHeader('Content-Type', 'text/html');
+  this.res.setHeader('Content-Type', this.contentType);
 
   //
   // Supply data to the view and render after. Make sure the defined head
   // key cannot be overwritten by any custom data.
   //
-  var data = Object.create(null, predefine.create(this.pipe.bootstrap, {
+  Object.defineProperties(data, Page.predefine.create(this.pipe.bootstrap, {
     writable: false,
     enumerable: true,
     value: head.join('')
   }));
 
-  //
-  // Page and headers are bootstrapped. Dispatch the headers.
-  //
-  return this.dispatch(data, before);
-});
-
-/**
- * Delegate processed and received data to the supplied page#method
- *
- * @param {Function} method page delegation method
- * @returns {Function} processor
- * @api private
- */
-Page.readable('fetch', function fetch(method) {
-  var page = this;
-
-  /**
-   * Process incoming request.
-   *
-   * @param {Fucntion} next completion callback.
-   * @api private
-   */
-  return function process(next) {
-    var bytes = page.bytes
-      , req = page.req
-      , received = 0
-      , buffers = []
-      , err;
-
-    function data(buffer) {
-      received += buffer.length;
-
-      buffers.push(buffer);
-
-      if (bytes && received > bytes) {
-        req.removeListener('data', data);
-        req.destroy(err = new Error('Request was too large and has been destroyed to prevent DDOS.'));
-      }
-    }
-
-    //
-    // Only process data if we received any.
-    //
-    req.on('data', data);
-    req.once('end', function end() {
-      if (err) return next(err);
-
-      //
-      // Use Buffer#concat to join the different buffers to prevent UTF-8 to be
-      // broken.
-      //
-      req.removeListener('data', data);
-      method.call(page, Buffer.concat(buffers), next);
-
-      buffers.length = 0;
-    });
-  };
+  this.queue.push(this.temper.fetch(this.view).server(data));
+  return this.flush(true);
 });
 
 /**
@@ -842,22 +747,16 @@ Page.readable('fetch', function fetch(method) {
  * @api private
  */
 Page.readable('configure', function configure(req, res) {
-  var page = this
-    , key;
-
   //
-  // Clear any previous listeners, the counter and added pagelets.
+  // Clear all properties that are set during rendering so they are all reset to
+  // their "factory" settings.
   //
   this.removeAllListeners();
-  this.queue.length = this.n = 0;
+  this.queue.length = this.enabled.length = this.disabled.length = this.n = 0;
+  this.flushed = this.ended = false;
 
-  for (key in this.enabled) {
-    delete this.enabled[key];
-  }
-
-  for (key in this.disabled) {
-    delete this.disabled[key];
-  }
+  Page.predefine.remove(this.enabled);
+  Page.predefine.remove(this.disabled);
 
   this.req = req;
   this.res = res;
@@ -878,29 +777,92 @@ Page.readable('configure', function configure(req, res) {
        'no_pagelet_js' in req.uri.query
     || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
   ) {
-    debug('%s - %s forcing `render` mode instead of %s', this.method, this.path, this.mode);
-    this.mode = 'render';
+    this.debug('forcing `sync` mode instead of %s due lack of HTTP 1.1', this.mode);
+    this.mode = 'sync';
   }
 
-  debug('%s - %s is configured', this.method, this.path);
   if (this.initialize) {
     if (this.initialize.length) {
-      debug('%s - %s waiting for `initialize` method before discovering pagelets', this.method, this.path);
-      this.initialize(this.setup.bind(this));
+      this.debug('Waiting for `initialize` method before rendering');
+      this.initialize(this.render.bind(this));
     } else {
       this.initialize();
-      this.setup();
+      this.render();
     }
   } else {
-    this.setup();
+    this.render();
   }
 
   return this;
 });
 
-//
-// Expose the Page on the exports and parse our the directory.
-//
+/**
+ * Render execution flow.
+ *
+ * @api private
+ */
+Page.readable('render', function () {
+  var pagelet = this.get(this.req.query._pagelet)
+    , method = this.req.method.toLowerCase()
+    , page = this;
+
+  if (~operations.indexOf(method)) {
+    var reader = this.read();
+    this.debug('Processing %s request', method);
+
+    if (pagelet && method in pagelet) {
+      if (pagelet.authorize) {
+        pagelet.authorize(this.req, function auth(accepted) {
+          if (!accepted) {
+            if (method in page) {
+              reader.before(page[method], page);
+            } else {
+              page[page.mode]();
+            }
+          } else {
+            reader.before(pagelet[method], pagelet);
+          }
+        });
+      } else {
+        reader.before(pagelet[method], pagelet);
+      }
+    } else if (method in page) {
+      reader.before(page[method], page);
+    } else {
+      this[this.mode]();
+    }
+  } else {
+    this[this.mode]();
+  }
+});
+
+/**
+ * Simple logger module that prefixes debug with some extra information. It
+ * prefixes the debug statement with the method that was used as well as the
+ * entry path.
+ *
+ * @api private
+ */
+Page.readable('debug', function log(line) {
+  var args = Array.prototype.slice.call(arguments, 1);
+
+  debug.apply(debug, ['%s - %s: '+line, this.method, this.path].concat(args));
+  return this;
+});
+
+/**
+ * Expose a clean way of setting the proper directory for the templates and
+ * relative resolving of pagelets.
+ *
+ * ```js
+ * Page.extend({
+ *   ..
+ * }).on(module);
+ * ```
+ *
+ * @param {Module} module The reference to the module object.
+ * @api public
+ */
 Page.on = function on(module) {
   var dir = this.prototype.directory = this.prototype.directory || path.dirname(module.filename)
     , pagelets = this.prototype.pagelets
@@ -913,6 +875,84 @@ Page.on = function on(module) {
 
   module.exports = this;
   return this;
+};
+
+/**
+ * Optimize the prototypes of the Page to reduce work when we're actually
+ * serving the requests.
+ *
+ * @param {BigPipe} pipe The BigPipe instance.
+ * @api private
+ */
+Page.optimize = function optimize(pipe) {
+  var method = this.prototype.method
+    , router = this.prototype.path
+    , Page = this;
+
+    //
+    // This page has already been processed, bailout.
+    //
+    if (Page.properties) return Page;
+
+    //
+    // Parse the methods to an array of accepted HTTP methods. We'll only accept
+    // there requests and should deny every other possible method.
+    //
+    if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
+    method = method.filter(Boolean).map(function transformation(method) {
+      return method.toUpperCase();
+    });
+
+    //
+    // Update the pagelets, if any.
+    //
+    if (Page.prototype.pagelets) {
+      Page.prototype.pagelets = pipe.resolve(
+        Page.prototype.pagelets,
+        function map(Pagelet) {
+          return Pagelet.optimize(pipe);
+        }
+      );
+    }
+
+    //
+    // The view property is a mandatory but it's quite silly to enforce this if
+    // the page is just doing a redirect. We can check for this edge case by
+    // checking if the set statusCode is in the 300~ range.
+    //
+    if (Page.prototype.view) {
+      Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
+      pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
+    } else if (!(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)) {
+      throw new Error('The page for path '+ Page.prototype.path +' should have a .view property.');
+    }
+
+    //
+    // Unique id per page. This is used to track back which page was actually
+    // rendered for the front-end so we can retrieve pagelets much easier.
+    //
+    Page.prototype.id = [1, 1, 1, 1].map(function generator() {
+      return Math.random().toString(36).substring(2).toUpperCase();
+    }).join('');
+
+    //
+    // Add the properties to the page.
+    //
+    pipe.emit('transform::page', Page);                 // Emit transform event for plugins.
+    Page.properties = Object.keys(Page.prototype);      // All properties before init.
+    Page.router = new Route(router);                    // Actual HTTP route.
+    Page.method = method;                               // Available HTTP methods.
+    Page.id = router.toString() +'&&'+ method.join();   // Unique id.
+
+    //
+    // Setup a FreeList for the page so we can re-use the page instances and
+    // reduce garbage collection to a bare minimum.
+    //
+    Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function allocate() {
+      return new Page(pipe);
+    });
+
+    return Page;
 };
 
 //

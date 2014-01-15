@@ -1,23 +1,14 @@
 'use strict';
 
 var debug = require('debug')('bigpipe:server')
-  , FreeList = require('freelist').FreeList
-  , predefine = require('predefine')
-  , Route = require('routable')
+  , Compiler = require('./lib/compiler')
   , Primus = require('primus')
   , Temper = require('temper')
-  , fuse = require('./fuse')
+  , fuse = require('fusing')
   , async = require('async')
   , path = require('path')
   , url = require('url')
   , fs = require('fs');
-
-//
-// Library internals.
-//
-var Compiler = require('./lib/compiler')
-  , Pagelet = require('./pagelet')
-  , Page = require('./page');
 
 //
 // Try to detect if we've got domains support. So we can easily serve 500 error
@@ -27,6 +18,11 @@ var domain;
 
 try { domain = require('domain'); }
 catch (e) {}
+
+//
+// Automatically add trailers support to Node.js.
+//
+var trailers = require('trailers');
 
 /**
  * Our pagelet management.
@@ -54,8 +50,10 @@ function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
   options = this.options(options || {});
 
-  var readable = predefine(this);
+  var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
+    , readable = Pipe.predefine(this);
 
+  writable('_events', Object.create(null));           // Stores the events.
   readable('domains', !!options('domain') && domain); // Use domains for each req.
   readable('statusCodes', Object.create(null));       // Stores error pages.
   readable('cache', options('cache', null));          // Enable URL lookup caching.
@@ -111,9 +109,9 @@ Pipe.readable('listen', function listen(port, done) {
   pipe.compiler.catalog(this.pages, function init(error) {
     if (error) return done(error);
 
-    pipe.primus.on('connection', pipe.connection.bind(pipe));
-    pipe.server.on('request', pipe.dispatch.bind(pipe));
+    pipe.primus.on('connection', pipe.bind(pipe.connection));
     pipe.server.on('listening', pipe.emits('listening'));
+    pipe.server.on('request', pipe.bind(pipe.dispatch));
     pipe.server.on('error', pipe.emits('error'));
 
     //
@@ -301,6 +299,8 @@ Pipe.readable('status', function status(req, res, code, data) {
   var Page = this.statusCodes[code]
     , page = Page.freelist.alloc();
 
+  page.data = data || {};
+
   page.once('free', function free() {
     Page.freelist.free(page);
   });
@@ -319,136 +319,7 @@ Pipe.readable('status', function status(req, res, code, data) {
  * @api private
  */
 Pipe.readable('transform', function transform(Page) {
-  var method = Page.prototype.method
-    , router = Page.prototype.path
-    , pipe = this;
-
-  //
-  // This page has already been processed, bailout.
-  //
-  if (Page.properties) return Page;
-
-  //
-  // Parse the methods to an array of accepted HTTP methods. We'll only accept
-  // there requests and should deny every other possible method.
-  //
-  if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
-  method = method.filter(Boolean).map(function transformation(method) {
-    return method.toUpperCase();
-  });
-
-  //
-  // Update the pagelets, if any.
-  //
-  if (Page.prototype.pagelets) {
-    var pagelets = this.resolve(Page.prototype.pagelets, function map(Pagelet) {
-      //
-      // This pagelet has already been processed before as pages can share
-      // pagelets.
-      //
-      if (Pagelet.properties) return Pagelet;
-
-      debug('transforming pagelet: %s', Pagelet.prototype.name);
-
-      var prototype = Pagelet.prototype
-        , dir = prototype.directory;
-
-      if (prototype.view) {
-        Pagelet.prototype.view = path.resolve(dir, prototype.view);
-        pipe.temper.prefetch(Pagelet.prototype.view, Pagelet.prototype.engine);
-      }
-
-      if (prototype.css) Pagelet.prototype.css = path.resolve(dir, prototype.css);
-      if (prototype.js) Pagelet.prototype.js = path.resolve(dir, prototype.js);
-
-      //
-      // Make sure that all our dependencies are also directly mapped to an
-      // absolute URL.
-      //
-      if (prototype.dependencies) {
-        Pagelet.prototype.dependencies = prototype.dependencies.map(function each(dep) {
-          if (/^(http:|https:)?\/\//.test(dep)) return dep;
-          return path.resolve(dir, dep);
-        });
-      }
-
-      //
-      // Aliasing, some methods can be written with different names or american
-      // vs Britain vs old english. For example `initialise` vs `initialize` but
-      // also the use of CAPS like `RPC` vs `rpc`
-      //
-      if (Array.isArray(prototype.rpc) && !prototype.RPC.length) {
-        Pagelet.prototype.RPC = prototype.rpc;
-      }
-
-      if ('function' === typeof prototype.initialise) {
-        Pagelet.prototype.initialize = prototype.initialise;
-      }
-
-      //
-      // Allow plugins to hook in the transformation process, so emit it when
-      // all our transformations are done and before we create a copy of the
-      // "fixed" properties which later can be re-used again to restore
-      // a generated instance to it's original state.
-      //
-      pipe.emit('transform::pagelet', Pagelet);
-      Pagelet.properties = Object.keys(Pagelet.prototype);
-
-      //
-      // Setup a FreeList for the pagelets so we can re-use the pagelet
-      // instances and reduce garbage collection.
-      //
-      Pagelet.freelist = new FreeList('pagelet', Pagelet.prototype.freelist || 1000, function allocate() {
-        return new Pagelet;
-      });
-
-      return Pagelet;
-    });
-
-    //
-    // Save the transformed pagelets.
-    //
-    Page.prototype.pagelets = pagelets;
-  }
-
-  //
-  // The view property is a mandatory but it's quite silly to enforce this if
-  // the page is just doing a redirect. We can check for this edge case by
-  // checking if the set statusCode is in the 300~ range.
-  //
-  if (Page.prototype.view) {
-    Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
-    pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
-  } else if (!(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)) {
-    throw new Error('The page for path '+ Page.prototype.path +' should have a .view property.');
-  }
-
-  //
-  // Unique id per page. This is used to track back which page was actually
-  // rendered for the front-end so we can retrieve pagelets much easier.
-  //
-  Page.prototype.id = [1, 1, 1, 1].map(function generator() {
-    return Math.random().toString(36).substring(2).toUpperCase();
-  }).join('');
-
-  //
-  // Add the properties to the page.
-  //
-  pipe.emit('transform::page', Page);                 // Emit tranform event for plugins.
-  Page.properties = Object.keys(Page.prototype);      // All properties before init.
-  Page.router = new Route(router);                    // Actual HTTP route.
-  Page.method = method;                               // Available HTTP methods.
-  Page.id = router.toString() +'&&'+ method.join();   // Unique id.
-
-  //
-  // Setup a FreeList for the page so we can re-use the page instances and
-  // reduce garbage collection to a bare minimum.
-  //
-  Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function allocate() {
-    return new Page(pipe);
-  });
-
-  return Page;
+  return Page.optimize(this);
 });
 
 /**
@@ -478,6 +349,23 @@ Pipe.readable('define', function define(pages, done) {
   debug('added a new set of pages to bigpipe');
 
   return this;
+});
+
+/**
+ * Bind performance is horrible. This introduces an extra function call but can
+ * be heavily optimized by the V8 engine. Only use this in cases where you would
+ * normally use `.bind`.
+ *
+ * @param {Function} fn A method of pipe.
+ * @returns {Function}
+ * @api private
+ */
+Pipe.readable('bind', function bind(fn) {
+  var pipe = this;
+
+  return function bound(arg1, arg2, arg3) {
+    fn.call(pipe, arg1, arg2, arg3);
+  };
 });
 
 /**
@@ -520,7 +408,7 @@ Pipe.readable('find', function find(url, method) {
  * @param {Function} use The middleware.
  * @api private
  */
-Pipe.readable('middleware', function middleware(use) {
+Pipe.readable('before', function before(use) {
   this.layers.push(use);
 
   return this;
@@ -657,74 +545,7 @@ Pipe.readable('decorate', function decorate(req, res) {
  * @param {Spark} spark A real-time "socket".
  * @api private
  */
-Pipe.readable('connection', function connection(spark) {
-  //
-  // Setup the pipe substream which.
-  //
-  var orchestrate = spark.substream('pipe::orchestrate')
-    , pipe = this
-    , streams = {};
-
-  /**
-   * Configure a pagelet for substreaming.
-   *
-   * @param {Pagelet} pagelet The pagelet we need.
-   * @api private
-   */
-  function substream(pagelet) {
-    if (streams[pagelet.name]) return debug('already configured the Spark');
-
-    debug('creating a new substream for pagelet::%s (%s)', pagelet.name, pagelet.id);
-    var stream = streams[pagelet.name] = spark.substream('pagelet::'+ pagelet.name);
-
-    //
-    // Let the pagelet know that we've paired with a substream and spark.
-    //
-    if ('function' === typeof pagelet.pair) pagelet.pair(stream, spark);
-
-    //
-    // Incoming communication between the pagelet and it's substream.
-    //
-    stream.on('data', function substreamer(data) {
-      if (!pagelet) return debug('substream data event called after pagelet was removed');
-
-      switch (data.type) {
-        case 'rpc':
-          pagelet.trigger(data.method, data.args, data.id, stream);
-        break;
-      }
-    });
-
-    stream.on('end', function end() {
-      debug('substream has ended: %s/%s', pagelet.name, pagelet.id);
-      delete streams[pagelet.name];
-    });
-  }
-
-  //
-  // Incoming communication between our spark and the pagelet orchestration.
-  //
-  orchestrate.on('data', function orchestration(data) {
-    switch (data.type) {
-      case 'configure':
-        return;
-        var pagelet = pipe.expire.get(data.id);
-
-        if (pagelet) {
-          debug('registering Pagelet %s/%s as new substream', pagelet.name, data.id);
-          substream(pipe.expire.get(data.id));
-        }
-      break;
-    }
-  });
-
-  spark.on('end', function end() {
-    //
-    // Free all allocated pages and nuke all pagelets.
-    //
-    debug('connection has ended: %s were still active', Object.keys(streams));
-  });
-});
+Pipe.readable('connection', require('./primus'));
 
 /**
  * Register a new plugin.
@@ -838,13 +659,16 @@ Pipe.createServer = function createServer(port, options) {
   // Now that we've got a server, we can setup the pipe and start listening.
   //
   var pipe = new Pipe(server, options);
+
   pipe.listen(port, function initialized(error) {
     if (error) throw error;
 
     //
     // Apply plugins is available.
     //
-    if ('plugins' in options) options.plugins.map(pipe.use.bind(pipe));
+    if ('plugins' in options) {
+      options.plugins.map(pipe.bind(pipe.use));
+    }
   });
 
   return pipe;
@@ -853,8 +677,8 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = Pagelet;
-Pipe.Page = Page;
+Pipe.Pagelet = require('pagelet');
+Pipe.Page = require('./page');
 
 //
 // Expose the constructor.

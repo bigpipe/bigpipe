@@ -7,7 +7,7 @@ chai.Assertion.includeStack = true;
 // Expose Pagelets's Pipe
 //
 exports.Pipe = require('../');
-exports.Pagelet = require('../pagelet');
+exports.Pagelet = require('pagelet');
 exports.Page = require('../page');
 
 //

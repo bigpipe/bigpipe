@@ -18,9 +18,8 @@
   "dependencies": {
     "async": "0.2.x",
     "debug": "0.7.x",
-    "eventemitter3": "0.0.x",
+    "eventemitter3": "0.1.x",
     "expirable": "0.0.x",
-    "extendable": "0.0.x",
     "fortress": "0.0.x",
     "jade": "0.35.x",
     "mkdirp": "0.3.x",
@@ -30,7 +29,10 @@
     "substream": "0.0.x",
     "temper": "0.0.x",
     "ws": "0.4.x",
-    "predefine": "0.0.x"
+    "formidable": "1.0.x",
+    "trailers": "0.0.x",
+    "fusing": "0.0.x",
+    "pagelet": "0.0.x"
   },
   "devDependencies": {
     "chai": "1.8.x",
@@ -41,7 +43,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/3rd-Eden/bigpipe.git"
+    "url": "git://github.com/bigpipe/bigpipe.git"
   },
   "keywords": [
     "pagelet",

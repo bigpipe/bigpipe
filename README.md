@@ -4,7 +4,7 @@ isn't scared for a couple bugs you're more than welcome to go on this adventure.
 If not, please wait until 1.0 has been released.
 ```
 
-[![Build Status](https://travis-ci.org/3rd-Eden/bigpipe.png?branch=master)](https://travis-ci.org/3rd-Eden/bigpipe)
+[![Build Status](https://travis-ci.org/bigpipe/bigpipe.png?branch=master)](https://travis-ci.org/bigpipe/bigpipe)
 
 # BigPipe
 
