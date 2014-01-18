@@ -515,7 +515,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
   //
   // Run middleware layers first, after iterate pages and run page#configure.
   //
-  async.forEach(this.layers, function middleware(layer, next) {
+  async.eachSeries(this.layers, function middleware(layer, next) {
     layer.call(pipe, req, res, next);
   }, iterate.bind(pipe, completed));
 
