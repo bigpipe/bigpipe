@@ -9,7 +9,8 @@
     "compile": "./node_modules/.bin/browserify pipe/index.js -o dist/pipe.js --standalone BigPipe",
     "pretest": "npm run-script compile",
     "prepublish": "npm run-script compile",
-    "watch": "./node_modules/.bin/watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
+    "watch": "./node_modules/.bin/watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v",
+    "build": "npm run-script compile"
   },
   "pre-commit": [
     "compile",
