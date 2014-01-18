@@ -1493,7 +1493,7 @@ Pipe.prototype.configure = function configure(options) {
   //
   // Catch all form submits.
   //
-  root.addEventListener('submit', this.submit.bind(this), false);
+  root.addEventListener('submit', this.submit, false);
 };
 
 /**
@@ -1531,14 +1531,13 @@ Pipe.prototype.submit = function submit(event) {
     , action
     , name;
 
-  event.preventDefault();
   while (src.parentNode) {
     src = src.parentNode;
     if ('getAttribute' in src) name = src.getAttribute('data-pagelet');
     if (name) break;
   }
 
-  if (this.has(name)) {
+  if (name) {
     action = form.getAttribute('action');
     form.setAttribute('action', [
       action,
@@ -1547,8 +1546,6 @@ Pipe.prototype.submit = function submit(event) {
       name
     ].join(''));
   }
-
-  form.submit();
 };
 
 /**
