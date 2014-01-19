@@ -644,6 +644,20 @@ Pipe.createServer = function createServer(port, options) {
     throw new Error('Missing the SSL key or certificate files in the options.');
   }
 
+  //
+  // When given a `options.root` assume that our SSL certs and keys are path
+  // references that still needs to be read. This allows a much more human
+  // readable interface for SSL.
+  //
+  if (certs && options.root) {
+    options.cert = fs.readFileSync(path.join(options.root, options.cert));
+    options.key = fs.readFileSync(path.join(options.root, options.key));
+
+    if (Array.isArray(options.ca)) options.ca = options.ca.map(function read(file) {
+      return fs.readFileSync(path.join(options.root, file));
+    });
+  }
+
   if (spdy) {
     server = require('spdy').createServer(options);
     debug('creating a spdy server on port %d', port);
