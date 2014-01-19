@@ -1522,11 +1522,11 @@ Pipe.prototype.arrive = function arrive(name, data) {
 /**
  * Catch all form submits and add reference to originating pagelet.
  *
- * @param {Event} event
+ * @param {Event} evt The submit event.
  * @api public
  */
-Pipe.prototype.submit = function submit(event) {
-  var src = event.target || event.srcElement
+Pipe.prototype.submit = function submit(evt) {
+  var src = evt.target || evt.srcElement
     , form = src
     , action
     , name;
@@ -1537,6 +1537,20 @@ Pipe.prototype.submit = function submit(event) {
     if (name) break;
   }
 
+  //
+  // In previous versions we had and `evt.preventDefault()` so we could make
+  // changes to the form and re-submit it. But there's a big problem with that
+  // and that is that in FireFox it loses the reference to the button that
+  // triggered the submit. If causes buttons that had a name and value:
+  //
+  // ```html
+  // <button name="key" value="value" type="submit">submit</button>
+  // ```
+  //
+  // To be missing from the POST or GET. We managed to go around it by not
+  // simply preventing the default action. If this still does not not work we
+  // need to transform the form URLs once the pagelets are loaded.
+  //
   if (name) {
     action = form.getAttribute('action');
     form.setAttribute('action', [
