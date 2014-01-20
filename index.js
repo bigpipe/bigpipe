@@ -649,17 +649,20 @@ Pipe.createServer = function createServer(port, options) {
   // references that still needs to be read. This allows a much more human
   // readable interface for SSL.
   //
-  if (certs && options.root) {
-    options.cert = fs.readFileSync(path.join(options.root, options.cert));
-    options.key = fs.readFileSync(path.join(options.root, options.key));
+  if (secure && options.root) {
+    ['cert', 'key', 'ca', 'pfx', 'crl'].filter(function filter(key) {
+      return key in options;
+    }).forEach(function parse(key) {
+      var data = options[key];
 
-    if (Array.isArray(options.ca)) {
-      options.ca = options.ca.map(function read(file) {
-        return fs.readFileSync(path.join(options.root, file));
-      });
-    } else if ('string' === options.ca) {
-      options.ca = fs.readFileSync(path.join(options.root, options.ca));
-    }
+      if (Array.isArray(data)) {
+        options[key] = data.map(function read(file) {
+          return fs.readFileSync(path.join(options.root, file));
+        });
+      } else {
+        options[key] = fs.readFileSync(path.join(options.root, data));
+      }
+    });
   }
 
   if (spdy) {
