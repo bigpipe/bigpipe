@@ -3,6 +3,7 @@
 var Formidable = require('formidable').IncomingForm
   , debug = require('debug')('bigpipe:page')
   , FreeList = require('freelist').FreeList
+  , sanitize = require('./lib/sanitize')
   , Route = require('routable')
   , async = require('async')
   , fuse = require('fusing')
@@ -514,7 +515,7 @@ Page.readable('write', function write(pagelet, data, fn) {
   this.queue.push(
     fragment
       .replace(/\{pagelet::name\}/g, pagelet.name)
-      .replace(/\{pagelet::data\}/g, JSON.stringify(frag))
+      .replace(/\{pagelet::data\}/g, JSON.stringify(frag, sanitize))
       .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
   );
 
