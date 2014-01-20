@@ -632,7 +632,7 @@ Pipe.readable('use', function use(name, plugin) {
 Pipe.createServer = function createServer(port, options) {
   options = options || {};
 
-  var certs = 'key' in options && 'cert' in options
+  var certs = options.key && options.cert
     , secure = certs || 443 === port
     , spdy = 'spdy' in options
     , server;
@@ -653,9 +653,13 @@ Pipe.createServer = function createServer(port, options) {
     options.cert = fs.readFileSync(path.join(options.root, options.cert));
     options.key = fs.readFileSync(path.join(options.root, options.key));
 
-    if (Array.isArray(options.ca)) options.ca = options.ca.map(function read(file) {
-      return fs.readFileSync(path.join(options.root, file));
-    });
+    if (Array.isArray(options.ca)) {
+      options.ca = options.ca.map(function read(file) {
+        return fs.readFileSync(path.join(options.root, file));
+      });
+    } else if ('string' === options.ca) {
+      options.ca = fs.readFileSync(path.join(options.root, options.ca));
+    }
   }
 
   if (spdy) {
