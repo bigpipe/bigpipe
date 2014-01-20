@@ -671,6 +671,18 @@ Pipe.createServer = function createServer(port, options) {
   } else if (secure) {
     server = require('https').createServer(options);
     debug('creating a https server on port %d', port);
+
+    if (+options.redirect) require('http').createServer(function handle(req, res) {
+      res.statusCode = 404;
+
+      if (req.headers.host) {
+        res.statusCode = 301;
+        res.setHeader('Location', 'https://'+ req.headers.host + req.url);
+        debug('redirecting %s to the secure server', req.url);
+      }
+
+      res.end('');
+    }).listen(+options.redirect);
   } else {
     server = require('http').createServer();
     debug('creating a http server on port %d', port);
