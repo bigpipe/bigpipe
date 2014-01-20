@@ -1,6 +1,7 @@
 'use strict';
 
 var Formidable = require('formidable').IncomingForm
+  , stringify = require('json-stringify-safe')
   , debug = require('debug')('bigpipe:page')
   , FreeList = require('freelist').FreeList
   , sanitize = require('./lib/sanitize')
@@ -515,7 +516,7 @@ Page.readable('write', function write(pagelet, data, fn) {
   this.queue.push(
     fragment
       .replace(/\{pagelet::name\}/g, pagelet.name)
-      .replace(/\{pagelet::data\}/g, JSON.stringify(frag, sanitize))
+      .replace(/\{pagelet::data\}/g, stringify(frag, sanitize))
       .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
   );
 
@@ -713,7 +714,7 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   //
   head.push(
     '<script>',
-      'pipe = new BigPipe(undefined, ', JSON.stringify({
+      'pipe = new BigPipe(undefined, ', stringify({
           pagelets: this.pagelets.length,     // Amount of pagelets to load
           id: this.id                         // Current Page id.
         }), ' );',
