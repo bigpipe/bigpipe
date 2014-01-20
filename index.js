@@ -501,11 +501,14 @@ Pipe.readable('dispatch', function dispatch(req, res) {
 
     if (pipe.domains) {
       page.domain = domain.create();
+
       page.domain.on('error', function (err) {
         debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.message);
+        // @TODO actually handle the error.
       });
+
       page.domain.run(function run() {
-        run.configure(req, res);
+        page.configure(req, res);
       });
     } else {
       page.configure(req, res);
