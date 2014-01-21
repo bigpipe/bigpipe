@@ -643,7 +643,7 @@ Pipe.createServer = function createServer(port, options) {
   //
   // We need to have SSL certs for SPDY and secure servers.
   //
-  if (secure || spdy && !certs) {
+  if ((secure || spdy) && !certs) {
     throw new Error('Missing the SSL key or certificate files in the options.');
   }
 
