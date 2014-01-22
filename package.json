@@ -5,12 +5,7 @@
   "main": "index.js",
   "engine": "node >= 0.10.0",
   "scripts": {
-    "test": "mocha $(find test -name '*.test.js')",
-    "compile": "./node_modules/.bin/browserify pipe/index.js -o dist/pipe.js --standalone BigPipe",
-    "pretest": "npm run-script compile",
-    "prepublish": "npm run-script compile",
-    "watch": "./node_modules/.bin/watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v",
-    "build": "npm run-script compile"
+    "test": "mocha $(find test -name '*.test.js')"
   },
   "pre-commit": [
     "compile",
@@ -21,31 +16,32 @@
     "debug": "0.7.x",
     "eventemitter3": "0.1.x",
     "expirable": "0.0.x",
-    "fortress": "0.0.x",
+    "formidable": "1.0.x",
+    "fusing": "0.0.x",
     "jade": "0.35.x",
+    "json-stringify-safe": "~5.0.0",
     "mkdirp": "0.3.x",
+    "pagelet": "0.0.x",
+    "pipe.js": "0.0.x",
     "primus": "1.4.x",
     "routable": "0.0.x",
     "smithy": "0.3.x",
     "substream": "0.0.x",
     "temper": "0.0.x",
-    "ws": "0.4.x",
-    "formidable": "1.0.x",
     "trailers": "0.0.x",
-    "fusing": "0.0.x",
-    "pagelet": "0.0.x",
-    "json-stringify-safe": "~5.0.0"
+    "ws": "0.4.x"
   },
   "devDependencies": {
     "chai": "1.8.x",
     "mocha": "1.13.x",
-    "pre-commit": "0.0.x",
-    "browserify": "2.33.x",
-    "watchify": "0.3.x"
+    "pre-commit": "0.0.x"
   },
   "repository": {
     "type": "git",
     "url": "git://github.com/bigpipe/bigpipe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bigpipe/bigpipe/issues"
   },
   "keywords": [
     "pagelet",
@@ -56,5 +52,6 @@
     "bigpipe"
   ],
   "author": "Arnout Kazemier",
-  "license": "MIT"
+  "license": "MIT",
+  "homepage": "http://bigpipe.io"
 }
