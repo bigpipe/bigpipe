@@ -41,7 +41,7 @@ function Page(pipe) {
     , readable = Page.predefine(this);
 
   readable('temper', pipe.temper);            // Reference to our template compiler.
-  readable('compiler', pipe.compiler);        // Assert management.
+  readable('compiler', pipe.compiler);        // Asset management.
   readable('pipe', pipe);                     // Actual pipe instance.
   writable('disabled', []);                   // Contains all disable pagelets.
   writable('enabled', []);                    // Contains all enabled pagelets.
