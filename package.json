@@ -13,7 +13,9 @@
   ],
   "dependencies": {
     "async": "~0.2.10",
+    "debug": "~0.7.4",
     "ejs": "~0.8.5",
+    "eventemitter3": "~0.1.1",
     "expirable": "~0.0.6",
     "formidable": "~1.0.14",
     "fusing": "~0.0.0",
