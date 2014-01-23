@@ -700,7 +700,7 @@ Pipe.createServer = function createServer(port, options) {
     if (error) throw error;
 
     //
-    // Apply plugins is available.
+    // Apply plugins if available.
     //
     if ('plugins' in options) {
       options.plugins.map(pipe.bind(pipe.use));

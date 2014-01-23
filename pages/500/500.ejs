@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+<head>
+  <%- bootstrap %>
+</head>
+<body>
+  <h1>500, Internal server error</h1>
+
+  <% if(message) { %>
+  <h2><%= message %></h2>
+  <% } %>
+  <div data-pagelet="diagnostics"></div>
+</body>
+</html>

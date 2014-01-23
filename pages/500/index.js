@@ -8,7 +8,7 @@ var Page = require('../../page');
 Page.extend({
   path: '/pagelets/500',
   statusCode: 500,
-  view: '500.jade',
+  view: '500.ejs',
   pagelets: {
     'diagnostics': '../../pagelets/diagnostics'
   }
