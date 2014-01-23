@@ -232,20 +232,6 @@ Page.readable('redirect', function redirect(location, status) {
 });
 
 /**
- * Well, actually, never mind, we shouldn't accept this page so we should
- * render our 404 page instead.
- *
- * @TODO we might need to kill the `req` to nuke uploads.
- * @api public
- */
-Page.readable('notFound', function notFound() {
-  this.emit('free').pipe.status(this.req, this.res, 404);
-  if (this.listeners('end').length) this.emit('end');
-
-  return this.debug('Not found, returning Page to freelist and 404-ing');
-});
-
-/**
  * Discover pagelets that we're allowed to use.
  *
  * @returns {Page} fluent interface
