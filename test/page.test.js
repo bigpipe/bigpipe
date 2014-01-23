@@ -8,6 +8,7 @@ describe('Page', function () {
     , expect = common.expect
     , Pipe = common.Pipe
     , Page = common.Page
+    , sinon = common.sinon
     , server, page, app;
 
   beforeEach(function (done) {
@@ -105,6 +106,27 @@ describe('Page', function () {
         };
 
         page.redirect('/redirected', 400);
+      });
+    });
+
+    describe('#discover', function () {
+      it('emits discover and returns immediatly if the page has no pagelets', function (done) {
+        page.once('discover', done);
+        page.discover();
+      });
+
+      it('initializes pagelets by allocating from the Pagelet.freelist', function (done) {
+        var Hero = require(__dirname + '/fixtures/pagelets/hero')
+          , Faq = require(__dirname + '/fixtures/pages/faq').extend({ pagelets: [ Hero ] })
+          , pageletFreelist = sinon.spy(Hero.freelist, 'alloc')
+          , faq = new Faq(app);
+
+        faq.once('discover', function () {
+          expect(pageletFreelist).to.be.calledOnce;
+          done();
+        });
+
+        faq.discover();
       });
     });
   });

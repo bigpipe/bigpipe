@@ -34,7 +34,9 @@
   "devDependencies": {
     "chai": "1.8.x",
     "mocha": "1.13.x",
-    "pre-commit": "0.0.x"
+    "pre-commit": "0.0.x",
+    "sinon": "~1.7.3",
+    "sinon-chai": "~2.4.0"
   },
   "repository": {
     "type": "git",
