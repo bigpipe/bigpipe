@@ -1,12 +1,10 @@
 <!doctype html>
 <html>
-<head>
-  <%- bootstrap %>
-</head>
+<head><%- 'bootstrap' in locals ? bootstrap : '' %></head>
 <body>
   <h1>500, Internal server error</h1>
 
-  <% if(message) { %>
+  <% if (message) { %>
   <h2><%= message %></h2>
   <% } %>
   <div data-pagelet="diagnostics"></div>
