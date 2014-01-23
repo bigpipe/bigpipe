@@ -40,7 +40,7 @@ function Page(pipe) {
   var writable = Page.predefine(this, Page.predefine.WRITABLE)
     , readable = Page.predefine(this);
 
-  readable('temper', pipe.temper);            // Reference to our template compiler.
+  readable('temper', pipe.temper);            // Reference to our template composer.
   readable('compiler', pipe.compiler);        // Asset management.
   readable('pipe', pipe);                     // Actual pipe instance.
   writable('disabled', []);                   // Contains all disable pagelets.
