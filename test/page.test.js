@@ -41,6 +41,7 @@ describe('Page', function () {
       expect(page.temper).to.be.instanceof(Temper);
       expect(property.writable).to.equal(false);
       expect(property.enumerable).to.equal(false);
+      expect(property.configurable).to.equal(false);
     });
 
     it('compiler for asset management', function () {
@@ -51,6 +52,7 @@ describe('Page', function () {
       expect(page.compiler).to.be.instanceof(Compiler);
       expect(property.writable).to.equal(false);
       expect(property.enumerable).to.equal(false);
+      expect(property.configurable).to.equal(false);
     });
 
     it('pipe instance', function () {
@@ -61,6 +63,49 @@ describe('Page', function () {
       expect(page.pipe).to.be.instanceof(Pipe);
       expect(property.writable).to.equal(false);
       expect(property.enumerable).to.equal(false);
+      expect(property.configurable).to.equal(false);
+    });
+  });
+
+  describe('has readable prototype functions', function () {
+    describe('#redirect', function () {
+      it('redirects to specified location', function (done) {
+        var property = Object.getOwnPropertyDescriptor(Page.prototype, 'redirect');
+
+        expect(Page.prototype).to.have.property('redirect');
+        expect(Page.prototype.redirect).to.be.a('function');
+        expect(property.writable).to.equal(false);
+        expect(property.enumerable).to.equal(false);
+        expect(property.configurable).to.equal(false);
+
+        page.res = {};
+        page.res.setHeader = function setHeader(header, value) {
+          expect(header).to.equal('Location');
+          expect(value).to.equal('/redirected');
+        };
+
+        page.res.end = function end() {
+          expect(page.res.statusCode).to.equal(301);
+          done();
+        };
+
+        page.redirect('/redirected');
+      });
+
+      it('allows to set custom statusCode', function (done) {
+        page.res = {};
+        page.res.setHeader = function setHeader(header, value) {
+          expect(header).to.equal('Location');
+          expect(value).to.equal('/redirected');
+        };
+
+        page.res.end = function end() {
+          expect(page.res.statusCode).to.equal(400);
+          done();
+        };
+
+        page.redirect('/redirected', 400);
+      });
     });
   });
 });
