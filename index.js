@@ -48,12 +48,13 @@ var trailers = require('trailers');
  */
 function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
-  options = this.options(options || {});
+  options = options || {};
 
   var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
     , readable = Pipe.predefine(this);
 
   writable('_events', Object.create(null));           // Stores the events.
+  readable('options', options = configure(options));  // Configure options.
   readable('domains', !!options('domain') && domain); // Use domains for each req.
   readable('statusCodes', Object.create(null));       // Stores error pages.
   readable('cache', options('cache', null));          // Enable URL lookup caching.
@@ -86,6 +87,28 @@ function Pipe(server, options) {
 }
 
 fuse(Pipe, require('eventemitter3'));
+
+/**
+ * Queryable options with merge and fallback functionality.
+ *
+ * @param {Object} obj
+ * @returns {Function}
+ * @api private
+ */
+function configure(obj) {
+  function get(key, backup) {
+    return key in obj ? obj[key] : backup;
+  }
+
+  //
+  // Allow new options to be be merged in against the original object.
+  //
+  get.merge = function merge(properties) {
+    return Pipe.predefine.merge(obj, properties);
+  };
+
+  return get;
+}
 
 /**
  * The current version of the library.
@@ -122,25 +145,6 @@ Pipe.readable('listen', function listen(port, done) {
   });
 
   return pipe;
-});
-
-/**
- * Checks if options exists.
- *
- * @param {Object} obj
- * @returns {Function}
- * @api private
- */
-Pipe.readable('options', function options(obj) {
-  function get(key, backup) {
-    return key in obj ? obj[key] : backup;
-  }
-
-  //
-  // Allow new options to be be merged in against the original object.
-  //
-  get.merge = this.merge.bind(get, obj);
-  return get;
 });
 
 /**
