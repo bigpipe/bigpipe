@@ -53,6 +53,35 @@ describe('Pipe', function () {
     expect(Page.method).to.be.a('array');
   });
 
+  describe('#options', function () {
+    it('has queryable options with defaults', function () {
+      expect(app.options).to.be.a('function');
+      expect(app.options('host', 'localhost')).to.equal('localhost');
+      expect(app.options('host')).to.equal(undefined);
+
+      var pipe = new Pipe(http.createServer(), {
+          pages: __dirname +'/fixtures/pages'
+        , dist: '/tmp/dist'
+        , host: '127.0.0.1'
+      });
+      expect(pipe.options('host')).to.equal('127.0.0.1');
+    });
+
+    it('additional options can be merged, per example from a plugin', function () {
+      expect(app.options.merge).to.be.a('function');
+      expect(app.options('test')).to.equal(undefined);
+
+      var pipe = new Pipe(http.createServer(), {
+          pages: __dirname +'/fixtures/pages'
+        , dist: '/tmp/dist'
+        , host: '127.0.0.1'
+      });
+      expect(pipe.options('host')).to.equal('127.0.0.1');
+      pipe.options.merge({ test: 'additional' });
+      expect(pipe.options('test')).to.equal('additional');
+    });
+  });
+
   describe('#find', function () {
     it('returns the matching page', function () {
       expect(app.find('/')[0]).to.be.a('function');
