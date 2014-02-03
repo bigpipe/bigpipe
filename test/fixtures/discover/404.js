@@ -11,5 +11,5 @@ Page.extend({
   pagelets: {
     hero: '../pagelets/hero'
   },
-  view: '../view/all.jade'
+  view: '../view/all.ejs'
 }).on(module);

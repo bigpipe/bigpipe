@@ -8,5 +8,5 @@ var Page = require('../../../').Page;
 Page.extend({
   method: '',
   path: '/all',
-  view: '../view/all.jade'
+  view: '../view/all.ejs'
 }).on(module);

@@ -3,7 +3,7 @@
 var Pagelet = require('../..').Pagelet;
 
 Pagelet.extend({
-  view: 'diagnostic.jade',
+  view: 'diagnostic.ejs',
   css: 'diagnostic.styl',
 
   render: function render(done) {

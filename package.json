@@ -27,7 +27,7 @@
     "routable": "0.0.2",
     "smithy": "~0.3.1",
     "substream": "~0.0.2",
-    "temper": "~0.1.0",
+    "temper": "~0.1.3",
     "trailers": "~0.0.1",
     "ws": "~0.4.31"
   },
