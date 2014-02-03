@@ -717,7 +717,7 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   // Supply data to the view and render after. Make sure the defined head
   // key cannot be overwritten by any custom data.
   //
-  Object.defineProperties(data, Page.predefine.create(this.pipe.bootstrap, {
+  Object.defineProperties(data, Page.predefine.create('bootstrap', {
     writable: false,
     enumerable: true,
     value: head.join('')

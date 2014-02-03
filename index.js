@@ -39,7 +39,6 @@ var trailers = require('trailers');
  * - static: The pathname for our static assets.
  * - dist: The pathname for the compiled assets.
  * - public: The pathname for public static content.
- * - head: Property name on which to bind header view data, defaults to bootstrap.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -62,7 +61,6 @@ function Pipe(server, options) {
   readable('plugins', Object.create(null));                // Plugin storage.
   readable('layers', []);                                  // Middleware layer.
   readable('server', server);                              // HTTP server we work with.
-  readable('bootstrap', this.options('head', 'bootstrap'));// Boostrap property name.
 
   readable('primus', new Primus(this.server, {
     transformer: this.options('transport', 'websockets'),  // Real-time framework to use.
