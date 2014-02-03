@@ -53,33 +53,33 @@ function Pipe(server, options) {
   var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
     , readable = Pipe.predefine(this);
 
-  writable('_events', Object.create(null));           // Stores the events.
-  readable('options', options = configure(options));  // Configure options.
-  readable('domains', !!options('domain') && domain); // Use domains for each req.
-  readable('statusCodes', Object.create(null));       // Stores error pages.
-  readable('cache', options('cache', null));          // Enable URL lookup caching.
-  readable('temper', new Temper());                   // Template parser.
-  readable('plugins', Object.create(null));           // Plugin storage.
-  readable('layers', []);                             // Middleware layer.
-  readable('server', server);                         // HTTP server we work with.
-  readable('bootstrap', options('head', 'bootstrap'));// Property name for bootstrap.
+  writable('_events', Object.create(null));                // Stores the events.
+  readable('options', configure(options));                 // Configure options.
+  readable('domains', !!this.options('domain') && domain); // Use domains for each req.
+  readable('statusCodes', Object.create(null));            // Stores error pages.
+  readable('cache', this.options('cache', null));          // Enable URL lookup caching.
+  readable('temper', new Temper());                        // Template parser.
+  readable('plugins', Object.create(null));                // Plugin storage.
+  readable('layers', []);                                  // Middleware layer.
+  readable('server', server);                              // HTTP server we work with.
+  readable('bootstrap', this.options('head', 'bootstrap'));// Boostrap property name.
 
   readable('primus', new Primus(this.server, {
-    transformer: options('transport', 'websockets'),  // Real-time framework to use.
-    pathname: options('pathname', '/pagelets'),       // Primus pathname.
-    parser: options('parser', 'json'),                // Message parser.
+    transformer: this.options('transport', 'websockets'),  // Real-time framework to use.
+    pathname: this.options('pathname', '/pagelets'),       // Primus pathname.
+    parser: this.options('parser', 'json'),                // Message parser.
     plugin: {
-      substream: require('substream')                 // Volatile name spacing.
+      substream: require('substream')                      // Volatile name spacing.
     }
   }));
 
-  readable('compiler', new Compiler(                  // Asset compiler.
-    options('dist', path.join(process.cwd(), 'dist')), this, {
-      pathname: options('static', '/')
+  readable('compiler', new Compiler(                       // Asset compiler.
+    this.options('dist', path.join(process.cwd(), 'dist')), this, {
+      pathname: this.options('static', '/')
   }));
 
-  readable('pages', this.resolve(                     // The pages we serve.
-    options('pages', __dirname + '/pages'),
+  readable('pages', this.resolve(                          // The pages we serve.
+    this.options('pages', __dirname + '/pages'),
     this.transform) || []
   );
 
