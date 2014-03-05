@@ -495,7 +495,6 @@ Page.readable('write', function write(pagelet, data, fn) {
 
   frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
   frag.id = pagelet.id;         // The internal id of the pagelet.
-  frag.data = data;             // Template data for the pagelet.
   frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
   frag.processed = ++this.n;    // Amount of pagelets processed.
 
