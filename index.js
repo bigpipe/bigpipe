@@ -29,16 +29,16 @@ var trailers = require('trailers');
  *
  * The following options are available:
  *
- * - transport: The transport engine we should use for real-time.
  * - cache: A object were we store our URL->page mapping.
- * - stream: Where we should write our logs to.
- * - parser: Which parser should be used to send data in real-time.
- * - pages: String or array of pages we serve.
- * - domain: Use domains to handle requests.
- * - pathname: The pathname we use for Primus requests.
- * - static: The pathname for our static assets.
  * - dist: The pathname for the compiled assets.
+ * - domain: Use domains to handle requests.
+ * - pages: String or array of pages we serve.
+ * - parser: Which parser should be used to send data in real-time.
+ * - pathname: The pathname we use for Primus requests.
  * - public: The pathname for public static content.
+ * - static: The pathname for our static assets.
+ * - stream: Where we should write our logs to.
+ * - transport: The transport engine we should use for real-time.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -47,6 +47,7 @@ var trailers = require('trailers');
  */
 function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
+
   options = options || {};
 
   var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
@@ -168,7 +169,9 @@ Pipe.readable('resolve', function resolve(files, transform) {
    * @api private
    */
   function init (constructor) {
-    return ('string' === typeof constructor) ? require(constructor) : constructor;
+    return ('string' === typeof constructor)
+      ? require(constructor)
+      : constructor;
   }
 
   if ('string' === typeof files) {
@@ -431,7 +434,9 @@ Pipe.readable('dispatch', function dispatch(req, res) {
   //
   // Check if these are assets that need to be served from the compiler.
   //
-  if (this.compiler.serve(req, res)) return debug('asset compiler answered %s', req.url);
+  if (this.compiler.serve(req, res)) {
+    return debug('asset compiler answered %s', req.url);
+  }
 
   var pages = this.find(req.uri.pathname, req.method)
     , pipe = this;
