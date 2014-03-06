@@ -517,6 +517,8 @@ Page.readable('write', function write(pagelet, data, fn) {
     // office and smear you with peck and feathers for not writing a more stable
     // application.
     //
+    if (!pagelet.error) throw e;
+
     template = this.temper.fetch(pagelet.error).server(this.merge(data, {
       reason: 'Failed to render '+ pagelet.name +' as the template throws an error',
       message: e.message,
