@@ -489,7 +489,8 @@ Page.readable('write', function write(pagelet, data, fn) {
   data = data || {};
 
   var view = this.temper.fetch(pagelet.view).server
-    , frag = this.compiler.pagelet(pagelet);
+    , frag = this.compiler.pagelet(pagelet)
+    , template;
 
   this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
 
@@ -498,11 +499,36 @@ Page.readable('write', function write(pagelet, data, fn) {
   frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
   frag.processed = ++this.n;    // Amount of pagelets processed.
 
+  //
+  // We've made it this far, but now we have to cross our fingers and HOPE that
+  // our given template can actually handle the data correctly without throwing
+  // an error. As the rendering is done synchronously, we wrap it in a try/catch
+  // statement and hope that an error is thrown when the template fails to
+  // render the content. If there's an error we will process the error template
+  // instead.
+  //
+  try {
+    template = view(data);
+  } catch (e) {
+    //
+    // This is basically fly or die, if the supplied error template throws an
+    // error while rendering we're basically fucked, your server will crash,
+    // an angry mob of customers with pitchforks will kick in the doors of your
+    // office and smear you with peck and feathers for not writing a more stable
+    // application.
+    //
+    template = this.temper.fetch(pagelet.error).server(this.merge(data, {
+      reason: 'Failed to render '+ pagelet.name +' as the template throws an error',
+      message: e.message,
+      stack: e.stack
+    }));
+  }
+
   this.queue.push(
     fragment
       .replace(/\{pagelet::name\}/g, pagelet.name)
       .replace(/\{pagelet::data\}/g, stringify(frag, sanitize))
-      .replace(/\{pagelet::template\}/g, view(data).replace('-->', ''))
+      .replace(/\{pagelet::template\}/g, template.replace('-->', ''))
   );
 
   if (fn) this.once('flush', fn);
@@ -611,8 +637,7 @@ Page.readable('has', function has(name, enabled) {
  * @api public
  */
 Page.readable('get', function get(name) {
-  var Pagelet = this.has(name) || this.has(name, true)
-    , pagelet;
+  var Pagelet = this.has(name) || this.has(name, true);
 
   //
   // It could be that Pagelet is undefined if nothing is initialised or it could
@@ -620,10 +645,7 @@ Page.readable('get', function get(name) {
   // simply return it.
   //
   if ('function' !== typeof Pagelet) return Pagelet;
-
-  pagelet = Pagelet.freelist.alloc().configure(this);
-
-  return pagelet;
+  return Pagelet.freelist.alloc().configure(this);
 });
 
 /**
@@ -788,7 +810,7 @@ Page.readable('configure', function configure(req, res) {
  *
  * @api private
  */
-Page.readable('render', function () {
+Page.readable('render', function render() {
   var pagelet = this.get(this.req.query._pagelet)
     , method = this.req.method.toLowerCase()
     , page = this;
