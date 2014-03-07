@@ -541,7 +541,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
  */
 Pipe.readable('decorate', function decorate(req, res) {
   req.uri = req.uri || url.parse(req.url, true);
-  req.query = req.query || req.uri.query;
+  req.query = req.query || req.uri.query || {};
 
   //
   // Add some silly HTTP properties for connect.js compatibility.

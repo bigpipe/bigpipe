@@ -5,6 +5,7 @@ var Formidable = require('formidable').IncomingForm
   , debug = require('debug')('bigpipe:page')
   , FreeList = require('freelist').FreeList
   , sanitize = require('./lib/sanitize')
+  , qs = require('querystring')
   , Route = require('routable')
   , async = require('async')
   , fuse = require('fusing')
@@ -701,13 +702,15 @@ Page.readable('bootstrap', function bootstrap(err, data) {
   if (this.mode !== 'sync') {
     head.push(
       '<noscript>',
-        '<meta http-equiv="refresh" content="0; URL='+ path +'?no_pagelet_js=1">',
+        '<meta http-equiv="refresh" content="0; URL='+ path +'?'+ qs.stringify(
+          this.merge(this.req.query, { no_pagelet_js: 1 })
+        )+'">',
       '</noscript>'
     );
   } else {
     head.push(
       '<script>',
-        'if (location.search.indexOf("no_pagelet_js=1"))',
+        'if (~location.search.indexOf("no_pagelet_js=1"))',
         'location.href = location.href.replace(location.search, "")',
       '</script>'
     );
