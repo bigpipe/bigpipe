@@ -464,7 +464,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
     //
     // Make sure we parse out all the params from the URL.
     //
-    page.params = constructor.router.exec(req.url) || {};
+    page.params = constructor.router.exec(req.uri.pathname) || {};
 
     if ('function' === typeof page.authorize) {
       page.res = res;   // and the response, needed for plugins.
