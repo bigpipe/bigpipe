@@ -551,7 +551,7 @@ Page.readable('flush', function flush(flushing) {
   // Only write the data to the response if we're allowed to flush.
   //
   if ('boolean' === typeof flushing) this.flushed = flushing;
-  if (!this.flushed) return this;
+  if (!this.flushed || !this.queue.length) return this;
 
   this.res.write(this.queue.join(''), 'utf-8', this.emits('flush'));
   this.queue.length = 0;
