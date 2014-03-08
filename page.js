@@ -924,7 +924,7 @@ Page.optimize = function optimize(pipe) {
       Page.prototype.pagelets = pipe.resolve(
         Page.prototype.pagelets,
         function map(Pagelet) {
-          return Pagelet.optimize(pipe);
+          return Pagelet.optimize(pipe.temper, pipe);
         }
       );
     }
