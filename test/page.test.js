@@ -116,7 +116,7 @@ describe('Page', function () {
       });
 
       it('initializes pagelets by allocating from the Pagelet.freelist', function (done) {
-        var Hero = require(__dirname + '/fixtures/pagelets/hero')
+        var Hero = require(__dirname + '/fixtures/pagelets/hero').optimize(app.temper, app)
           , Faq = require(__dirname + '/fixtures/pages/faq').extend({ pagelets: [ Hero ] }).optimize(app)
           , pageletFreelist = sinon.spy(Hero.freelist, 'alloc')
           , faq = new Faq(app);
