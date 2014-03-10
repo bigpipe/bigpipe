@@ -8,7 +8,7 @@ describe('Pagelet', function () {
 
   beforeEach(function () {
     page = {};
-    pagelet = new Pagelet({ page: page });
+    pagelet = new Pagelet().configure({ page: page });
   });
 
   afterEach(function () {

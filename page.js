@@ -250,7 +250,7 @@ Page.readable('discover', function discover() {
   // use them during authorization.
   //
   pagelets = this.pagelets.map(function allocate(Pagelet) {
-    return Pagelet.freelist.alloc({ page: page });
+    return Pagelet.freelist.alloc().configure({ page: page });
   });
 
   //
@@ -648,7 +648,7 @@ Page.readable('get', function get(name) {
   // simply return it.
   //
   if ('function' !== typeof Pagelet) return Pagelet;
-  return Pagelet.freelist.alloc({ page: this });
+  return Pagelet.freelist.alloc().configure({ page: this });
 });
 
 /**
@@ -924,10 +924,7 @@ Page.optimize = function optimize(pipe) {
       Page.prototype.pagelets = pipe.resolve(
         Page.prototype.pagelets,
         function map(Pagelet) {
-          //
-          // @TODO, supply function as 2nd argument to expose pagelets to plugins.
-          //
-          return Pagelet.optimize(pipe.temper);
+          return Pagelet.optimize(pipe.temper, pipe.emits('transform:pagelet'));
         }
       );
     }

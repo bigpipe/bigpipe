@@ -69,11 +69,11 @@ Pagelet.readable('renderer', function renderer(fn) {
 });
 
 //
-// Extend the default Pagelet to incorporate page and pipe instances.
+// Extend the default Pagelet.
 //
 module.exports = Pagelet.extend({
   /**
-   * Reset the instance to it's original state.
+   * Add references to the page and pipe instance.
    *
    * @param {Object} options
    * @api private
@@ -83,5 +83,7 @@ module.exports = Pagelet.extend({
 
     this.pipe = options.page.pipe || options.pipe;
     this.page = options.page;
+
+    return this;
   }
 });
