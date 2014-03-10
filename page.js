@@ -769,8 +769,8 @@ Page.readable('configure', function configure(req, res) {
   this.queue.length = this.enabled.length = this.disabled.length = this.n = 0;
   this.flushed = this.ended = false;
 
-  Page.predefine.remove(this.enabled);
   Page.predefine.remove(this.disabled);
+  Page.predefine.remove(this.enabled);
 
   this.req = req;
   this.res = res;
@@ -788,10 +788,10 @@ Page.readable('configure', function configure(req, res) {
   // corner.
   //
   if (
-       'no_pagelet_js' in req.uri.query
+       'no_pagelet_js' in req.query && +req.query.no_pagelet_js === 1
     || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
   ) {
-    this.debug('forcing `sync` mode instead of %s due lack of HTTP 1.1', this.mode);
+    this.debug('forcing `sync` instead of %s due lack of HTTP 1.1 or JS', this.mode);
     this.mode = 'sync';
   }
 
