@@ -5,8 +5,8 @@
 //
 var debug = require('debug')('bigpipe:pagelet');
 exports.name = 'test';
-exports.server = function server(bigpipe) {};
-/*bigpipe.on('transform::pagelet'*/exports.hook = function (Pagelet) {
+exports.server = function server(bigpipe) {
+bigpipe.once('transform::pagelet', function (Pagelet) {
 
 /**
  * Check if the given pagelet has been enabled for the page.
@@ -14,7 +14,7 @@ exports.server = function server(bigpipe) {};
  * @param {String} name The name of the pagelet.
  * @api public
  */
-if (!Pagelet.prototype.enabled) Pagelet.readable('enabled', function enabled(name) {
+Pagelet.readable('enabled', function enabled(name) {
   return this.page.enabled.some(function some(pagelet) {
     return pagelet.name === name;
   });
@@ -26,7 +26,7 @@ if (!Pagelet.prototype.enabled) Pagelet.readable('enabled', function enabled(nam
  * @param {String} name The name of the pagelet.
  * @api public
  */
-if (!('disabled' in Pagelet.prototype)) Pagelet.readable('disabled', function disabled(name) {
+Pagelet.readable('disabled', function disabled(name) {
   return this.page.disabled.some(function some(pagelet) {
     return pagelet.name === name;
   });
@@ -38,7 +38,7 @@ if (!('disabled' in Pagelet.prototype)) Pagelet.readable('disabled', function di
  * @type {Object}
  * @public
  */
-if (!('params' in Pagelet.prototype)) Pagelet.readable('params', {
+Pagelet.readable('params', {
   enumerable: false,
   get: function params() {
     return this.page.params;
@@ -52,7 +52,7 @@ if (!('params' in Pagelet.prototype)) Pagelet.readable('params', {
  * @param {Function} fn Completion callback.
  * @api private
  */
-if (!('renderer' in Pagelet.prototype)) Pagelet.readable('renderer', function renderer(fn) {
+Pagelet.readable('renderer', function renderer(fn) {
   var page = this.page
     , pagelet = this;
 
@@ -70,23 +70,19 @@ if (!('renderer' in Pagelet.prototype)) Pagelet.readable('renderer', function re
   });
 });
 
-//
-// Extend the default Pagelet.
-//
-return Pagelet.extend({
   /**
    * Add references to the page and pipe instance.
    *
    * @param {Object} options
    * @api private
    */
-  configure: function configure(options) {
+  Pagelet.readable('configure', function configure(options) {
     options = options || {};
 
     this.pipe = options.page.pipe || options.pipe;
     this.page = options.page;
 
     return this;
-  }
+  });
 });
 };
