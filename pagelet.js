@@ -3,8 +3,10 @@
 //
 // Required modules.
 //
-var Pagelet = require('pagelet')
-  , debug = require('debug')('bigpipe:pagelet');
+var debug = require('debug')('bigpipe:pagelet');
+exports.name = 'test';
+exports.server = function server(bigpipe) {
+bigpipe.on('transform::pagelet', function (Pagelet) {
 
 /**
  * Check if the given pagelet has been enabled for the page.
@@ -12,7 +14,7 @@ var Pagelet = require('pagelet')
  * @param {String} name The name of the pagelet.
  * @api public
  */
-Pagelet.readable('enabled', function enabled(name) {
+if (!Pagelet.prototype.enabled) Pagelet.readable('enabled', function enabled(name) {
   return this.page.enabled.some(function some(pagelet) {
     return pagelet.name === name;
   });
@@ -24,7 +26,7 @@ Pagelet.readable('enabled', function enabled(name) {
  * @param {String} name The name of the pagelet.
  * @api public
  */
-Pagelet.readable('disabled', function disabled(name) {
+if (!('disabled' in Pagelet.prototype)) Pagelet.readable('disabled', function disabled(name) {
   return this.page.disabled.some(function some(pagelet) {
     return pagelet.name === name;
   });
@@ -36,7 +38,7 @@ Pagelet.readable('disabled', function disabled(name) {
  * @type {Object}
  * @public
  */
-Pagelet.readable('params', {
+if (!('params' in Pagelet.prototype)) Pagelet.readable('params', {
   enumerable: false,
   get: function params() {
     return this.page.params;
@@ -50,7 +52,7 @@ Pagelet.readable('params', {
  * @param {Function} fn Completion callback.
  * @api private
  */
-Pagelet.readable('renderer', function renderer(fn) {
+if (!('renderer' in Pagelet.prototype)) Pagelet.readable('renderer', function renderer(fn) {
   var page = this.page
     , pagelet = this;
 
@@ -71,7 +73,7 @@ Pagelet.readable('renderer', function renderer(fn) {
 //
 // Extend the default Pagelet.
 //
-module.exports = Pagelet.extend({
+Pagelet.extend({
   /**
    * Add references to the page and pipe instance.
    *
@@ -87,3 +89,7 @@ module.exports = Pagelet.extend({
     return this;
   }
 });
+  console.log(Pagelet);
+
+});
+};

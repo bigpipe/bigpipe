@@ -77,6 +77,7 @@ function Pipe(server, options) {
       pathname: this.options('static', '/')
   }));
 
+  this.pluggable(this.options('plugins', []));             // Apply plugins.
   readable('pages', this.resolve(                          // The pages we serve.
     this.options('pages', __dirname + '/pages'),
     this.transform) || []
@@ -420,6 +421,20 @@ Pipe.readable('before', function before(use) {
 });
 
 /**
+ * Run the plugins and make sure plugin: pagelets is always run
+ *
+ * @return {[type]} [description]
+ * @api private
+ */
+Pipe.readable('pluggable', function pluggable(plugins) {
+  var pipe = this;
+
+  plugins.concat([require('./pagelet')]).forEach(function plug(plugin) {
+    pipe.use(plugin);
+  });
+});
+
+/**
  * Dispatch incoming requests.
  *
  * @TODO cancel POST requests, when we don't accept them
@@ -705,13 +720,6 @@ Pipe.createServer = function createServer(port, options) {
 
   pipe.listen(port, function initialized(error) {
     if (error) throw error;
-
-    //
-    // Apply plugins if available.
-    //
-    if ('plugins' in options) {
-      options.plugins.map(pipe.bind(pipe.use));
-    }
   });
 
   return pipe;
@@ -720,7 +728,7 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = require('./pagelet');
+Pipe.Pagelet = require('pagelet');
 Pipe.Page = require('./page');
 
 //
