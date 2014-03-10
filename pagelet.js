@@ -5,8 +5,8 @@
 //
 var debug = require('debug')('bigpipe:pagelet');
 exports.name = 'test';
-exports.server = function server(bigpipe) {
-bigpipe.on('transform::pagelet', function (Pagelet) {
+exports.server = function server(bigpipe) {};
+/*bigpipe.on('transform::pagelet'*/exports.hook = function (Pagelet) {
 
 /**
  * Check if the given pagelet has been enabled for the page.
@@ -73,7 +73,7 @@ if (!('renderer' in Pagelet.prototype)) Pagelet.readable('renderer', function re
 //
 // Extend the default Pagelet.
 //
-Pagelet.extend({
+return Pagelet.extend({
   /**
    * Add references to the page and pipe instance.
    *
@@ -88,8 +88,5 @@ Pagelet.extend({
 
     return this;
   }
-});
-  console.log(Pagelet);
-
 });
 };
