@@ -223,9 +223,19 @@ Page.writable('dependencies', {});
  * @param {Number} status The status number.
  * @api public
  */
-Page.readable('redirect', function redirect(location, status) {
+Page.readable('redirect', function redirect(location, status, options) {
+  options = options || {};
+
   this.res.statusCode = +status || 301;
   this.res.setHeader('Location', location);
+
+  if (options.cache === false) {
+    this.res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
+    this.res.setHeader('Cache-Control', [
+      'no-store', 'no-cache', 'must-revalidate', 'post-check=0', 'pre-check=0'
+    ].join(', '));
+  }
+
   this.res.end();
 
   if (this.listeners('end').length) this.emit('end');
