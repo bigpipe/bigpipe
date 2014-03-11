@@ -301,19 +301,29 @@ Page.readable('discover', function discover() {
 Page.readable('sync', function render(err, data) {
   if (err) return this.end(err);
 
-  var page = this;
+  var page = this
+    , base = '';
 
-  async.forEach(this.enabled, function each(pagelet, next) {
-    pagelet.renderer(next);
-  }, function done(err, data) {
-    // @TODO handle errors
-    page.enabled.forEach(function forEach(pagelet, index) {
-      var view = page.temper.fetch(pagelet.view).server;
+  this.once('discover', function discovered() {
+    async.forEach(this.enabled, function each(pagelet, next) {
+      pagelet.renderer(next);
+    }, function done(err, data) {
+      // @TODO handle errors
+      page.enabled.forEach(function forEach(pagelet, index) {
+        var view = page.temper.fetch(pagelet.view).server;
 
-      // @TODO Also write the CSS and JavaScript.
-      // @TODO also remove the pagelets that we're disabled.
-      base = page.inject(base, pagelet.name, view(data[index]));
+        // @TODO Also write the CSS and JavaScript.
+        // @TODO also remove the pagelets that we're disabled.
+        base = page.inject(base, pagelet.name, view(data[index]));
+      });
+
+      page.flush(true);
     });
+  });
+
+  this.bootstrap(undefined, data, function boostrapped(view) {
+    base = view;
+    page.discover();
   });
 
   return this.debug('Rendering the pagelets in `sync` mode');
@@ -337,7 +347,7 @@ Page.readable('async', function render(err, data) {
     }, this.end.bind(this));
   });
 
-  this.bootstrap(data);
+  this.bootstrap(undefined, data);
   this.discover();
 
   return this.debug('Rendering the pagelets in `async` mode');
@@ -666,7 +676,7 @@ Page.readable('get', function get(name) {
  * @returns {Page} fluent interface
  * @api private
  */
-Page.readable('bootstrap', function bootstrap(err, data) {
+Page.readable('bootstrap', function bootstrap(err, data, next) {
   var path = this.req.uri.pathname
     , charset = this.charset
     , head = [];
@@ -749,7 +759,11 @@ Page.readable('bootstrap', function bootstrap(err, data) {
     value: head.join('')
   }));
 
-  this.queue.push(this.temper.fetch(this.view).server(data));
+  var view = this.temper.fetch(this.view).server(data);
+
+  if (next) return next(undefined, view);
+
+  this.queue.push(view);
   return this.flush(true);
 });
 
