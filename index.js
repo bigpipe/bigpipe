@@ -412,6 +412,7 @@ Pipe.readable('find', function find(url, method) {
  * Add a new middleware layer which will run before any Page is executed.
  *
  * @param {Function} use The middleware.
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.readable('before', function before(use) {
@@ -421,17 +422,20 @@ Pipe.readable('before', function before(use) {
 });
 
 /**
- * Run the plugins and make sure plugin: pagelets is always run
+ * Run the plugins.
  *
- * @return {[type]} [description]
+ * @param {Array} plugins List of plugins.
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.readable('pluggable', function pluggable(plugins) {
   var pipe = this;
 
-  plugins.concat([require('./pagelet')]).forEach(function plug(plugin) {
+  plugins.forEach(function plug(plugin) {
     pipe.use(plugin);
   });
+
+  return this;
 });
 
 /**
@@ -728,7 +732,7 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = require('pagelet');
+Pipe.Pagelet = require('./pagelet');
 Pipe.Page = require('./page');
 
 //
