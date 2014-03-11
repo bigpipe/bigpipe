@@ -21,7 +21,7 @@
     "fusing": "~0.0.0",
     "json-stringify-safe": "~5.0.0",
     "mkdirp": "~0.3.5",
-    "pagelet": "~0.0.3",
+    "pagelet": "~0.0.4",
     "pipe.js": "~0.0.0",
     "primus": "~1.5.2",
     "routable": "0.0.2",

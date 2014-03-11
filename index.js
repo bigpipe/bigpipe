@@ -77,6 +77,7 @@ function Pipe(server, options) {
       pathname: this.options('static', '/')
   }));
 
+  this.pluggable(this.options('plugins', []));             // Apply plugins.
   readable('pages', this.resolve(                          // The pages we serve.
     this.options('pages', __dirname + '/pages'),
     this.transform) || []
@@ -411,10 +412,28 @@ Pipe.readable('find', function find(url, method) {
  * Add a new middleware layer which will run before any Page is executed.
  *
  * @param {Function} use The middleware.
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.readable('before', function before(use) {
   this.layers.push(use);
+
+  return this;
+});
+
+/**
+ * Run the plugins.
+ *
+ * @param {Array} plugins List of plugins.
+ * @returns {Pipe} fluent interface
+ * @api private
+ */
+Pipe.readable('pluggable', function pluggable(plugins) {
+  var pipe = this;
+
+  plugins.forEach(function plug(plugin) {
+    pipe.use(plugin);
+  });
 
   return this;
 });
@@ -705,13 +724,6 @@ Pipe.createServer = function createServer(port, options) {
 
   pipe.listen(port, function initialized(error) {
     if (error) throw error;
-
-    //
-    // Apply plugins if available.
-    //
-    if ('plugins' in options) {
-      options.plugins.map(pipe.bind(pipe.use));
-    }
   });
 
   return pipe;
@@ -720,7 +732,7 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = require('pagelet');
+Pipe.Pagelet = require('./pagelet');
 Pipe.Page = require('./page');
 
 //
