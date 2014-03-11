@@ -12,7 +12,7 @@ var debug = require('debug')('bigpipe:pagelet')
  * @param {String} name The name of the pagelet.
  * @api public
  */
-Pagelet.writable('enabled', function enabled(name) {
+Pagelet.readable('enabled', function enabled(name) {
   return this.page.enabled.some(function some(pagelet) {
     return pagelet.name === name;
   });
@@ -24,7 +24,7 @@ Pagelet.writable('enabled', function enabled(name) {
  * @param {String} name The name of the pagelet.
  * @api public
  */
-Pagelet.writable('disabled', function disabled(name) {
+Pagelet.readable('disabled', function disabled(name) {
   return this.page.disabled.some(function some(pagelet) {
     return pagelet.name === name;
   });
@@ -36,7 +36,7 @@ Pagelet.writable('disabled', function disabled(name) {
  * @type {Object}
  * @public
  */
-Pagelet.writable('params', {
+Pagelet.readable('params', {
   enumerable: false,
   get: function params() {
     return this.page.params;
@@ -49,7 +49,7 @@ Pagelet.writable('params', {
  * @param {Function} fn Completion callback.
  * @api private
  */
-Pagelet.writable('renderer', function renderer(fn) {
+Pagelet.readable('renderer', function renderer(fn) {
   var page = this.page
     , pagelet = this;
 
@@ -73,7 +73,7 @@ Pagelet.writable('renderer', function renderer(fn) {
  * @param {Object} options
  * @api private
  */
-Pagelet.writable('configure', function configure(options) {
+Pagelet.readable('init', function init(options) {
   options = options || {};
 
   this.pipe = options.page.pipe || options.pipe;

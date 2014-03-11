@@ -250,7 +250,7 @@ Page.readable('discover', function discover() {
   // use them during authorization.
   //
   pagelets = this.pagelets.map(function allocate(Pagelet) {
-    return Pagelet.freelist.alloc().configure({ page: page });
+    return Pagelet.freelist.alloc().init({ page: page });
   });
 
   //
@@ -648,7 +648,7 @@ Page.readable('get', function get(name) {
   // simply return it.
   //
   if ('function' !== typeof Pagelet) return Pagelet;
-  return Pagelet.freelist.alloc().configure({ page: this });
+  return Pagelet.freelist.alloc().init({ page: this });
 });
 
 /**
