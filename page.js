@@ -290,7 +290,7 @@ Page.readable('discover', function discover() {
 /**
  * Mode: sync
  * Output the pagelets fully rendered in the HTML template.
- * @TODO rewrite, not working against altered renderer.
+ * @TODO rewrite, not working against altered render.
  *
  * @param {Error} err Failed to process POST.
  * @param {Object} data Optional data from POST.
@@ -305,7 +305,7 @@ Page.readable('sync', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
-      pagelet.renderer(page.temper, page.write, next);
+      pagelet.render(page.temper, page.write, next);
     }, function done(err, data) {
       // @TODO handle errors
       page.enabled.forEach(function forEach(pagelet, index) {
@@ -343,7 +343,7 @@ Page.readable('async', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
-      pagelet.renderer(page.temper, page.write, next);
+      pagelet.render(page.temper, page.write, next);
     }, this.end.bind(this));
   });
 
