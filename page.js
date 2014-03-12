@@ -21,17 +21,6 @@ var Formidable = require('formidable').IncomingForm
 var operations = ['post', 'put'];
 
 /**
- * The fragment is actual chunk of the response that is written for each
- * pagelet.
- *
- * @type {String}
- * @private
- */
-var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8')
-  .split('\n')
-  .join('');
-
-/**
  * A simple object representation of a given page.
  *
  * @constructor
@@ -316,7 +305,7 @@ Page.readable('sync', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
-      pagelet.renderer(next);
+      pagelet.renderer(page.temper, page.write, next);
     }, function done(err, data) {
       // @TODO handle errors
       page.enabled.forEach(function forEach(pagelet, index) {
@@ -350,10 +339,11 @@ Page.readable('sync', function render(err, data) {
  */
 Page.readable('async', function render(err, data) {
   if (err) return this.end(err);
+  var page = this;
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
-      pagelet.renderer(next);
+      pagelet.renderer(page.temper, page.write, next);
     }, this.end.bind(this));
   });
 
@@ -506,14 +496,8 @@ Page.readable('end', function end(err) {
  * @param {Function} fn Optional callback to be called when data has been written.
  * @api private
  */
-Page.readable('write', function write(pagelet, data, fn) {
-  data = data || {};
-
-  var view = this.temper.fetch(pagelet.view).server
-    , frag = this.compiler.pagelet(pagelet)
-    , template;
-
-  this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
+Page.readable('write', function write(pagelet, fragment, fn) {
+  var frag = this.compiler.pagelet(pagelet);
 
   frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
   frag.id = pagelet.id;         // The internal id of the pagelet.
@@ -521,38 +505,14 @@ Page.readable('write', function write(pagelet, data, fn) {
   frag.processed = ++this.n;    // Amount of pagelets processed.
 
   //
-  // We've made it this far, but now we have to cross our fingers and HOPE that
-  // our given template can actually handle the data correctly without throwing
-  // an error. As the rendering is done synchronously, we wrap it in a try/catch
-  // statement and hope that an error is thrown when the template fails to
-  // render the content. If there's an error we will process the error template
-  // instead.
+  // If the response was closed, finished the async asap.
   //
-  try {
-    template = view(data);
-  } catch (e) {
-    //
-    // This is basically fly or die, if the supplied error template throws an
-    // error while rendering we're basically fucked, your server will crash,
-    // an angry mob of customers with pitchforks will kick in the doors of your
-    // office and smear you with peck and feathers for not writing a more stable
-    // application.
-    //
-    if (!pagelet.error) throw e;
-
-    template = this.temper.fetch(pagelet.error).server(this.merge(data, {
-      reason: 'Failed to render '+ pagelet.name +' as the template throws an error',
-      message: e.message,
-      stack: e.stack
-    }));
+  if (this.res.finished) {
+    return fn(new Error('Response was closed, unable to write Pagelet'));
   }
 
-  this.queue.push(
-    fragment
-      .replace(/\{pagelet::name\}/g, pagelet.name)
-      .replace(/\{pagelet::data\}/g, stringify(frag, sanitize))
-      .replace(/\{pagelet::template\}/g, template.replace('-->', ''))
-  );
+  this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
+  this.queue.push(fragment.replace(/\{pagelet::data\}/g, stringify(frag, sanitize)));
 
   if (fn) this.once('flush', fn);
   return this.flush();
