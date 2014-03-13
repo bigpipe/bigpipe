@@ -44,30 +44,6 @@ Pagelet.readable('params', {
 }, true);
 
 /**
- * Renderer takes care of all the data merging and `render` invocation.
- *
- * @param {Function} fn Completion callback.
- * @api private
- */
-Pagelet.readable('renderer', function renderer(fn) {
-  var page = this.page
-    , pagelet = this;
-
-  this.render(function receive(err, data) {
-    if (err) debug('rendering %s/%s resulted in a error', pagelet.name, pagelet.id, err);
-
-    //
-    // If the response was closed, finished the async asap.
-    //
-    if (page.res.finished) {
-      return fn(new Error('Response was closed, unable to write Pagelet'));
-    }
-
-    page.write(pagelet, data, fn);
-  });
-});
-
-/**
  * Add references to the page and pipe instance.
  *
  * @param {Object} options
