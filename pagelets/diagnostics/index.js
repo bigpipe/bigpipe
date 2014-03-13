@@ -4,11 +4,5 @@ var Pagelet = require('../..').Pagelet;
 
 Pagelet.extend({
   view: 'diagnostic.ejs',
-  css: 'diagnostic.styl',
-
-  render: function render(done) {
-    setTimeout(function () {
-      done();
-    }, 100);
-  }
+  css: 'diagnostic.styl'
 }).on(module);
