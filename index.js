@@ -58,7 +58,7 @@ function Pipe(server, options) {
   readable('domains', !!this.options('domain') && domain); // Use domains for each req.
   readable('statusCodes', Object.create(null));            // Stores error pages.
   readable('cache', this.options('cache', null));          // Enable URL lookup caching.
-  readable('temper', new Temper());                        // Template parser.
+  readable('temper', new Temper);                          // Template parser.
   readable('plugins', Object.create(null));                // Plugin storage.
   readable('layers', []);                                  // Middleware layer.
   readable('server', server);                              // HTTP server we work with.
