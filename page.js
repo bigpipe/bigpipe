@@ -301,14 +301,18 @@ Page.readable('sync', function render(err, data) {
   if (err) return this.end(err);
 
   var page = this
-    , base = '';
+    , base = ''
+    , data;
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
       page.debug('Invoking pagelet %s/%s\'s render', pagelet.name, pagelet.id);
 
+      data = page.compiler.pagelet(pagelet);
+      data.processed = ++page.n;
+
       pagelet.render({
-        data: stringify(page.compile(pagelet), sanitize),
+        data: stringify(data, sanitize),
         after: page.write,
         context: page
       }, next);
@@ -345,14 +349,18 @@ Page.readable('sync', function render(err, data) {
  */
 Page.readable('async', function render(err, data) {
   if (err) return this.end(err);
-  var page = this;
+  var page = this
+    , data;
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
       page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
 
+      data = page.compiler.pagelet(pagelet);
+      data.processed = ++page.n;
+
       pagelet.render({
-        data: stringify(page.compile(pagelet), sanitize),
+        data: stringify(data, sanitize),
         after: page.write,
         context: page
       }, next);
@@ -365,24 +373,6 @@ Page.readable('async', function render(err, data) {
   return this.debug('Rendering the pagelets in `async` mode');
 });
 
-/**
- * Compile data from the pagelet.
- *
- * @param {Pagelet} pagelet Pagelet instance.
- * @returns {Object} compiled data from the Pagelet.
- * @api private
- */
-Page.readable('compile', function compile(pagelet) {
-  this.debug('Compiling data from pagelet %s/%s', pagelet.name, pagelet.id);
-  var frag = this.compiler.pagelet(pagelet);
-
-  frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
-  frag.id = pagelet.id;         // The internal id of the pagelet.
-  frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
-  frag.processed = ++this.n;    // Amount of pagelets processed.
-
-  return frag;
-})
 
 /**
  * Mode: pipeline
