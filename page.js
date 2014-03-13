@@ -305,7 +305,11 @@ Page.readable('sync', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
-      pagelet.render({ after: page.write, context: page }, next);
+      pagelet.render({
+        data: stringify(page.compile(pagelet), sanitize),
+        after: page.write,
+        context: page
+      }, next);
     }, function done(err, data) {
       // @TODO handle errors
       page.enabled.forEach(function forEach(pagelet, index) {
@@ -343,7 +347,11 @@ Page.readable('async', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
-      pagelet.render({ after: page.write, context: page }, next);
+      pagelet.render({
+        data: stringify(page.compile(pagelet), sanitize),
+        after: page.write,
+        context: page
+      }, next);
     }, this.end.bind(this));
   });
 
@@ -352,6 +360,24 @@ Page.readable('async', function render(err, data) {
 
   return this.debug('Rendering the pagelets in `async` mode');
 });
+
+/**
+ * Compile data from the pagelet.
+ *
+ * @param {Pagelet} pagelet Pagelet instance.
+ * @returns {Object} compiled data from the Pagelet.
+ * @api private
+ */
+Page.readable('compile', function compile(pagelet) {
+  var frag = this.compiler.pagelet(pagelet);
+
+  frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
+  frag.id = pagelet.id;         // The internal id of the pagelet.
+  frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
+  frag.processed = ++this.n;    // Amount of pagelets processed.
+
+  return frag;
+})
 
 /**
  * Mode: pipeline
@@ -491,19 +517,11 @@ Page.readable('end', function end(err) {
 /**
  * Process the pagelet for an async or pipeline based render flow.
  *
- * @param {Pagelet} pagelet Pagelet instance.
- * @param {Mixed} data The data returned from Pagelet.render().
+ * @param {Mixed} fragment Content returned from Pagelet.render().
  * @param {Function} fn Optional callback to be called when data has been written.
  * @api private
  */
-Page.readable('write', function write(pagelet, fragment, fn) {
-  var frag = this.compiler.pagelet(pagelet);
-
-  frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
-  frag.id = pagelet.id;         // The internal id of the pagelet.
-  frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
-  frag.processed = ++this.n;    // Amount of pagelets processed.
-
+Page.readable('write', function write(fragment, fn) {
   //
   // If the response was closed, finished the async asap.
   //
@@ -512,7 +530,7 @@ Page.readable('write', function write(pagelet, fragment, fn) {
   }
 
   this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
-  this.queue.push(fragment.replace(/\{pagelet::data\}/g, stringify(frag, sanitize)));
+  this.queue.push(fragment);
 
   if (fn) this.once('flush', fn);
   return this.flush();
