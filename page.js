@@ -305,6 +305,8 @@ Page.readable('sync', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
+      page.debug('Invoking pagelet %s/%s\'s render', pagelet.name, pagelet.id);
+
       pagelet.render({
         data: stringify(page.compile(pagelet), sanitize),
         after: page.write,
@@ -347,6 +349,8 @@ Page.readable('async', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
+      page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
+
       pagelet.render({
         data: stringify(page.compile(pagelet), sanitize),
         after: page.write,
@@ -369,6 +373,7 @@ Page.readable('async', function render(err, data) {
  * @api private
  */
 Page.readable('compile', function compile(pagelet) {
+  this.debug('Compiling data from pagelet %s/%s', pagelet.name, pagelet.id);
   var frag = this.compiler.pagelet(pagelet);
 
   frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
@@ -523,13 +528,13 @@ Page.readable('end', function end(err) {
  */
 Page.readable('write', function write(fragment, fn) {
   //
-  // If the response was closed, finished the async asap.
+  // If the response was closed, do not attempt to write anything anymore.
   //
   if (this.res.finished) {
     return fn(new Error('Response was closed, unable to write Pagelet'));
   }
 
-  this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
+  this.debug('Writing pagelet\'s response');
   this.queue.push(fragment);
 
   if (fn) this.once('flush', fn);
