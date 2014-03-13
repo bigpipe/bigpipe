@@ -290,7 +290,6 @@ Page.readable('discover', function discover() {
 /**
  * Mode: sync
  * Output the pagelets fully rendered in the HTML template.
- * @TODO rewrite, not working against altered render.
  *
  * @param {Error} err Failed to process POST.
  * @param {Object} data Optional data from POST.
