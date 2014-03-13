@@ -306,7 +306,7 @@ Page.readable('sync', function render(err, data) {
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
-      page.debug('Invoking pagelet %s/%s\'s render', pagelet.name, pagelet.id);
+      page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
 
       data = page.compiler.pagelet(pagelet);
       data.processed = ++page.n;
