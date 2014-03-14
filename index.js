@@ -48,38 +48,59 @@ var trailers = require('trailers');
 function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
 
-  options = options || {};
+  options = configure(options || {});
 
   var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
     , readable = Pipe.predefine(this);
 
-  writable('_events', Object.create(null));                // Stores the events.
-  readable('options', configure(options));                 // Configure options.
-  readable('domains', !!this.options('domain') && domain); // Use domains for each req.
-  readable('statusCodes', Object.create(null));            // Stores error pages.
-  readable('cache', this.options('cache', null));          // Enable URL lookup caching.
-  readable('temper', new Temper());                        // Template parser.
-  readable('plugins', Object.create(null));                // Plugin storage.
-  readable('layers', []);                                  // Middleware layer.
-  readable('server', server);                              // HTTP server we work with.
+  //
+  // This is the only writable property as the EventEmitter might set
+  // a completely fresh object.
+  //
+  writable('_events', Object.create(null));
 
+  //
+  // Constants and properties that should never be overriden.
+  //
+  readable('domains', !!options('domain') && domain); // Use domains for each req.
+  readable('cache', options('cache', false));         // Enable URL lookup caching.
+  readable('statusCodes', Object.create(null));       // Stores error pages.
+  readable('plugins', Object.create(null));           // Plugin storage.
+  readable('options', options);                       // Configure options.
+  readable('temper', new Temper());                   // Template parser.
+  readable('server', server);                         // HTTP server we work with.
+  readable('layers', []);                             // Middleware layer.
+
+  //
+  // Setup our real-time server
+  //
   readable('primus', new Primus(this.server, {
-    transformer: this.options('transport', 'websockets'),  // Real-time framework to use.
-    pathname: this.options('pathname', '/pagelets'),       // Primus pathname.
-    parser: this.options('parser', 'json'),                // Message parser.
+    transformer: options('transport', 'websockets'),  // Real-time framework to use.
+    pathname: options('pathname', '/pagelets'),       // Primus pathname.
+    parser: options('parser', 'json'),                // Message parser.
     plugin: {
-      substream: require('substream')                      // Volatile name spacing.
+      substream: require('substream'),                // Volatile name spacing.
+      sparkplug: require('sparkplug')                 // Spark management.
     }
   }));
 
-  readable('compiler', new Compiler(                       // Asset compiler.
-    this.options('dist', path.join(process.cwd(), 'dist')), this, {
-      pathname: this.options('static', '/')
+  //
+  // Setup the asset compiler before the pages are discovered as they will need
+  // to hook in to the compiler to register all assets that are loaded from
+  // pagelets.
+  //
+  readable('compiler', new Compiler(
+    options('dist', path.join(process.cwd(), 'dist')), this, {
+      pathname: options('static', '/')
   }));
 
-  this.pluggable(this.options('plugins', []));             // Apply plugins.
-  readable('pages', this.resolve(                          // The pages we serve.
-    this.options('pages', __dirname + '/pages'),
+  //
+  // Apply the plugins before resolving and transforming the pages so the
+  // plugins can hook in to our optimization and transformation process.
+  //
+  this.pluggable(options('plugins', []));
+  readable('pages', this.resolve(
+    options('pages', __dirname + '/pages'),
     this.transform) || []
   );
 
@@ -114,7 +135,7 @@ function configure(obj) {
  * The current version of the library.
  *
  * @type {String}
- * @api public
+ * @public
  */
 Pipe.readable('version', require(__dirname +'/package.json').version);
 
@@ -129,6 +150,11 @@ Pipe.readable('version', require(__dirname +'/package.json').version);
 Pipe.readable('listen', function listen(port, done) {
   var pipe = this;
 
+  //
+  // Find all assets and compile them before we start listening to the server as
+  // we don't want to serve un-compiled assets. And we should only start
+  // listening on the server once we're actually ready to respond to requests.
+  //
   pipe.compiler.catalog(this.pages, function init(error) {
     if (error) return done(error);
 
