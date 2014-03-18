@@ -78,6 +78,8 @@ function Pipe(server, options) {
   }));
 
   this.pluggable(this.options('plugins', []));             // Apply plugins.
+  this.use(require('./plugins/pagelet'));                  // Extend Pagelet via plugin.
+
   readable('pages', this.resolve(                          // The pages we serve.
     this.options('pages', __dirname + '/pages'),
     this.transform) || []
@@ -732,7 +734,7 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = require('./pagelet');
+Pipe.Pagelet = require('pagelet');
 Pipe.Page = require('./page');
 
 //
