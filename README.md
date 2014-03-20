@@ -43,6 +43,8 @@ Event                 | Usage       | Location      | Description
 `transform::page`     | public      | server        | Transform a Page
 `listening`           | public      | server        | The server is listening
 `error`               | public      | server        | The HTTP serer received an error
+`pagelet::configure`  | public      | server        | A new pagelet has been configured
+`page::configure`     | public      | server        | A new page has been configured
 
 ### Debugging
 

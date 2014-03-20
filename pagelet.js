@@ -57,6 +57,11 @@ module.exports = function sugar(Pagelet) {
     this.pipe = options.page.pipe || options.pipe;
     this.page = options.page;
 
+    //
+    // Emit a pagelet configuration event so plugins can hook in to this.
+    //
+    this.pipe.emit('pagelet::configure', this);
+
     return this;
   });
 

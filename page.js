@@ -28,8 +28,8 @@ var operations = ['post', 'put'];
  * @api public
  */
 function Page(pipe) {
-  var writable = Page.predefine(this, Page.predefine.WRITABLE)
-    , readable = Page.predefine(this);
+  var writable = this.writable = Page.predefine(this, Page.predefine.WRITABLE)
+    , readable = this.readable = Page.predefine(this);
 
   readable('temper', pipe.temper);            // Reference to our template composer.
   readable('compiler', pipe.compiler);        // Asset management.
@@ -305,8 +305,7 @@ Page.readable('sync', function render(err, data) {
   if (err) return this.end(err);
 
   var page = this
-    , base = ''
-    , data;
+    , base = '';
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
@@ -353,8 +352,8 @@ Page.readable('sync', function render(err, data) {
  */
 Page.readable('async', function render(err, data) {
   if (err) return this.end(err);
-  var page = this
-    , data;
+
+  var page = this;
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
@@ -775,6 +774,11 @@ Page.readable('configure', function configure(req, res) {
 
   this.req = req;
   this.res = res;
+
+  //
+  // Emit a page configuration event so plugins can hook in to this.
+  //
+  this.pipe.emit('page::configure', this);
 
   //
   // If we have a `no_pagelet_js` flag, we should force a different
