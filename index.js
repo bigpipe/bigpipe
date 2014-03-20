@@ -50,8 +50,8 @@ function Pipe(server, options) {
 
   options = configure(options || {});
 
-  var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
-    , readable = Pipe.predefine(this);
+  var writable = this.writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
+    , readable = this.readable = Pipe.predefine(this);
 
   //
   // This is the only writable property as the EventEmitter might set
