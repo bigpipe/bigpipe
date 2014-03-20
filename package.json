@@ -25,7 +25,7 @@
     "pipe.js": "~0.0.3",
     "primus": "~1.5.2",
     "routable": "0.0.2",
-    "smithy": "~0.3.1",
+    "smithy": "~0.4.0",
     "substream": "~0.0.2",
     "temper": "~0.1.4",
     "trailers": "~0.0.1",
