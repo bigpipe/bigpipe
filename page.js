@@ -5,6 +5,7 @@ var Formidable = require('formidable').IncomingForm
   , debug = require('debug')('bigpipe:page')
   , FreeList = require('freelist').FreeList
   , sanitize = require('./lib/sanitize')
+  , wrap = require('./pagelet')
   , qs = require('querystring')
   , Route = require('routable')
   , async = require('async')
@@ -19,17 +20,6 @@ var Formidable = require('formidable').IncomingForm
  * @api private
  */
 var operations = ['post', 'put'];
-
-/**
- * The fragment is actual chunk of the response that is written for each
- * pagelet.
- *
- * @type {String}
- * @private
- */
-var fragment = fs.readFileSync(__dirname +'/pagelet.fragment', 'utf-8')
-  .split('\n')
-  .join('');
 
 /**
  * A simple object representation of a given page.
@@ -229,7 +219,11 @@ Page.readable('redirect', function redirect(location, status, options) {
   this.res.statusCode = +status || 301;
   this.res.setHeader('Location', location);
 
+  //
+  // Instruct browsers to not cache the redirect.
+  //
   if (options.cache === false) {
+    this.res.setHeader('Pragma', 'no-cache');
     this.res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
     this.res.setHeader('Cache-Control', [
       'no-store', 'no-cache', 'must-revalidate', 'post-check=0', 'pre-check=0'
@@ -301,7 +295,6 @@ Page.readable('discover', function discover() {
 /**
  * Mode: sync
  * Output the pagelets fully rendered in the HTML template.
- * @TODO rewrite, not working against altered renderer.
  *
  * @param {Error} err Failed to process POST.
  * @param {Object} data Optional data from POST.
@@ -312,11 +305,21 @@ Page.readable('sync', function render(err, data) {
   if (err) return this.end(err);
 
   var page = this
-    , base = '';
+    , base = ''
+    , data;
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
-      pagelet.renderer(next);
+      page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
+
+      data = page.compiler.pagelet(pagelet);
+      data.processed = ++page.n;
+
+      pagelet.render({
+        data: stringify(data, sanitize),
+        after: page.write,
+        context: page
+      }, next);
     }, function done(err, data) {
       // @TODO handle errors
       page.enabled.forEach(function forEach(pagelet, index) {
@@ -350,10 +353,21 @@ Page.readable('sync', function render(err, data) {
  */
 Page.readable('async', function render(err, data) {
   if (err) return this.end(err);
+  var page = this
+    , data;
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
-      pagelet.renderer(next);
+      page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
+
+      data = page.compiler.pagelet(pagelet);
+      data.processed = ++page.n;
+
+      pagelet.render({
+        data: stringify(data, sanitize),
+        after: page.write,
+        context: page
+      }, next);
     }, this.end.bind(this));
   });
 
@@ -362,6 +376,7 @@ Page.readable('async', function render(err, data) {
 
   return this.debug('Rendering the pagelets in `async` mode');
 });
+
 
 /**
  * Mode: pipeline
@@ -501,58 +516,20 @@ Page.readable('end', function end(err) {
 /**
  * Process the pagelet for an async or pipeline based render flow.
  *
- * @param {Pagelet} pagelet Pagelet instance.
- * @param {Mixed} data The data returned from Pagelet.render().
+ * @param {Mixed} fragment Content returned from Pagelet.render().
  * @param {Function} fn Optional callback to be called when data has been written.
  * @api private
  */
-Page.readable('write', function write(pagelet, data, fn) {
-  data = data || {};
-
-  var view = this.temper.fetch(pagelet.view).server
-    , frag = this.compiler.pagelet(pagelet)
-    , template;
-
-  this.debug('Writing pagelet %s/%s\'s response', pagelet.name, pagelet.id);
-
-  frag.remove = pagelet.remove; // Does the front-end need to remove the pagelet.
-  frag.id = pagelet.id;         // The internal id of the pagelet.
-  frag.rpc = pagelet.RPC;       // RPC methods from the pagelet.
-  frag.processed = ++this.n;    // Amount of pagelets processed.
-
+Page.readable('write', function write(fragment, fn) {
   //
-  // We've made it this far, but now we have to cross our fingers and HOPE that
-  // our given template can actually handle the data correctly without throwing
-  // an error. As the rendering is done synchronously, we wrap it in a try/catch
-  // statement and hope that an error is thrown when the template fails to
-  // render the content. If there's an error we will process the error template
-  // instead.
+  // If the response was closed, do not attempt to write anything anymore.
   //
-  try {
-    template = view(data);
-  } catch (e) {
-    //
-    // This is basically fly or die, if the supplied error template throws an
-    // error while rendering we're basically fucked, your server will crash,
-    // an angry mob of customers with pitchforks will kick in the doors of your
-    // office and smear you with peck and feathers for not writing a more stable
-    // application.
-    //
-    if (!pagelet.error) throw e;
-
-    template = this.temper.fetch(pagelet.error).server(this.merge(data, {
-      reason: 'Failed to render '+ pagelet.name +' as the template throws an error',
-      message: e.message,
-      stack: e.stack
-    }));
+  if (this.res.finished) {
+    return fn(new Error('Response was closed, unable to write Pagelet'));
   }
 
-  this.queue.push(
-    fragment
-      .replace(/\{pagelet::name\}/g, pagelet.name)
-      .replace(/\{pagelet::data\}/g, stringify(frag, sanitize))
-      .replace(/\{pagelet::template\}/g, template.replace('-->', ''))
-  );
+  this.debug('Writing pagelet\'s response');
+  this.queue.push(fragment);
 
   if (fn) this.once('flush', fn);
   return this.flush();
@@ -948,7 +925,7 @@ Page.optimize = function optimize(pipe) {
       Page.prototype.pagelets = pipe.resolve(
         Page.prototype.pagelets,
         function map(Pagelet) {
-          return Pagelet.optimize(pipe.temper, pipe.emits('transform::pagelet'));
+          return wrap(Pagelet.optimize(pipe.emits('transform::pagelet')));
         }
       );
     }

@@ -758,7 +758,7 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = require('./pagelet');
+Pipe.Pagelet = require('pagelet');
 Pipe.Page = require('./page');
 
 //

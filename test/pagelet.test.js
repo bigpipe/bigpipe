@@ -1,7 +1,7 @@
 describe('Pagelet', function () {
   'use strict';
 
-  var Pagelet = require('../pagelet').extend({ name: 'test' })
+  var Pagelet = require('../pagelet')(require('pagelet').extend({ name: 'test' }))
     , common = require('./common')
     , expect = common.expect
     , page, pagelet;
