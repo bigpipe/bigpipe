@@ -22,7 +22,7 @@
     "json-stringify-safe": "~5.0.0",
     "mkdirp": "~0.3.5",
     "pagelet": "~0.1.0",
-    "pipe.js": "~0.0.0",
+    "pipe.js": "~0.0.3",
     "primus": "~1.5.2",
     "routable": "0.0.2",
     "smithy": "~0.3.1",
