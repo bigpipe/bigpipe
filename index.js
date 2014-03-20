@@ -79,8 +79,7 @@ function Pipe(server, options) {
     pathname: options('pathname', '/pagelets'),       // Primus pathname.
     parser: options('parser', 'json'),                // Message parser.
     plugin: {
-      substream: require('substream'),                // Volatile name spacing.
-      sparkplug: require('sparkplug')                 // Spark management.
+      substream: require('substream')                 // Volatile name spacing.
     }
   }));
 
@@ -95,6 +94,13 @@ function Pipe(server, options) {
   }));
 
   //
+  // Add our default middleware layers, this needs to be done before we
+  // initialise or add plugins as we want to make sure that OUR middleware is
+  // loaded first as it's the most important (at least, in our opinion).
+  //
+  this.before('compiler', this.compiler.serve);
+
+  //
   // Apply the plugins before resolving and transforming the pages so the
   // plugins can hook in to our optimization and transformation process.
   //
@@ -104,6 +110,10 @@ function Pipe(server, options) {
     this.transform) || []
   );
 
+  //
+  // Finally, now that everything has been setup we can discover the pagelets
+  // that we need serve from our server.
+  //
   this.discover(this.pages);
 }
 
@@ -435,16 +445,104 @@ Pipe.readable('find', function find(url, method) {
 });
 
 /**
- * Add a new middleware layer which will run before any Page is executed.
+ * Add a new middleware layer. If no middleware name has been provided we will
+ * attempt to take the name of the supplied function. If that fails, well fuck,
+ * just random id it.
  *
- * @param {Function} use The middleware.
- * @returns {Pipe} fluent interface
- * @api private
+ * @param {String} name The name of the middleware.
+ * @param {Function} fn The middleware that's called each time.
+ * @param {Object} options Middleware configuration.
+ * @returns {Pipe}
+ * @api public
  */
-Pipe.readable('before', function before(use) {
-  this.layers.push(use);
+Pipe.readable('before', function before(name, fn, options) {
+  if ('function' === typeof name) {
+    options = fn;
+    fn = name;
+    name = fn.name || 'pid_'+ Date.now();
+  }
+
+  options = options || {};
+
+  //
+  // No or only 1 argument means that we need to initialise the middleware, this
+  // is a special initialisation process where we pass in a reference to the
+  // initialised Pipe instance so a pre-compiling process can be done.
+  //
+  if (fn.length < 2) fn = fn.call(this, options);
+
+  var layer = {
+    length: fn.length,                // Amount of arguments indicates if it's a sync
+    enabled: true,                    // Middleware is enabled by default.
+    name: name,                       // Used for lookups.
+    fn: fn                            // The actual middleware.
+  }, index = this.indexOfLayer(name);
+
+  //
+  // Override middleware layers if we already have a middleware layer with
+  // exactly the same name.
+  //
+  if (!~index) this.layers.push(layer);
+  else this.layers[index] = layer;
 
   return this;
+});
+
+/**
+ * Remove a middleware layer from the stack.
+ *
+ * @param {String} name The name of the middleware.
+ * @returns {Pipe}
+ * @api public
+ */
+Pipe.readable('remove', function remove(name) {
+  var index = this.indexOfLayer(name);
+
+  if (~index) this.layers.splice(index, 1);
+  return this;
+});
+
+/**
+ * Enable a given middleware layer.
+ *
+ * @param {String} name The name of the middleware.
+ * @returns {Pipe}
+ * @api public
+ */
+Pipe.readable('enable', function enable(name) {
+  var index = this.indexOfLayer(name);
+
+  if (~index) this.layers[index].enabled = true;
+  return this;
+});
+
+/**
+ * Disable a given middleware layer.
+ *
+ * @param {String} name The name of the middleware.
+ * @returns {Pipe}
+ * @api public
+ */
+Pipe.readable('disable', function disable(name) {
+  var index = this.indexOfLayer(name);
+
+  if (~index) this.layers[index].enabled = false;
+  return this;
+});
+
+/**
+ * Find the index of a given middleware layer by name.
+ *
+ * @param {String} name The name of the layer.
+ * @returns {Number}
+ * @api private
+ */
+Pipe.readable('indexOfLayer', function indexOfLayer(name) {
+  for (var i = 0, length = this.layers.length; i < length; i++) {
+    if (this.layers[i].name === name) return i;
+  }
+
+  return -1;
 });
 
 /**
@@ -476,13 +574,6 @@ Pipe.readable('pluggable', function pluggable(plugins) {
 Pipe.readable('dispatch', function dispatch(req, res) {
   this.decorate(req, res);
 
-  //
-  // Check if these are assets that need to be served from the compiler.
-  //
-  if (this.compiler.serve(req, res)) {
-    return debug('asset compiler answered %s', req.url);
-  }
-
   var pages = this.find(req.uri.pathname, req.method)
     , pipe = this;
 
@@ -491,42 +582,6 @@ Pipe.readable('dispatch', function dispatch(req, res) {
   // page
   //
   pages.push(this.statusCodes[404]);
-
-  /**
-   * Iterates over the different pages that matched this route to figure out
-   * which one of them we're allowed to process.
-   *
-   * @param {Function} done Completion callback
-   * @api private
-   */
-  function iterate(done) {
-    var constructor = pages.shift()
-      , freelist = constructor.freelist
-      , page = freelist.alloc();
-
-    debug('iterating over pages for %s testing %s atm', req.url, page.path);
-
-    //
-    // Make sure we parse out all the params from the URL.
-    //
-    page.params = constructor.router.exec(req.uri.pathname) || {};
-
-    if ('function' === typeof page.authorize) {
-      page.res = res;   // and the response, needed for plugins.
-      page.req = req;   // Configure the request.
-
-      return page.authorize(req, function authorize(allowed) {
-        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
-        if (allowed) return done(undefined, page);
-
-        debug('%s - %s is released to the freelist', page.method, page.path);
-        freelist.free(page);
-        iterate(done);
-      });
-    }
-
-    done(undefined, page);
-  }
 
   /**
    * We've found a matching route, process the page.
@@ -567,12 +622,74 @@ Pipe.readable('dispatch', function dispatch(req, res) {
     }
   }
 
+  return this.forEach(req, res, function iterate() {
+    var constructor = pages.shift()
+      , freelist = constructor.freelist
+      , page = freelist.alloc();
+
+    debug('iterating over pages for %s testing %s atm', req.url, page.path);
+
+    //
+    // Make sure we parse out all the params from the URL.
+    //
+    page.params = constructor.router.exec(req.uri.pathname) || {};
+
+    if ('function' === typeof page.authorize) {
+      page.res = res;   // and the response, needed for plugins.
+      page.req = req;   // Configure the request.
+
+      return page.authorize(req, function authorize(allowed) {
+        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
+        if (allowed) return completed(undefined, page);
+
+        debug('%s - %s is released to the freelist', page.method, page.path);
+        freelist.free(page);
+        iterate(completed);
+      });
+    }
+
+    completed(undefined, page);
+  });
+});
+
+/**
+ * Iterate all the middleware layers that we're set on our Pipe instance.
+ *
+ * @param {Request} req HTTP request.
+ * @param {Response} res HTTP response.
+ * @param {Function} next Continuation callback.
+ * @api private
+ */
+Pipe.readable('forEach', function forEach(req, res, next) {
+  var layers = this.layers
+    , pipe = this;
+
+  if (!layers.length) {
+    next();
+    return this;
+  }
+
   //
-  // Run middleware layers first, after iterate pages and run page#configure.
+  // Async or sync call the middleware layer.
   //
-  async.eachSeries(this.layers, function middleware(layer, next) {
-    layer.call(pipe, req, res, next);
-  }, iterate.bind(pipe, completed));
+  (function iterate(index) {
+    var layer = layers[index++];
+
+    if (!layer) return next();
+    if (!layer.enabled) return iterate(index);
+
+    if (layer.length === 2) {
+      if (layer.fn.call(pipe, req, res) === undefined) {
+        return iterate(index);
+      }
+    } else {
+      layer.fn.call(pipe, req, res, function done(err) {
+        if (err) return next(err);
+
+        iterate(index);
+      });
+    }
+  }(0));
 
   return this;
 });
