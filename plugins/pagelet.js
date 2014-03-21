@@ -52,16 +52,21 @@ exports.server = function (pipe) {
     }, true);
 
     /**
+     * Add a reference to our the pipe that initialised the Pagelet.
+     *
+     * @type {Pipe}
+     * @public
+     */
+    Pagelet.readable('pipe', pipe);
+
+    /**
      * Add references to the page and pipe instance.
      *
      * @param {Object} options
      * @api private
      */
     Pagelet.readable('init', function init(options) {
-      options = options || {};
-
-      this.pipe = options.page.pipe || options.pipe;
-      this.page = options.page;
+      this.page = (options || {}).page;
 
       return this;
     });
