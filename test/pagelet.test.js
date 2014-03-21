@@ -1,10 +1,16 @@
-describe('Pagelet', function () {
+describe('Pagelet plugin', function () {
   'use strict';
 
-  var Pagelet = require('../pagelet')(require('pagelet').extend({ name: 'test' }))
+  var EventEmitter = require('events').EventEmitter
+    , Pagelet = require('pagelet').extend({ name: 'test' })
+    , plugin = require('../plugins/pagelet')
     , common = require('./common')
     , expect = common.expect
+    , ee = new EventEmitter
     , page, pagelet;
+
+  plugin.server(ee);
+  ee.emit('transform::pagelet', Pagelet);
 
   beforeEach(function () {
     page = {};

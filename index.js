@@ -127,6 +127,8 @@ function Pipe(server, options) {
   // plugins can hook in to our optimization and transformation process.
   //
   this.pluggable(options('plugins', []));
+  this.use(require('./plugins/pagelet'));
+
   readable('pages', this.resolve(
     options('pages', __dirname + '/pages'),
     this.transform) || []
