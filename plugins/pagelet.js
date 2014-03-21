@@ -12,7 +12,7 @@ exports.name = 'wrap-pagelet';
 //
 exports.server = function (pipe) {
   pipe.on('transform::pagelet', function transform(Pagelet) {
-    debug('Transforming base Pagelet with methods for BigPipe functionality');
+    debug('Transforming Pagelet %s for BigPipe functionality', Pagelet.prototype.name);
 
     /**
      * Check if the given pagelet has been enabled for the page.
