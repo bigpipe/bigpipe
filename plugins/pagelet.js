@@ -68,6 +68,12 @@ exports.server = function (pipe) {
     Pagelet.readable('init', function init(options) {
       this.page = (options || {}).page;
 
+      //
+      // Emit a pagelet configuration event so plugins can hook in to this
+      // event.
+      //
+      this.pipe.emit('paglet::configure', this);
+
       return this;
     });
   });
