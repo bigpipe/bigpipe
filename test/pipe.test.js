@@ -175,38 +175,6 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#decorate', function () {
-    function url() {
-      return {
-        url: '/foo/bar?bar=baz'
-      };
-    }
-
-    it('parses the url', function () {
-      var req = url();
-      app.decorate(req);
-
-      expect(req.uri).to.be.an('object');
-      expect(req.uri.pathname).to.be.a('string');
-      expect(req.uri.query).to.be.a('object');
-    });
-
-    it('adds a pointless originalUrl for connect compatiblity', function () {
-      var req = url();
-      app.decorate(req);
-
-      expect(req.url).to.equal(req.originalUrl);
-    });
-
-    it('parses the query string', function () {
-      var req = url();
-      app.decorate(req);
-
-      expect(req.query).to.equal(req.uri.query);
-      expect(req.query.bar).to.equal('baz');
-    });
-  });
-
   describe('#resolve', function () {
     it('omits any directories from the read of the pages directory', function () {
       app = new Pipe(server, {

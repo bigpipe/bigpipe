@@ -25,6 +25,28 @@ catch (e) {}
 var trailers = require('trailers');
 
 /**
+ * Queryable options with merge and fallback functionality.
+ *
+ * @param {Object} obj
+ * @returns {Function}
+ * @api private
+ */
+function configure(obj) {
+  function get(key, backup) {
+    return key in obj ? obj[key] : backup;
+  }
+
+  //
+  // Allow new options to be be merged in against the original object.
+  //
+  get.merge = function merge(properties) {
+    return Pipe.predefine.merge(obj, properties);
+  };
+
+  return get;
+}
+
+/**
  * Our pagelet management.
  *
  * The following options are available:
@@ -118,28 +140,6 @@ function Pipe(server, options) {
 }
 
 fuse(Pipe, require('eventemitter3'));
-
-/**
- * Queryable options with merge and fallback functionality.
- *
- * @param {Object} obj
- * @returns {Function}
- * @api private
- */
-function configure(obj) {
-  function get(key, backup) {
-    return key in obj ? obj[key] : backup;
-  }
-
-  //
-  // Allow new options to be be merged in against the original object.
-  //
-  get.merge = function merge(properties) {
-    return Pipe.predefine.merge(obj, properties);
-  };
-
-  return get;
-}
 
 /**
  * The current version of the library.
@@ -277,7 +277,7 @@ Pipe.readable('resolve', function resolve(files, transform) {
   }, this).filter(Boolean);
 
   return transform
-    ? files.map(transform.bind(this))
+    ? files.map(transform, this)
     : files;
 });
 
@@ -445,6 +445,19 @@ Pipe.readable('find', function find(url, method) {
 });
 
 /**
+ * Search a Page instance based on the supplied id.
+ *
+ * @param {String} id The unique id of a given Page.
+ * @returns {Page}
+ * @api public
+ */
+Pipe.readable('id', function byId(id) {
+  for (var i = 0, length = this.pages.length; i < length; i++) {
+    if (this.pages[i].id === id) return this.pages[i];
+  }
+});
+
+/**
  * Add a new middleware layer. If no middleware name has been provided we will
  * attempt to take the name of the supplied function. If that fails, well fuck,
  * just random id it.
@@ -572,7 +585,13 @@ Pipe.readable('pluggable', function pluggable(plugins) {
  * @api private
  */
 Pipe.readable('dispatch', function dispatch(req, res) {
-  this.decorate(req, res);
+  req.uri = req.uri || url.parse(req.url, true);
+  req.query = req.query || req.uri.query || {};
+
+  //
+  // Add some silly HTTP properties for connect.js compatibility.
+  //
+  req.originalUrl = req.url;
 
   var pages = this.find(req.uri.pathname, req.method)
     , pipe = this;
@@ -695,31 +714,6 @@ Pipe.readable('forEach', function forEach(req, res, next) {
 });
 
 /**
- * Decorate the request object with some extensions.
- *
- * @param {Request} req HTTP request.
- * @param {Response} res HTTP response.
- * @api private
- */
-Pipe.readable('decorate', function decorate(req, res) {
-  req.uri = req.uri || url.parse(req.url, true);
-  req.query = req.query || req.uri.query || {};
-
-  //
-  // Add some silly HTTP properties for connect.js compatibility.
-  //
-  req.originalUrl = req.url;
-});
-
-/**
- * Handle incoming real-time requests.
- *
- * @param {Spark} spark A real-time "socket".
- * @api private
- */
-Pipe.readable('connection', require('./primus'));
-
-/**
  * Register a new plugin.
  *
  * ```js
@@ -792,6 +786,14 @@ Pipe.readable('use', function use(name, plugin) {
 
   return this;
 });
+
+/**
+ * Handle incoming real-time requests.
+ *
+ * @param {Spark} spark A real-time "socket".
+ * @api private
+ */
+Pipe.readable('connection', require('./primus'));
 
 /**
  * Create a new Pagelet/Pipe server.
