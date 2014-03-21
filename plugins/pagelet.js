@@ -13,6 +13,23 @@ exports.name = 'wrap-pagelet';
 exports.server = function (pipe) {
   pipe.on('transform::pagelet', function transform(Pagelet) {
     debug('Transforming base Pagelet with methods for BigPipe functionality');
+    if (Pagelet.prototype.___bigPiped === true) return;
+
+    /**
+     * Prevent double processing.
+     *
+     * @type {Boolean}
+     * @private
+     */
+    Pagelet.readable('__bigPiped', true);
+
+    /**
+     * Add a reference to our the pipe that initialised the Pagelet.
+     *
+     * @type {Pipe}
+     * @public
+     */
+    Pagelet.readable('pipe', pipe);
 
     /**
      * Check if the given pagelet has been enabled for the page.
@@ -50,14 +67,6 @@ exports.server = function (pipe) {
         return this.page.params;
       }
     }, true);
-
-    /**
-     * Add a reference to our the pipe that initialised the Pagelet.
-     *
-     * @type {Pipe}
-     * @public
-     */
-    Pagelet.readable('pipe', pipe);
 
     /**
      * Add references to the page and pipe instance.
