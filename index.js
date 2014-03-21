@@ -78,6 +78,8 @@ function Pipe(server, options) {
   }));
 
   this.pluggable(this.options('plugins', []));             // Apply plugins.
+  this.use(require('./plugins/pagelet'));                  // Extend Pagelet via plugin.
+
   readable('pages', this.resolve(                          // The pages we serve.
     this.options('pages', __dirname + '/pages'),
     this.transform) || []

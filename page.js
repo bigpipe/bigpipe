@@ -5,7 +5,6 @@ var Formidable = require('formidable').IncomingForm
   , debug = require('debug')('bigpipe:page')
   , FreeList = require('freelist').FreeList
   , sanitize = require('./lib/sanitize')
-  , wrap = require('./pagelet')
   , qs = require('querystring')
   , Route = require('routable')
   , async = require('async')
@@ -925,7 +924,7 @@ Page.optimize = function optimize(pipe) {
       Page.prototype.pagelets = pipe.resolve(
         Page.prototype.pagelets,
         function map(Pagelet) {
-          return wrap(Pagelet.optimize(pipe.emits('transform::pagelet')));
+          return Pagelet.optimize(pipe.emits('transform::pagelet'));
         }
       );
     }
