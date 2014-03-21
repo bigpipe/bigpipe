@@ -82,9 +82,9 @@ function Pipe(server, options) {
   writable('_events', Object.create(null));
 
   //
-  // Constants and properties that should never be overriden.
+  // Constants and properties that should never be overridden.
   //
-  readable('domains', !!options('domain') && domain); // Use domains for each req.
+  readable('domains', !!options('domain', domain));   // Use domains for each req.
   readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('statusCodes', Object.create(null));       // Stores error pages.
   readable('plugins', Object.create(null));           // Plugin storage.
@@ -141,7 +141,9 @@ function Pipe(server, options) {
   this.discover(this.pages);
 }
 
-fuse(Pipe, require('eventemitter3'));
+fuse(Pipe, require('eventemitter3'), {
+  resolve: false                  // We have our own resolve method, do not inherit.
+});
 
 /**
  * The current version of the library.
@@ -413,50 +415,92 @@ Pipe.readable('bind', function bind(fn) {
 });
 
 /**
- * Find the correct Page constructor based on the given URL.
+ * Find and initialise pages based on a given id or on the pathname of the
+ * request.
  *
- * @TODO it should return an array with possible options. So they can be
- * iterated over for when a page has a authorization method.
- *
- * @param {String} url The URL we need to find.
- * @param {String} method HTTP method
- * @returns {Array} Array full of constructors, or nothing.
- * @api public
+ * @param {HTTP.Request} req The incoming HTTP request.
+ * @param {String} id Optional id of page we specificatlly need.
+ * @param {Function} next Continuation callback
+ * @api private
  */
-Pipe.readable('find', function find(url, method) {
-  debug('searching the matching routes for url %s', url);
-  if (this.cache && this.cache.has(url)) return this.cache.get(url);
-
-  var routes = [];
-
-  for (var i = 0, page, length = this.pages.length; i < length; i++) {
-    page = this.pages[i];
-
-    if (!page.router.test(url)) continue;
-    if (method && page.method.length && !~page.method.indexOf(method)) continue;
-
-    routes.push(page);
+Pipe.readable('find', function find(req, id, next) {
+  if ('function' === typeof id) {
+    next = id;
+    id = undefined;
   }
 
-  if (this.cache && routes.length) {
-    this.cache.set(url, routes);
-    debug('added url %s and its discovered routes to the cache', url);
+  var key = id ? id : req.method +'@'+ req.uri.pathname
+    , pages = this.cache.get(key) || []
+    , length = this.pages.length
+    , i = 0
+    , page;
+
+  if (!pages.length) {
+    if (id) for (; i < length; i++) {
+      if (id === this.pages[i].prototype.id) {
+        pages.push(page);
+        break;
+      }
+    } else for (; i < length; i++) {
+      page = this.pages[i];
+
+      if (!page.router.test(req.uri.pathname)) continue;
+      if (page.method.length && !~page.method.indexOf(req.method)) continue;
+
+      pages.push(page);
+    }
+
+    if (this.cache && pages.length) {
+      this.cache.set(key, pages);
+      debug('added key %s and its found pages to our internal lookup cache', key);
+    }
   }
 
-  return routes;
-});
+  //
+  // Add an extra 404 page so we always have an page to display.
+  //
+  pages.push(this.statusCodes[404]);
 
-/**
- * Search a Page instance based on the supplied id.
- *
- * @param {String} id The unique id of a given Page.
- * @returns {Page}
- * @api public
- */
-Pipe.readable('id', function byId(id) {
-  for (var i = 0, length = this.pages.length; i < length; i++) {
-    if (this.pages[i].id === id) return this.pages[i];
-  }
+  //
+  // It could be that we have selected a couple of authorized pages. Filter
+  // those out before sending the and initialised page to the callback.
+  //
+  (function each() {
+    var constructor = pages.shift()
+      , freelist = constructor.freelist
+      , page = freelist.alloc();
+
+    //
+    // This case should impossible to reach as we've added a 404 status page as
+    // last page. But if it happens for some odd reason, we're going to have
+    // a other function deal with it.
+    //
+    if (!page) return next(new Error('Couldnt find any pages to render'));
+
+    debug('iterating over pages for %s testing %s atm', req.url, page.path);
+
+    //
+    // Make sure we parse out all the parameters from the URL as they might be
+    // required for authorization purposes.
+    //
+    page.params = constructor.router.exec(req.uri.pathname) || {};
+
+    if ('function' === typeof page.authorize) {
+      return page.authorize(req, function authorize(allowed) {
+        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
+
+        if (allowed) return next(undefined, page);
+
+        debug('%s - %s is released to the freelist', page.method, page.path);
+        freelist.free(page);
+        each();
+      });
+    }
+
+    next(undefined, page);
+  }());
+
+  return this;
 });
 
 /**
@@ -587,22 +631,7 @@ Pipe.readable('pluggable', function pluggable(plugins) {
  * @api private
  */
 Pipe.readable('dispatch', function dispatch(req, res) {
-  req.uri = req.uri || url.parse(req.url, true);
-  req.query = req.query || req.uri.query || {};
-
-  //
-  // Add some silly HTTP properties for connect.js compatibility.
-  //
-  req.originalUrl = req.url;
-
-  var pages = this.find(req.uri.pathname, req.method)
-    , pipe = this;
-
-  //
-  // Always add the 404 page as last page to check so we always have working
-  // page
-  //
-  pages.push(this.statusCodes[404]);
+  var pipe = this;
 
   /**
    * We've found a matching route, process the page.
@@ -643,33 +672,8 @@ Pipe.readable('dispatch', function dispatch(req, res) {
     }
   }
 
-  return this.forEach(req, res, function iterate() {
-    var constructor = pages.shift()
-      , freelist = constructor.freelist
-      , page = freelist.alloc();
-
-    debug('iterating over pages for %s testing %s atm', req.url, page.path);
-
-    //
-    // Make sure we parse out all the params from the URL.
-    //
-    page.params = constructor.router.exec(req.uri.pathname) || {};
-
-    if ('function' === typeof page.authorize) {
-      page.res = res;   // and the response, needed for plugins.
-      page.req = req;   // Configure the request.
-
-      return page.authorize(req, function authorize(allowed) {
-        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
-        if (allowed) return completed(undefined, page);
-
-        debug('%s - %s is released to the freelist', page.method, page.path);
-        freelist.free(page);
-        iterate(completed);
-      });
-    }
-
-    completed(undefined, page);
+  return this.forEach(req, res, function next() {
+    pipe.find(req, completed);
   });
 });
 
@@ -684,6 +688,14 @@ Pipe.readable('dispatch', function dispatch(req, res) {
 Pipe.readable('forEach', function forEach(req, res, next) {
   var layers = this.layers
     , pipe = this;
+
+  req.uri = req.uri || url.parse(req.url, true);
+  req.query = req.query || req.uri.query || {};
+
+  //
+  // Add some silly HTTP properties for connect.js compatibility.
+  //
+  req.originalUrl = req.url;
 
   if (!layers.length) {
     next();
