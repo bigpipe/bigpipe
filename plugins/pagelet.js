@@ -21,7 +21,7 @@ exports.server = function (pipe) {
      * @type {Boolean}
      * @private
      */
-    Pagelet.readable('__bigPiped', true);
+    Pagelet.readable('___bigPiped', true);
 
     /**
      * Add a reference to our the pipe that initialised the Pagelet.
