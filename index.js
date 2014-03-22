@@ -430,7 +430,7 @@ Pipe.readable('find', function find(req, id, next) {
   }
 
   var key = id ? id : req.method +'@'+ req.uri.pathname
-    , pages = this.cache.get(key) || []
+    , pages = this.cache ? this.cache.get(key) || [] : []
     , length = this.pages.length
     , i = 0
     , page;
