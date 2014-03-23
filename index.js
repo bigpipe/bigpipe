@@ -437,7 +437,9 @@ Pipe.readable('find', function find(req, id, next) {
 
   if (!pages.length) {
     if (id) for (; i < length; i++) {
-      if (id === this.pages[i].prototype.id) {
+      page = this.pages[i];
+
+      if (id === page.prototype.id) {
         pages.push(page);
         break;
       }
@@ -660,7 +662,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
       page.domain = domain.create();
 
       page.domain.on('error', function (err) {
-        debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.message);
+        debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.stack);
         // @TODO actually handle the error.
       });
 
@@ -711,10 +713,12 @@ Pipe.readable('forEach', function forEach(req, res, next) {
     if (!layer) return next();
     if (!layer.enabled) return iterate(index);
 
+    debug('applying middleware %s on %s', layer.name, req.url);
+
     if (layer.length === 2) {
       if (layer.fn.call(pipe, req, res) === undefined) {
         return iterate(index);
-      }
+      } else next();
     } else {
       layer.fn.call(pipe, req, res, function done(err) {
         if (err) return next(err);
