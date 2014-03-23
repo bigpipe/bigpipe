@@ -12,6 +12,8 @@ var debugs = require('debug')
 module.exports = function connection(spark) {
   var pipe = this;
 
+  debug('new real-time connection: ', spark.id);
+
   //
   // The orchestrate "substream" is used to sync state back and forth between
   // a client and our BigPipe server. It allows us to know which pagelets are
@@ -28,7 +30,7 @@ module.exports = function connection(spark) {
       // to that page so we can get the correct pagelet instances.
       //
       case 'page':
-        page.emit('free');
+        if (page) page.emit('free');
 
         //
         // As part of setting a new Page instance, we need to release the
@@ -41,8 +43,9 @@ module.exports = function connection(spark) {
 
         spark.request.url = data.url || spark.request.url;
         pipe.find(spark.request, data.id, function found(err, p) {
-          if (err) debug('Failed to initialise a page %j', err);
+          if (err) return debug('Failed to initialise a page %j', err);
 
+          debug('initialised page for connection %s', spark.id);
           page = p;
         });
       break;
@@ -67,6 +70,7 @@ module.exports = function connection(spark) {
   // a new Page instantly using the given id.
   //
   if (spark.query._bp_pid) orchestrate.emit('data', {
-    id: spark.query._bp_pid
+    id: spark.query._bp_pid,
+    type: 'page'
   });
 };
