@@ -32,18 +32,19 @@ function Page(pipe) {
   var writable = this.writable
     , readable = this.readable;
 
-  readable('temper', pipe.temper);            // Reference to our template composer.
   readable('compiler', pipe.compiler);        // Asset management.
+  readable('temper', pipe.temper);            // Reference to our template composer.
   readable('pipe', pipe);                     // Actual pipe instance.
-  writable('disabled', []);                   // Contains all disable pagelets.
-  writable('enabled', []);                    // Contains all enabled pagelets.
-  writable('queue', []);                      // Write queue that will be flushed.
+
   writable('flushed', false);                 // Is the queue flushed.
   writable('ended', false);                   // Is the page ended.
+  writable('disabled', []);                   // Contains all disable pagelets.
+  writable('enabled', []);                    // Contains all enabled pagelets.
+  writable('params', {});                     // Param extracted from the route.
+  writable('queue', []);                      // Write queue that will be flushed.
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
   writable('n', 0);                           // Number of processed pagelets.
-  writable('params', {});                     // Param extracted from the route.
 }
 
 fuse(Page, require('eventemitter3'));
