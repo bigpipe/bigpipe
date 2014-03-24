@@ -282,7 +282,9 @@ Page.readable('discover', function discover() {
     });
 
     allowed.forEach(function initialize(pagelet) {
-      if (pagelet.initialize) pagelet.initialize();
+      if ('function' === typeof pagelet.initialize) {
+        pagelet.initialize();
+      }
     });
 
     // @TODO free disabled pagelets
