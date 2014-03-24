@@ -532,6 +532,13 @@ Pipe.readable('before', function before(name, fn, options) {
   //
   if (fn.length < 2) fn = fn.call(this, options);
 
+  //
+  // Make sure that the given or returned function can
+  //
+  if ('function' !== typeof fn || fn.length < 2) {
+    throw new Error('Middleware should be a function that accepts at least 2 args');
+  }
+
   var layer = {
     length: fn.length,                // Amount of arguments indicates if it's a sync
     enabled: true,                    // Middleware is enabled by default.
@@ -716,16 +723,15 @@ Pipe.readable('forEach', function forEach(req, res, next) {
     debug('applying middleware %s on %s', layer.name, req.url);
 
     if (layer.length === 2) {
-      if (layer.fn.call(pipe, req, res) === undefined) {
-        return iterate(index);
-      } else next();
-    } else {
-      layer.fn.call(pipe, req, res, function done(err) {
-        if (err) return next(err);
-
-        iterate(index);
-      });
+      if (layer.fn.call(pipe, req, res) === false) return;
+      return iterate(index);
     }
+
+    layer.fn.call(pipe, req, res, function done(err) {
+      if (err) return next(err);
+
+      iterate(index);
+    });
   }(0));
 
   return this;
