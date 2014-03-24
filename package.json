@@ -18,7 +18,7 @@
     "eventemitter3": "~0.1.1",
     "expirable": "~0.0.6",
     "formidable": "~1.0.14",
-    "fusing": "~0.0.0",
+    "fusing": "~0.1.0",
     "json-stringify-safe": "~5.0.0",
     "mkdirp": "~0.3.5",
     "pagelet": "~0.1.0",

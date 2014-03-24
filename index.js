@@ -69,17 +69,12 @@ function configure(obj) {
  */
 function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
+  this.fuse();
 
   options = configure(options || {});
 
-  var writable = this.writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
-    , readable = this.readable = Pipe.predefine(this);
-
-  //
-  // This is the only writable property as the EventEmitter might set
-  // a completely fresh object.
-  //
-  writable('_events', Object.create(null));
+  var readable = this.readable
+    , writable = this.writable;
 
   //
   // Constants and properties that should never be overridden.

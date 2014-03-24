@@ -27,8 +27,10 @@ var operations = ['post', 'put'];
  * @api public
  */
 function Page(pipe) {
-  var writable = this.writable = Page.predefine(this, Page.predefine.WRITABLE)
-    , readable = this.readable = Page.predefine(this);
+  this.fuse();
+
+  var writable = this.writable
+    , readable = this.readable;
 
   readable('temper', pipe.temper);            // Reference to our template composer.
   readable('compiler', pipe.compiler);        // Asset management.
@@ -38,7 +40,6 @@ function Page(pipe) {
   writable('queue', []);                      // Write queue that will be flushed.
   writable('flushed', false);                 // Is the queue flushed.
   writable('ended', false);                   // Is the page ended.
-  writable('_events', Object.create(null));   // Required for EventEmitter.
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
   writable('n', 0);                           // Number of processed pagelets.
