@@ -80,8 +80,8 @@ function Pipe(server, options) {
   // Constants and properties that should never be overridden.
   //
   readable('domains', !!options('domain', domain));   // Use domains for each req.
-  readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('statusCodes', Object.create(null));       // Stores error pages.
+  readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('plugins', Object.create(null));           // Plugin storage.
   readable('options', options);                       // Configure options.
   readable('temper', new Temper());                   // Template parser.
@@ -414,7 +414,7 @@ Pipe.readable('bind', function bind(fn) {
  * request.
  *
  * @param {HTTP.Request} req The incoming HTTP request.
- * @param {String} id Optional id of page we specificatlly need.
+ * @param {String} id Optional id of page we specifically need.
  * @param {Function} next Continuation callback
  * @api private
  */
@@ -462,7 +462,7 @@ Pipe.readable('find', function find(req, id, next) {
   // It could be that we have selected a couple of authorized pages. Filter
   // those out before sending the and initialised page to the callback.
   //
-  (function each() {
+  (function each(pages) {
     var constructor = pages.shift()
       , freelist = constructor.freelist
       , page = freelist.alloc();
@@ -495,7 +495,7 @@ Pipe.readable('find', function find(req, id, next) {
     }
 
     next(undefined, page);
-  }());
+  }(pages.slice(0)));
 
   return this;
 });
