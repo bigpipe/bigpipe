@@ -83,37 +83,71 @@ describe('Pipe', function () {
   });
 
   describe('#find', function () {
-    it('returns the matching page', function () {
-      expect(app.find('/')[0]).to.be.a('function');
-      expect(app.find('/', 'GET')[0]).to.be.a('function');
-      expect(app.find('/', 'POST')[0]).to.not.be.a('function');
-      expect(app.find('/all')[0]).to.be.a('function');
-      expect(app.find('/all', 'POST')[0]).to.be.a('function');
-      expect(app.find('/all', 'GET')[0]).to.be.a('function');
-      expect(app.find('/all', 'MOO')[0]).to.be.a('function');
+    function Request(url, method) {
+      this.url = url;
+      this.uri = require('url').parse(url, true);
+      this.query = this.uri.query || {};
+      this.method = method || 'GET';
+    }
+
+    it('finds the / page', function (done) {
+      app.find(new Request('/'), function (err, page) {
+        if (err) return done(err);
+
+        expect(page).to.be.instanceOf(Pipe.Page);
+        expect(page.statusCode).to.equal(200);
+
+        done();
+      });
     });
 
-    it('returns undefined when no route is found', function () {
-      expect(app.find('/bananananananaanaanananan')).to.have.length(0);
+    it('doesnt find / for POST requests', function (done) {
+      app.find(new Request('/', 'POST'), function (err, page) {
+        if (err) return done(err);
+
+        expect(page).to.be.instanceOf(Pipe.Page);
+        expect(page.statusCode).to.equal(404);
+
+        done();
+      });
     });
 
-    it('adds and retrieves pages from a provided cache', function () {
+    ['GET', 'POST', 'MOO'].forEach(function (method) {
+      it('finds /all for '+ method, function (done) {
+        app.find(new Request('/all', method), function (err, page) {
+          if (err) return done(err);
+
+          expect(page).to.be.instanceOf(Pipe.Page);
+          expect(page.statusCode).to.equal(200);
+
+          done();
+        });
+      });
+    });
+
+    it('always returns a 404 page for unknown urls', function (done) {
+      app.find(new Request('/'+ Math.random(), 'POST'), function (err, page) {
+        if (err) return done(err);
+
+        expect(page).to.be.instanceOf(Pipe.Page);
+        expect(page.statusCode).to.equal(404);
+
+        done();
+      });
+    });
+
+    it('adds and retrieves pages from a provided cache', function (done) {
       var cache = {
         get: function (url) {
-          expect(url).to.equal('/');
+          expect(url).to.equal('GET@/');
           pattern.push('get');
           return cache.page;
         },
         set: function (url, page) {
-          expect(url).to.equal('/');
+          expect(url).to.equal('GET@/');
           expect(page).to.be.a('array');
           pattern.push('set');
           cache.page = page;
-        },
-        has: function (url) {
-          expect(url).to.equal('/');
-          pattern.push('has');
-          return !!cache.page;
         }
       };
 
@@ -125,9 +159,22 @@ describe('Pipe', function () {
         , cache: cache
       });
 
-      expect(app.find('/')[0]).to.be.a('function');
-      expect(app.find('/')[0]).to.be.a('function');
-      expect(pattern.join()).to.equal('has,set,has,get');
+      app.find(new Request('/'), function (err, page) {
+        if (err) return done(err);
+
+        expect(page).to.be.instanceOf(Pipe.Page);
+        expect(page.statusCode).to.equal(200);
+
+        app.find(new Request('/'), function (err, page) {
+          if (err) return done(err);
+
+          expect(page).to.be.instanceOf(Pipe.Page);
+          expect(page.statusCode).to.equal(200);
+          expect(pattern.join()).to.equal('get,set,get');
+
+          done();
+        });
+      });
     });
   });
 
@@ -153,9 +200,6 @@ describe('Pipe', function () {
 
   describe('#discover', function () {
     it('provides default pages if no /404 or /500 is found', function () {
-      expect(app.find('/404')).to.have.length(0);
-      expect(app.find('/500')).to.have.length(0);
-
       expect(app.statusCodes[404]).to.equal(require('../pages/404'));
       expect(app.statusCodes[500]).to.equal(require('../pages/500'));
     });
@@ -167,43 +211,8 @@ describe('Pipe', function () {
       });
 
       expect(app.pages).to.have.length(2);
-      expect(app.find('/404')).to.not.equal(undefined);
-      expect(app.find('/500')).to.not.equal(undefined);
-
-      expect(app.statusCodes[404]).to.equal(app.find('/404')[0]);
-      expect(app.statusCodes[500]).to.equal(app.find('/500')[0]);
-    });
-  });
-
-  describe('#decorate', function () {
-    function url() {
-      return {
-        url: '/foo/bar?bar=baz'
-      };
-    }
-
-    it('parses the url', function () {
-      var req = url();
-      app.decorate(req);
-
-      expect(req.uri).to.be.an('object');
-      expect(req.uri.pathname).to.be.a('string');
-      expect(req.uri.query).to.be.a('object');
-    });
-
-    it('adds a pointless originalUrl for connect compatiblity', function () {
-      var req = url();
-      app.decorate(req);
-
-      expect(req.url).to.equal(req.originalUrl);
-    });
-
-    it('parses the query string', function () {
-      var req = url();
-      app.decorate(req);
-
-      expect(req.query).to.equal(req.uri.query);
-      expect(req.query.bar).to.equal('baz');
+      expect(app.statusCodes[404]).to.not.equal(require('../pages/404'));
+      expect(app.statusCodes[500]).to.not.equal(require('../pages/500'));
     });
   });
 

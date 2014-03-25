@@ -1,72 +1,76 @@
 'use strict';
 
-var debug = require('debug')('bigpipe:primus');
+var debugs = require('debug')
+  , debug = debugs('bigpipe::primus');
 
+/**
+ * Our real-time glue layer.
+ *
+ * @param {Spark} spark A new real-time connection has been made.
+ * @api private
+ */
 module.exports = function connection(spark) {
+  var pipe = this;
+
+  debug('new real-time connection: ', spark.id);
+
   //
-  // Setup the pipe substream which.
+  // The orchestrate "substream" is used to sync state back and forth between
+  // a client and our BigPipe server. It allows us to know which pagelets are
+  // available on a given page and even which page we're currently viewing.
   //
   var orchestrate = spark.substream('pipe::orchestrate')
-    , pipe = this
-    , streams = {};
+    , pagelets = Object.create(null)
+    , page;
 
-  /**
-   * Configure a pagelet for substreaming.
-   *
-   * @param {Pagelet} pagelet The pagelet we need.
-   * @api private
-   */
-  function substream(pagelet) {
-    if (streams[pagelet.name]) return debug('already configured the Spark');
-
-    debug('creating a new substream for pagelet::%s (%s)', pagelet.name, pagelet.id);
-    var stream = streams[pagelet.name] = spark.substream('pagelet::'+ pagelet.name);
-
-    //
-    // Let the pagelet know that we've paired with a substream and spark.
-    //
-    if ('function' === typeof pagelet.pair) pagelet.pair(stream, spark);
-
-    //
-    // Incoming communication between the pagelet and it's substream.
-    //
-    stream.on('data', function substreamer(data) {
-      if (!pagelet) return debug('substream data event called after pagelet was removed');
-
-      switch (data.type) {
-        case 'rpc':
-          pagelet.trigger(data.method, data.args, data.id, stream);
-        break;
-      }
-    });
-
-    stream.on('end', function end() {
-      debug('substream has ended: %s/%s', pagelet.name, pagelet.id);
-      delete streams[pagelet.name];
-    });
-  }
-
-  //
-  // Incoming communication between our spark and the pagelet orchestration.
-  //
   orchestrate.on('data', function orchestration(data) {
     switch (data.type) {
-      case 'configure':
-        return;
-        var pagelet = pipe.expire.get(data.id);
+      //
+      // The user has initiated a new Page so we need to get a new reference
+      // to that page so we can get the correct pagelet instances.
+      //
+      case 'page':
+        if (page) page.emit('free');
 
-        if (pagelet) {
-          debug('registering Pagelet %s/%s as new substream', pagelet.name, data.id);
-          substream(pipe.expire.get(data.id));
-        }
+        //
+        // As part of setting a new Page instance, we need to release the
+        // previously added pagelet
+        //
+        Object.keys(pagelets).forEach(function free(name) {
+          pagelets[name].emit('free');
+          delete pagelets[name];
+        });
+
+        spark.request.url = data.url || spark.request.url;
+        pipe.find(spark.request, data.id, function found(err, p) {
+          if (err) return debug('Failed to initialise a page %j', err);
+
+          debug('initialised page for connection %s', spark.id);
+          page = p;
+        });
+      break;
+
+      //
+      // The user has initialised a new pagelet for a given page.
+      //
+      case 'pagelet':
+        if (data.name in pagelets) return debug('Pagelet %s is already initialised', data.name);
+        if (!page) return debug('No initialised page, cannot initialise pagelet %j', data);
+        if (!page.has(data.name)) return debug('Unknown pagelet, does not exist on page');
+
+        page.get(data.name).connect(spark, function substream(err, pagelet) {
+          pagelets[data.name] = pagelet;
+        });
       break;
     }
   });
 
-  spark.on('end', function end() {
-    //
-    // Free all allocated pages and nuke all pagelets.
-    //
-    debug('connection has ended: %s were still active', Object.keys(streams).length);
+  //
+  // The current page id was sent with the connection string, so initialise
+  // a new Page instantly using the given id.
+  //
+  if (spark.query._bp_pid) orchestrate.emit('data', {
+    id: spark.query._bp_pid,
+    type: 'page'
   });
 };

@@ -25,72 +25,6 @@ catch (e) {}
 var trailers = require('trailers');
 
 /**
- * Our pagelet management.
- *
- * The following options are available:
- *
- * - cache: A object were we store our URL->page mapping.
- * - dist: The pathname for the compiled assets.
- * - domain: Use domains to handle requests.
- * - pages: String or array of pages we serve.
- * - parser: Which parser should be used to send data in real-time.
- * - pathname: The pathname we use for Primus requests.
- * - public: The pathname for public static content.
- * - static: The pathname for our static assets.
- * - stream: Where we should write our logs to.
- * - transport: The transport engine we should use for real-time.
- *
- * @constructor
- * @param {Server} server HTTP/S based server instance.
- * @param {Object} options Configuration.
- * @api public
- */
-function Pipe(server, options) {
-  if (!(this instanceof Pipe)) return new Pipe(server, options);
-
-  options = options || {};
-
-  var writable = Pipe.predefine(this, Pipe.predefine.WRITABLE)
-    , readable = Pipe.predefine(this);
-
-  writable('_events', Object.create(null));                // Stores the events.
-  readable('options', configure(options));                 // Configure options.
-  readable('domains', !!this.options('domain') && domain); // Use domains for each req.
-  readable('statusCodes', Object.create(null));            // Stores error pages.
-  readable('cache', this.options('cache', null));          // Enable URL lookup caching.
-  readable('temper', new Temper);                          // Template parser.
-  readable('plugins', Object.create(null));                // Plugin storage.
-  readable('layers', []);                                  // Middleware layer.
-  readable('server', server);                              // HTTP server we work with.
-
-  readable('primus', new Primus(this.server, {
-    transformer: this.options('transport', 'websockets'),  // Real-time framework to use.
-    pathname: this.options('pathname', '/pagelets'),       // Primus pathname.
-    parser: this.options('parser', 'json'),                // Message parser.
-    plugin: {
-      substream: require('substream')                      // Volatile name spacing.
-    }
-  }));
-
-  readable('compiler', new Compiler(                       // Asset compiler.
-    this.options('dist', path.join(process.cwd(), 'dist')), this, {
-      pathname: this.options('static', '/')
-  }));
-
-  this.pluggable(this.options('plugins', []));             // Apply plugins.
-  this.use(require('./plugins/pagelet'));                  // Extend Pagelet via plugin.
-
-  readable('pages', this.resolve(                          // The pages we serve.
-    this.options('pages', __dirname + '/pages'),
-    this.transform) || []
-  );
-
-  this.discover(this.pages);
-}
-
-fuse(Pipe, require('eventemitter3'));
-
-/**
  * Queryable options with merge and fallback functionality.
  *
  * @param {Object} obj
@@ -113,10 +47,104 @@ function configure(obj) {
 }
 
 /**
+ * Our pagelet management.
+ *
+ * The following options are available:
+ *
+ * - cache: A object were we store our URL->page mapping.
+ * - dist: The pathname for the compiled assets.
+ * - domain: Use domains to handle requests.
+ * - pages: String or array of pages we serve.
+ * - parser: Which parser should be used to send data in real-time.
+ * - pathname: The pathname we use for Primus requests.
+ * - public: The pathname for public static content.
+ * - static: The pathname for our static assets.
+ * - stream: Where we should write our logs to.
+ * - transport: The transport engine we should use for real-time.
+ *
+ * @constructor
+ * @param {Server} server HTTP/S based server instance.
+ * @param {Object} options Configuration.
+ * @api public
+ */
+function Pipe(server, options) {
+  if (!(this instanceof Pipe)) return new Pipe(server, options);
+  this.fuse();
+
+  options = configure(options || {});
+
+  var readable = this.readable
+    , writable = this.writable;
+
+  //
+  // Constants and properties that should never be overridden.
+  //
+  readable('domains', !!options('domain', domain));   // Use domains for each req.
+  readable('statusCodes', Object.create(null));       // Stores error pages.
+  readable('cache', options('cache', false));         // Enable URL lookup caching.
+  readable('plugins', Object.create(null));           // Plugin storage.
+  readable('options', options);                       // Configure options.
+  readable('temper', new Temper());                   // Template parser.
+  readable('server', server);                         // HTTP server we work with.
+  readable('layers', []);                             // Middleware layer.
+
+  //
+  // Setup our real-time server
+  //
+  readable('primus', new Primus(this.server, {
+    transformer: options('transport', 'websockets'),  // Real-time framework to use.
+    pathname: options('pathname', '/pagelets'),       // Primus pathname.
+    parser: options('parser', 'json'),                // Message parser.
+    plugin: {
+      substream: require('substream')                 // Volatile name spacing.
+    }
+  }));
+
+  //
+  // Setup the asset compiler before the pages are discovered as they will need
+  // to hook in to the compiler to register all assets that are loaded from
+  // pagelets.
+  //
+  readable('compiler', new Compiler(
+    options('dist', path.join(process.cwd(), 'dist')), this, {
+      pathname: options('static', '/')
+  }));
+
+  //
+  // Add our default middleware layers, this needs to be done before we
+  // initialise or add plugins as we want to make sure that OUR middleware is
+  // loaded first as it's the most important (at least, in our opinion).
+  //
+  this.before('compiler', this.compiler.serve);
+
+  //
+  // Apply the plugins before resolving and transforming the pages so the
+  // plugins can hook in to our optimization and transformation process.
+  //
+  this.pluggable(options('plugins', []));
+  this.use(require('./plugins/pagelet'));
+
+  readable('pages', this.resolve(
+    options('pages', __dirname + '/pages'),
+    this.transform) || []
+  );
+
+  //
+  // Finally, now that everything has been setup we can discover the pagelets
+  // that we need serve from our server.
+  //
+  this.discover(this.pages);
+}
+
+fuse(Pipe, require('eventemitter3'), {
+  resolve: false                  // We have our own resolve method, do not inherit.
+});
+
+/**
  * The current version of the library.
  *
  * @type {String}
- * @api public
+ * @public
  */
 Pipe.readable('version', require(__dirname +'/package.json').version);
 
@@ -131,6 +159,11 @@ Pipe.readable('version', require(__dirname +'/package.json').version);
 Pipe.readable('listen', function listen(port, done) {
   var pipe = this;
 
+  //
+  // Find all assets and compile them before we start listening to the server as
+  // we don't want to serve un-compiled assets. And we should only start
+  // listening on the server once we're actually ready to respond to requests.
+  //
   pipe.compiler.catalog(this.pages, function init(error) {
     if (error) return done(error);
 
@@ -243,7 +276,7 @@ Pipe.readable('resolve', function resolve(files, transform) {
   }, this).filter(Boolean);
 
   return transform
-    ? files.map(transform.bind(this))
+    ? files.map(transform, this)
     : files;
 });
 
@@ -377,50 +410,202 @@ Pipe.readable('bind', function bind(fn) {
 });
 
 /**
- * Find the correct Page constructor based on the given URL.
+ * Find and initialise pages based on a given id or on the pathname of the
+ * request.
  *
- * @TODO it should return an array with possible options. So they can be
- * iterated over for when a page has a authorization method.
- *
- * @param {String} url The URL we need to find.
- * @param {String} method HTTP method
- * @returns {Array} Array full of constructors, or nothing.
- * @api public
+ * @param {HTTP.Request} req The incoming HTTP request.
+ * @param {String} id Optional id of page we specifically need.
+ * @param {Function} next Continuation callback
+ * @api private
  */
-Pipe.readable('find', function find(url, method) {
-  debug('searching the matching routes for url %s', url);
-  if (this.cache && this.cache.has(url)) return this.cache.get(url);
-
-  var routes = [];
-
-  for (var i = 0, page, length = this.pages.length; i < length; i++) {
-    page = this.pages[i];
-
-    if (!page.router.test(url)) continue;
-    if (method && page.method.length && !~page.method.indexOf(method)) continue;
-
-    routes.push(page);
+Pipe.readable('find', function find(req, id, next) {
+  if ('function' === typeof id) {
+    next = id;
+    id = undefined;
   }
 
-  if (this.cache && routes.length) {
-    this.cache.set(url, routes);
-    debug('added url %s and its discovered routes to the cache', url);
+  var key = id ? id : req.method +'@'+ req.uri.pathname
+    , pages = this.cache ? this.cache.get(key) || [] : []
+    , length = this.pages.length
+    , i = 0
+    , page;
+
+  if (!pages.length) {
+    if (id) for (; i < length; i++) {
+      page = this.pages[i];
+
+      if (id === page.prototype.id) {
+        pages.push(page);
+        break;
+      }
+    } else for (; i < length; i++) {
+      page = this.pages[i];
+
+      if (!page.router.test(req.uri.pathname)) continue;
+      if (page.method.length && !~page.method.indexOf(req.method)) continue;
+
+      pages.push(page);
+    }
+
+    if (this.cache && pages.length) {
+      this.cache.set(key, pages);
+      debug('added key %s and its found pages to our internal lookup cache', key);
+    }
   }
 
-  return routes;
+  //
+  // Add an extra 404 page so we always have an page to display.
+  //
+  pages.push(this.statusCodes[404]);
+
+  //
+  // It could be that we have selected a couple of authorized pages. Filter
+  // those out before sending the and initialised page to the callback.
+  //
+  (function each(pages) {
+    var constructor = pages.shift()
+      , freelist = constructor.freelist
+      , page = freelist.alloc();
+
+    //
+    // This case should impossible to reach as we've added a 404 status page as
+    // last page. But if it happens for some odd reason, we're going to have
+    // a other function deal with it.
+    //
+    if (!page) return next(new Error('Couldnt find any pages to render'));
+
+    debug('iterating over pages for %s testing %s atm', req.url, page.path);
+
+    //
+    // Make sure we parse out all the parameters from the URL as they might be
+    // required for authorization purposes.
+    //
+    page.params = constructor.router.exec(req.uri.pathname) || {};
+
+    if ('function' === typeof page.authorize) {
+      return page.authorize(req, function authorize(allowed) {
+        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
+
+        if (allowed) return next(undefined, page);
+
+        debug('%s - %s is released to the freelist', page.method, page.path);
+        freelist.free(page);
+        each();
+      });
+    }
+
+    next(undefined, page);
+  }(pages.slice(0)));
+
+  return this;
 });
 
 /**
- * Add a new middleware layer which will run before any Page is executed.
+ * Add a new middleware layer. If no middleware name has been provided we will
+ * attempt to take the name of the supplied function. If that fails, well fuck,
+ * just random id it.
  *
- * @param {Function} use The middleware.
- * @returns {Pipe} fluent interface
- * @api private
+ * @param {String} name The name of the middleware.
+ * @param {Function} fn The middleware that's called each time.
+ * @param {Object} options Middleware configuration.
+ * @returns {Pipe}
+ * @api public
  */
-Pipe.readable('before', function before(use) {
-  this.layers.push(use);
+Pipe.readable('before', function before(name, fn, options) {
+  if ('function' === typeof name) {
+    options = fn;
+    fn = name;
+    name = fn.name || 'pid_'+ Date.now();
+  }
+
+  options = options || {};
+
+  //
+  // No or only 1 argument means that we need to initialise the middleware, this
+  // is a special initialisation process where we pass in a reference to the
+  // initialised Pipe instance so a pre-compiling process can be done.
+  //
+  if (fn.length < 2) fn = fn.call(this, options);
+
+  //
+  // Make sure that the given or returned function can
+  //
+  if ('function' !== typeof fn || fn.length < 2) {
+    throw new Error('Middleware should be a function that accepts at least 2 args');
+  }
+
+  var layer = {
+    length: fn.length,                // Amount of arguments indicates if it's a sync
+    enabled: true,                    // Middleware is enabled by default.
+    name: name,                       // Used for lookups.
+    fn: fn                            // The actual middleware.
+  }, index = this.indexOfLayer(name);
+
+  //
+  // Override middleware layers if we already have a middleware layer with
+  // exactly the same name.
+  //
+  if (!~index) this.layers.push(layer);
+  else this.layers[index] = layer;
 
   return this;
+});
+
+/**
+ * Remove a middleware layer from the stack.
+ *
+ * @param {String} name The name of the middleware.
+ * @returns {Pipe}
+ * @api public
+ */
+Pipe.readable('remove', function remove(name) {
+  var index = this.indexOfLayer(name);
+
+  if (~index) this.layers.splice(index, 1);
+  return this;
+});
+
+/**
+ * Enable a given middleware layer.
+ *
+ * @param {String} name The name of the middleware.
+ * @returns {Pipe}
+ * @api public
+ */
+Pipe.readable('enable', function enable(name) {
+  var index = this.indexOfLayer(name);
+
+  if (~index) this.layers[index].enabled = true;
+  return this;
+});
+
+/**
+ * Disable a given middleware layer.
+ *
+ * @param {String} name The name of the middleware.
+ * @returns {Pipe}
+ * @api public
+ */
+Pipe.readable('disable', function disable(name) {
+  var index = this.indexOfLayer(name);
+
+  if (~index) this.layers[index].enabled = false;
+  return this;
+});
+
+/**
+ * Find the index of a given middleware layer by name.
+ *
+ * @param {String} name The name of the layer.
+ * @returns {Number}
+ * @api private
+ */
+Pipe.readable('indexOfLayer', function indexOfLayer(name) {
+  for (var i = 0, length = this.layers.length; i < length; i++) {
+    if (this.layers[i].name === name) return i;
+  }
+
+  return -1;
 });
 
 /**
@@ -450,59 +635,7 @@ Pipe.readable('pluggable', function pluggable(plugins) {
  * @api private
  */
 Pipe.readable('dispatch', function dispatch(req, res) {
-  this.decorate(req, res);
-
-  //
-  // Check if these are assets that need to be served from the compiler.
-  //
-  if (this.compiler.serve(req, res)) {
-    return debug('asset compiler answered %s', req.url);
-  }
-
-  var pages = this.find(req.uri.pathname, req.method)
-    , pipe = this;
-
-  //
-  // Always add the 404 page as last page to check so we always have working
-  // page
-  //
-  pages.push(this.statusCodes[404]);
-
-  /**
-   * Iterates over the different pages that matched this route to figure out
-   * which one of them we're allowed to process.
-   *
-   * @param {Function} done Completion callback
-   * @api private
-   */
-  function iterate(done) {
-    var constructor = pages.shift()
-      , freelist = constructor.freelist
-      , page = freelist.alloc();
-
-    debug('iterating over pages for %s testing %s atm', req.url, page.path);
-
-    //
-    // Make sure we parse out all the params from the URL.
-    //
-    page.params = constructor.router.exec(req.uri.pathname) || {};
-
-    if ('function' === typeof page.authorize) {
-      page.res = res;   // and the response, needed for plugins.
-      page.req = req;   // Configure the request.
-
-      return page.authorize(req, function authorize(allowed) {
-        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
-        if (allowed) return done(undefined, page);
-
-        debug('%s - %s is released to the freelist', page.method, page.path);
-        freelist.free(page);
-        iterate(done);
-      });
-    }
-
-    done(undefined, page);
-  }
+  var pipe = this;
 
   /**
    * We've found a matching route, process the page.
@@ -531,7 +664,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
       page.domain = domain.create();
 
       page.domain.on('error', function (err) {
-        debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.message);
+        debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.stack);
         // @TODO actually handle the error.
       });
 
@@ -543,24 +676,23 @@ Pipe.readable('dispatch', function dispatch(req, res) {
     }
   }
 
-  //
-  // Run middleware layers first, after iterate pages and run page#configure.
-  //
-  async.eachSeries(this.layers, function middleware(layer, next) {
-    layer.call(pipe, req, res, next);
-  }, iterate.bind(pipe, completed));
-
-  return this;
+  return this.forEach(req, res, function next() {
+    pipe.find(req, completed);
+  });
 });
 
 /**
- * Decorate the request object with some extensions.
+ * Iterate all the middleware layers that we're set on our Pipe instance.
  *
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
+ * @param {Function} next Continuation callback.
  * @api private
  */
-Pipe.readable('decorate', function decorate(req, res) {
+Pipe.readable('forEach', function forEach(req, res, next) {
+  var layers = this.layers
+    , pipe = this;
+
   req.uri = req.uri || url.parse(req.url, true);
   req.query = req.query || req.uri.query || {};
 
@@ -568,15 +700,37 @@ Pipe.readable('decorate', function decorate(req, res) {
   // Add some silly HTTP properties for connect.js compatibility.
   //
   req.originalUrl = req.url;
-});
 
-/**
- * Handle incoming real-time requests.
- *
- * @param {Spark} spark A real-time "socket".
- * @api private
- */
-Pipe.readable('connection', require('./primus'));
+  if (!layers.length) {
+    next();
+    return this;
+  }
+
+  //
+  // Async or sync call the middleware layer.
+  //
+  (function iterate(index) {
+    var layer = layers[index++];
+
+    if (!layer) return next();
+    if (!layer.enabled) return iterate(index);
+
+    debug('applying middleware %s on %s', layer.name, req.url);
+
+    if (layer.length === 2) {
+      if (layer.fn.call(pipe, req, res) === false) return;
+      return iterate(index);
+    }
+
+    layer.fn.call(pipe, req, res, function done(err) {
+      if (err) return next(err);
+
+      iterate(index);
+    });
+  }(0));
+
+  return this;
+});
 
 /**
  * Register a new plugin.
@@ -651,6 +805,14 @@ Pipe.readable('use', function use(name, plugin) {
 
   return this;
 });
+
+/**
+ * Handle incoming real-time requests.
+ *
+ * @param {Spark} spark A real-time "socket".
+ * @api private
+ */
+Pipe.readable('connection', require('./primus'));
 
 /**
  * Create a new Pagelet/Pipe server.

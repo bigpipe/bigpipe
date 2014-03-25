@@ -27,22 +27,24 @@ var operations = ['post', 'put'];
  * @api public
  */
 function Page(pipe) {
-  var writable = Page.predefine(this, Page.predefine.WRITABLE)
-    , readable = Page.predefine(this);
+  this.fuse();
 
-  readable('temper', pipe.temper);            // Reference to our template composer.
+  var writable = this.writable
+    , readable = this.readable;
+
   readable('compiler', pipe.compiler);        // Asset management.
+  readable('temper', pipe.temper);            // Reference to our template composer.
   readable('pipe', pipe);                     // Actual pipe instance.
-  writable('disabled', []);                   // Contains all disable pagelets.
-  writable('enabled', []);                    // Contains all enabled pagelets.
-  writable('queue', []);                      // Write queue that will be flushed.
+
   writable('flushed', false);                 // Is the queue flushed.
   writable('ended', false);                   // Is the page ended.
-  writable('_events', Object.create(null));   // Required for EventEmitter.
+  writable('disabled', []);                   // Contains all disable pagelets.
+  writable('enabled', []);                    // Contains all enabled pagelets.
+  writable('params', {});                     // Param extracted from the route.
+  writable('queue', []);                      // Write queue that will be flushed.
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
   writable('n', 0);                           // Number of processed pagelets.
-  writable('params', {});                     // Param extracted from the route.
 }
 
 fuse(Page, require('eventemitter3'));
@@ -282,7 +284,9 @@ Page.readable('discover', function discover() {
     });
 
     allowed.forEach(function initialize(pagelet) {
-      if (pagelet.initialize) pagelet.initialize();
+      if ('function' === typeof pagelet.initialize) {
+        pagelet.initialize();
+      }
     });
 
     // @TODO free disabled pagelets
@@ -304,8 +308,7 @@ Page.readable('sync', function render(err, data) {
   if (err) return this.end(err);
 
   var page = this
-    , base = ''
-    , data;
+    , base = '';
 
   this.once('discover', function discovered() {
     async.forEach(this.enabled, function each(pagelet, next) {
@@ -352,8 +355,8 @@ Page.readable('sync', function render(err, data) {
  */
 Page.readable('async', function render(err, data) {
   if (err) return this.end(err);
-  var page = this
-    , data;
+
+  var page = this;
 
   this.once('discover', function discovered() {
     async.each(this.enabled, function (pagelet, next) {
@@ -774,6 +777,11 @@ Page.readable('configure', function configure(req, res) {
 
   this.req = req;
   this.res = res;
+
+  //
+  // Emit a page configuration event so plugins can hook in to this.
+  //
+  this.pipe.emit('page::configure', this);
 
   //
   // If we have a `no_pagelet_js` flag, we should force a different
