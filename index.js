@@ -539,6 +539,11 @@ Pipe.readable('before', function before(name, fn, options) {
     throw new Error('Middleware should be a function that accepts at least 2 args');
   }
 
+  //
+  // Add the middleware layers to primus as well.
+  //
+  if (options.primus) this.primus.before(name, fn);
+
   var layer = {
     length: fn.length,                // Amount of arguments indicates if it's a sync
     enabled: true,                    // Middleware is enabled by default.
