@@ -42,7 +42,7 @@ module.exports = function connection(spark) {
         });
 
         spark.request.url = data.url || spark.request.url;
-        pipe.find(spark.request, data.id, function found(err, p) {
+        pipe.find(spark.request, spark, data.id, function found(err, p) {
           if (err) return debug('Failed to initialise a page %j', err);
 
           debug('initialised page for connection %s', spark.id);
