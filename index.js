@@ -414,11 +414,12 @@ Pipe.readable('bind', function bind(fn) {
  * request.
  *
  * @param {HTTP.Request} req The incoming HTTP request.
+ * @param {HTTP.Response} res The outgoing HTTP request.
  * @param {String} id Optional id of page we specifically need.
  * @param {Function} next Continuation callback
  * @api private
  */
-Pipe.readable('find', function find(req, id, next) {
+Pipe.readable('find', function find(req, res, id, next) {
   if ('function' === typeof id) {
     next = id;
     id = undefined;
@@ -483,6 +484,9 @@ Pipe.readable('find', function find(req, id, next) {
     page.params = constructor.router.exec(req.uri.pathname) || {};
 
     if ('function' === typeof page.authorize) {
+      page.req = req;   // Might be needed to retrieve sessions.
+      page.res = res;   // Might be needed for redirects.
+
       return page.authorize(req, function authorize(allowed) {
         debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
 
@@ -490,10 +494,11 @@ Pipe.readable('find', function find(req, id, next) {
 
         debug('%s - %s is released to the freelist', page.method, page.path);
         freelist.free(page);
-        each();
+        each(pages);
       });
     }
 
+    debug('Using %s for %s', page.path, req.url);
     next(undefined, page);
   }(pages.slice(0)));
 
@@ -669,15 +674,17 @@ Pipe.readable('dispatch', function dispatch(req, res) {
       });
 
       page.domain.run(function run() {
+        debug('running page % inside a domain', page.path);
         page.configure(req, res);
       });
     } else {
+      debug('running page % outside a domain', page.path);
       page.configure(req, res);
     }
   }
 
   return this.forEach(req, res, function next() {
-    pipe.find(req, completed);
+    pipe.find(req, res, completed);
   });
 });
 
