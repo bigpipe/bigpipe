@@ -1,10 +1,8 @@
 'use strict';
 
 var Formidable = require('formidable').IncomingForm
-  , stringify = require('json-stringify-safe')
   , debug = require('debug')('bigpipe:page')
   , FreeList = require('freelist').FreeList
-  , sanitize = require('./lib/sanitize')
   , qs = require('querystring')
   , Route = require('routable')
   , async = require('async')
@@ -706,7 +704,7 @@ Page.readable('bootstrap', function bootstrap(err, data, next) {
   //
   head.push(
     '<script>',
-      'pipe = new BigPipe(undefined, ', stringify({
+      'pipe = new BigPipe(undefined, ', JSON.stringify({
           pagelets: this.pagelets.length,     // Amount of pagelets to load
           id: this.id                         // Current Page id.
         }), ' );',
