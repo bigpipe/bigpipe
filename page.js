@@ -262,16 +262,8 @@ Page.readable('discover', function discover() {
   // The Pipe#transform has transformed our pagelets object in to an array
   // so we can easily iterate over them.
   //
-  async.filter(pagelets, function rejection(pagelet, done) {
-    //
-    // Check if the given pagelet has a custom authorization method which we
-    // need to call and figure out if the pagelet is available.
-    //
-    if ('function' === typeof pagelet.authorize) {
-      return pagelet.authorize(req, done);
-    }
-
-    done(true);
+  async.filter(pagelets, function rejection(pagelet, next) {
+    pagelet.authenticate(req, next);
   }, function acceptance(allowed) {
     page.enabled = allowed;
 
@@ -279,7 +271,7 @@ Page.readable('discover', function discover() {
     // Keep track of disabled pagelets, also close open POST/PUT request if
     // the pagelet is not included in or allowed for the current page.
     //
-    page.disabled = pagelets.filter(function disabled(pagelet) {
+    var disabled = page.disabled = pagelets.filter(function disabled(pagelet) {
       return !~allowed.indexOf(pagelet);
     });
 
@@ -311,28 +303,23 @@ Page.readable('sync', function render(err, data) {
     , base = '';
 
   this.once('discover', function discovered() {
-    async.forEach(this.enabled, function each(pagelet, next) {
+    var pagelets = this.enabled.concat(this.disabled);
+
+    async.forEach(pagelets, function each(pagelet, next) {
       page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
 
       data = page.compiler.pagelet(pagelet);
       data.processed = ++page.n;
 
-      pagelet.render({
-        data: stringify(data, sanitize),
-        after: page.write,
-        context: page
-      }, next);
+      pagelet.render({ data: data }, next);
     }, function done(err, data) {
       // @TODO handle errors
-      page.enabled.forEach(function forEach(pagelet, index) {
-        var view = page.temper.fetch(pagelet.view).server;
-
-        // @TODO Also write the CSS and JavaScript.
-        // @TODO also remove the pagelets that we're disabled.
-        base = page.inject(base, pagelet.name, view(data[index]));
+      pagelets.forEach(function forEach(pagelet, index) {
+        base = page.inject(base, pagelet, data[index]);
       });
 
-      page.flush(true);
+      page.queue.push(base);
+      page.end();
     });
   });
 
@@ -359,17 +346,18 @@ Page.readable('async', function render(err, data) {
   var page = this;
 
   this.once('discover', function discovered() {
-    async.each(this.enabled, function (pagelet, next) {
+    async.each(this.enabled.concat(this.disabled), function (pagelet, next) {
       page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
 
       data = page.compiler.pagelet(pagelet);
       data.processed = ++page.n;
 
       pagelet.render({
-        data: stringify(data, sanitize),
-        after: page.write,
-        context: page
-      }, next);
+        data: data
+      }, function rendered(err, content) {
+        if (err) return next(err);
+        page.write(content, next);
+      });
     }, this.end.bind(this));
   });
 
@@ -485,7 +473,7 @@ Page.readable('end', function end(err) {
   //
   // Do not close the connection before the main page has sent headers.
   //
-  if (page.n !== page.enabled.length) {
+  if (page.n < page.enabled.length) {
     this.debug('Not all pagelets have been written, (%s out of %s)',
       this.n, this.enabled.length
     );
@@ -493,21 +481,9 @@ Page.readable('end', function end(err) {
   }
 
   //
-  // Write disabled pagelets so the client can remove all empty placeholders.
-  //
-  this.disabled.filter(function filter(pagelet) {
-    return !!pagelet.remove;
-  }).forEach(function each(pagelet) {
-    page.debug('Instructing removal of the %s/%s pagelet'
-      , pagelet.name, pagelet.id
-    );
-
-    page.write(pagelet);
-  });
-
-  //
   // Everything is processed, close the connection and free the Page instance.
   //
+  this.flush(true);
   this.res.end();
   this.emit('end');
   this.emit('free');
@@ -571,13 +547,18 @@ Page.readable('flush', function flush(flushing) {
  * Inject the output of a template directly in to view's pagelet placeholder
  * element.
  *
+ * @TODO remove pagelet's that have `authorized` set to `false`
+ * @TODO Also write the CSS and JavaScript.
+ *
  * @param {String} base The template where we need to inject in to.
- * @param {String} name Name of the pagelet.
+ * @param {Pagelet} pagelet The pagelet instance we're rendering
  * @param {String} view The generated pagelet view.
  * @returns {String} updated base template
  * @api private
  */
-Page.readable('inject', function inject(base, name, view) {
+Page.readable('inject', function inject(base, pagelet, view) {
+  var name = pagelet.name;
+
   [
     "data-pagelet='"+ name +"'",
     'data-pagelet="'+ name +'"',
@@ -833,21 +814,17 @@ Page.readable('render', function render() {
     this.debug('Processing %s request', method);
 
     if (pagelet && method in pagelet) {
-      if (pagelet.authorize) {
-        pagelet.authorize(this.req, function auth(accepted) {
-          if (!accepted) {
-            if (method in page) {
-              reader.before(page[method], page);
-            } else {
-              page[page.mode]();
-            }
+      pagelet.authenticate(this.req, function auth(accepted) {
+        if (!accepted) {
+          if (method in page) {
+            reader.before(page[method], page);
           } else {
-            reader.before(pagelet[method], pagelet);
+            page[page.mode]();
           }
-        });
-      } else {
-        reader.before(pagelet[method], pagelet);
-      }
+        } else {
+          reader.before(pagelet[method], pagelet);
+        }
+      });
     } else if (method in page) {
       reader.before(page[method], page);
     } else {
