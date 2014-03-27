@@ -679,11 +679,11 @@ Pipe.readable('dispatch', function dispatch(req, res) {
       });
 
       page.domain.run(function run() {
-        debug('running page % inside a domain', page.path);
+        debug('running page %s inside a domain', page.path);
         page.configure(req, res);
       });
     } else {
-      debug('running page % outside a domain', page.path);
+      debug('running page %s outside a domain', page.path);
       page.configure(req, res);
     }
   }

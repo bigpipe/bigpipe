@@ -12,7 +12,7 @@ var debugs = require('debug')
 module.exports = function connection(spark) {
   var pipe = this;
 
-  debug('new real-time connection: ', spark.id);
+  debug('new real-time connection: %s', spark.id);
 
   //
   // The orchestrate "substream" is used to sync state back and forth between
