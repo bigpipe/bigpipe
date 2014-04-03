@@ -75,4 +75,8 @@ describe('File', function () {
       expect(file.is('js')).to.equal(true);
     });
   });
+
+  describe('#encrypt', function () {
+    it('returns sha1 encrypted representation of file content');
+  });
 });
