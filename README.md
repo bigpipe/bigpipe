@@ -4,9 +4,12 @@ isn't scared for a couple bugs you're more than welcome to go on this adventure.
 If not, please wait until 1.0 has been released.
 ```
 
-[![Build Status](https://travis-ci.org/bigpipe/bigpipe.png?branch=master)](https://travis-ci.org/bigpipe/bigpipe)
+# BigPipe [![Build Status][status]](https://travis-ci.org/bigpipe/bigpipe) [![NPM version][npmimgurl]](http://badge.fury.io/js/bigpipe) [![Coverage Status][coverage]](http://coveralls.io/r/bigpipe/bigpipe?branch=master)
 
-# BigPipe
+[status]: https://travis-ci.org/bigpipe/bigpipe.png
+[npmimgurl]: https://badge.fury.io/js/bigpipe.png
+[coverage]: http://coveralls.io/repos/bigpipe/bigpipe/badge.png?branch=master
+
 
 BigPipe is a radical new web framework that is inspired by the concept behind
 Facebook's BigPipe. The general idea is to decompose web pages in to small
