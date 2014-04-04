@@ -6,7 +6,7 @@
   "engine": "node >= 0.10.0",
   "scripts": {
     "test": "NODE_ENV=test ./node_modules/.bin/mocha $(find test -name '*.test.js')",
-    "coverage": "NODE_ENV=test ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js || true && rm -rf ./coverage"
+    "coverage": "NODE_ENV=test ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha $(find test -name '*.test.js') --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js || true && rm -rf ./coverage"
   },
   "pre-commit": [
     "compile",
