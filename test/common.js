@@ -13,6 +13,7 @@ chai.use(sinonChai);
 exports.Pipe = require('../');
 exports.Pagelet = require('pagelet');
 exports.Page = require('../page');
+exports.File = require('../lib/file');
 
 //
 // Expose our assertations.

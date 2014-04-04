@@ -91,7 +91,7 @@ describe('Pipe', function () {
     }
 
     it('finds the / page', function (done) {
-      app.find(new Request('/'), function (err, page) {
+      app.find(new Request('/'), {}, function (err, page) {
         if (err) return done(err);
 
         expect(page).to.be.instanceOf(Pipe.Page);
@@ -102,7 +102,7 @@ describe('Pipe', function () {
     });
 
     it('doesnt find / for POST requests', function (done) {
-      app.find(new Request('/', 'POST'), function (err, page) {
+      app.find(new Request('/', 'POST'), {}, function (err, page) {
         if (err) return done(err);
 
         expect(page).to.be.instanceOf(Pipe.Page);
@@ -114,7 +114,7 @@ describe('Pipe', function () {
 
     ['GET', 'POST', 'MOO'].forEach(function (method) {
       it('finds /all for '+ method, function (done) {
-        app.find(new Request('/all', method), function (err, page) {
+        app.find(new Request('/all', method), {}, function (err, page) {
           if (err) return done(err);
 
           expect(page).to.be.instanceOf(Pipe.Page);
@@ -126,7 +126,7 @@ describe('Pipe', function () {
     });
 
     it('always returns a 404 page for unknown urls', function (done) {
-      app.find(new Request('/'+ Math.random(), 'POST'), function (err, page) {
+      app.find(new Request('/'+ Math.random(), 'POST'), {}, function (err, page) {
         if (err) return done(err);
 
         expect(page).to.be.instanceOf(Pipe.Page);
@@ -159,13 +159,13 @@ describe('Pipe', function () {
         , cache: cache
       });
 
-      app.find(new Request('/'), function (err, page) {
+      app.find(new Request('/'), {}, function (err, page) {
         if (err) return done(err);
 
         expect(page).to.be.instanceOf(Pipe.Page);
         expect(page.statusCode).to.equal(200);
 
-        app.find(new Request('/'), function (err, page) {
+        app.find(new Request('/'), {}, function (err, page) {
           if (err) return done(err);
 
           expect(page).to.be.instanceOf(Pipe.Page);
