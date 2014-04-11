@@ -21,7 +21,7 @@
     "formidable": "~1.0.14",
     "fusing": "~0.2.0",
     "mkdirp": "~0.3.5",
-    "pagelet": "~0.2.0",
+    "pagelet": "~0.2.4",
     "pipe.js": "~0.1.0",
     "primus": "~2.1.0",
     "routable": "0.0.2",
