@@ -46,6 +46,9 @@ module.exports = function connection(spark) {
           if (err) return debug('Failed to initialise a page %j', err);
 
           debug('initialised page for connection %s', spark.id);
+
+          p.req = spark.request;
+          p.res = spark;
           page = p;
         });
       break;
