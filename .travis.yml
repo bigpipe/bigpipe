@@ -5,6 +5,6 @@ node_js:
 
 notifications:
   irc:
-    channels: "irc.freenode.org#observing"
+    channels: "irc.freenode.org#bigpipe"
     on_success: change
     on_failure: change
