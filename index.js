@@ -341,6 +341,7 @@ Pipe.readable('status', function status(req, res, code, data) {
     , page = Page.freelist.alloc();
 
   page.data = data || {};
+  page.data.env = process.env.NODE_ENV;
 
   page.once('free', function free() {
     Page.freelist.free(page);
@@ -675,7 +676,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
 
       page.domain.on('error', function (err) {
         debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.stack);
-        // @TODO actually handle the error.
+        try { page.end(err); } catch (e) { console.error(e); }
       });
 
       page.domain.run(function run() {

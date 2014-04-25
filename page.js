@@ -303,7 +303,7 @@ Page.readable('sync', function render(err, data) {
   this.once('discover', function discovered() {
     var pagelets = this.enabled.concat(this.disabled);
 
-    async.forEach(pagelets, function each(pagelet, next) {
+    async.map(pagelets, function each(pagelet, next) {
       page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
 
       data = page.compiler.pagelet(pagelet);
@@ -321,7 +321,9 @@ Page.readable('sync', function render(err, data) {
     });
   });
 
-  this.bootstrap(undefined, data, function boostrapped(view) {
+  this.bootstrap(undefined, data, function boostrapped(err, view) {
+    if (err) return this.end(err);
+
     base = view;
     page.discover();
   });
