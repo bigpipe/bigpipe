@@ -1,7 +1,6 @@
 'use strict';
 
-var debugs = require('debug')
-  , debug = debugs('bigpipe::primus');
+var debugs = require('debug');
 
 /**
  * Our real-time glue layer.
@@ -10,9 +9,10 @@ var debugs = require('debug')
  * @api private
  */
 module.exports = function connection(spark) {
-  var pipe = this;
+  var debug = debugs('bigpipe::primus::'+ spark.id)
+    , pipe = this;
 
-  debug('new real-time connection: %s', spark.id);
+  debug('new real-time connection');
 
   //
   // The orchestrate "substream" is used to sync state back and forth between
@@ -43,9 +43,9 @@ module.exports = function connection(spark) {
 
         spark.request.url = data.url || spark.request.url;
         pipe.find(spark.request, spark, data.id, function found(err, p) {
-          if (err) return debug('Failed to initialise a page %j', err);
+          if (err) return debug('Failed to initialise page %s: %j', spark.request.url, err);
 
-          debug('initialised page for connection %s', spark.id);
+          debug('initialised a new Page instance: %s', spark.request.url);
 
           p.req = spark.request;
           p.res = spark;
@@ -62,6 +62,9 @@ module.exports = function connection(spark) {
         if (!page.has(data.name)) return debug('Unknown pagelet, does not exist on page');
 
         page.get(data.name).connect(spark, function substream(err, pagelet) {
+          if (err) debug('error: Failed to connect to spark');
+
+          debug('Connected pagelet %s with the page', data.name);
           pagelets[data.name] = pagelet;
         });
       break;
