@@ -9,7 +9,7 @@ var debugs = require('debug');
  * @api private
  */
 module.exports = function connection(spark) {
-  var debug = debugs('bigpipe::primus::'+ spark.id)
+  var debug = debugs('bigpipe:primus:'+ spark.id)
     , pipe = this;
 
   debug('new real-time connection');
