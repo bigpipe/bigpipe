@@ -64,9 +64,11 @@ The following `DEBUG` namespaces are available:
 
 - `bigpipe:server` The part that handles the request dispatching, page / pagelet
   transformation and more.
-- `bigpipe:pagelet` Pagelet interactions
 - `bigpipe:page` Page generation.
 - `bigpipe:compiler` Asset compilation.
+- `bigpipe:primus` BigPipe Primus setup.
+- `pagelet:primus` Pagelet and Primus interactions
+- `pagelet` Pagelet interactions
 
 ### Testing
 
