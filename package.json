@@ -20,10 +20,10 @@
     "expirable": "0.1.x",
     "formidable": "1.0.x",
     "fusing": "0.2.x",
-    "mkdirp": "0.3.x",
+    "mkdirp": "0.4.x",
     "pagelet": "0.3.x",
     "pipe.js": "0.2.x",
-    "primus": "2.1.x",
+    "primus": "2.2.x",
     "routable": "0.0.x",
     "smithy": "0.5.x",
     "substream": "0.0.x",
@@ -38,8 +38,8 @@
     "mocha": "1.18.x",
     "mocha-lcov-reporter": "0.0.x",
     "pre-commit": "0.0.x",
-    "sinon": "1.7.x",
-    "sinon-chai": "2.4.x"
+    "sinon": "1.9.x",
+    "sinon-chai": "2.5.x"
   },
   "repository": {
     "type": "git",
