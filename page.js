@@ -193,7 +193,7 @@ Page.writable('parsers', {});
  * @type {Array}
  * @private
  */
-Page.writable('dependencies', {});
+Page.writable('dependencies', []);
 
 //
 // !IMPORTANT
