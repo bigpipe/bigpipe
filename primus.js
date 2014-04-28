@@ -79,4 +79,8 @@ module.exports = function connection(spark) {
     id: spark.query._bp_pid,
     type: 'page'
   });
+
+  spark.once('end', function end() {
+    debug('closed connection');
+  });
 };
