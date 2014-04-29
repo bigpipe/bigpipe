@@ -863,9 +863,21 @@ Page.readable('debug', function log(line) {
  * @api public
  */
 Page.on = function on(module) {
-  var dir = this.prototype.directory = this.prototype.directory || path.dirname(module.filename)
-    , pagelets = this.prototype.pagelets
-    , resolve = this.prototype.resolve;
+  var proto = this.prototype
+    , resolve = proto.resolve
+    , pagelets = proto.pagelets
+    , dir = proto.directory = proto.directory || path.dirname(module.filename);
+
+  //
+  // If Pagelets is a string, assume it's folder with pagelets that should be
+  // transformed in to an object.
+  //
+  if ('string' === typeof pagelets) {
+    proto.pagelets = pagelets = fs.readdirSync(path.join(dir, pagelets)).reduce(function reduce(memo, file) {
+      memo[file] = path.join(pagelets, file);
+      return memo;
+    }, {});
+  }
 
   //
   // Resolve pagelets and resource paths.
