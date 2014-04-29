@@ -186,6 +186,7 @@ describe('Pipe', function () {
       expect(app.pages).to.have.length(6);
       expect(app.pages[2]).to.be.an('function');
       expect(app.pages[2]).to.have.property('properties');
+      faq.prototype.dependencies = [];
     });
 
     it('will resolve and add the page if directory or array', function () {
@@ -237,8 +238,7 @@ describe('Pipe', function () {
       this.timeout(50E4);
 
       var pipe = new Pipe(http.createServer(), {
-          pages: __dirname +'/fixtures/pages'
-        , dist: '/tmp/dist'
+          dist: '/tmp/dist'
       });
 
       pipe.once('listening', function () {

@@ -11,7 +11,7 @@ describe('File', function () {
     , file;
 
   beforeEach(function () {
-    file = new File(code, ext, location);
+    file = new File(location, ext, false, code);
   });
 
   afterEach(function () {
@@ -49,7 +49,7 @@ describe('File', function () {
     });
 
     it('will be called on construction if content is provided', function () {
-      var result = new File('custom', ext, location);
+      var result = new File(location, ext, false, 'custom');
 
       expect(result.code).to.equal('custom');
       expect(result.buffer).to.be.an.instanceof(Buffer);

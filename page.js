@@ -188,7 +188,7 @@ Page.writable('parsers', {});
 
 /**
  * Dependencies. These are the common, shared files that need to be loaded
- * globally. This array will be set
+ * globally.
  *
  * @type {Array}
  * @private
