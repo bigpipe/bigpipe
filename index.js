@@ -32,8 +32,17 @@ var trailers = require('trailers');
  * @api private
  */
 function configure(obj) {
+  /**
+   * Get an option.
+   *
+   * @param {String} key Name of the opt
+   * @param {Mixed} backup Fallback data if key does not exist.
+   * @api public
+   */
   function get(key, backup) {
-    return key in obj ? obj[key] : backup;
+    if (key in obj) return obj[key];
+
+    return obj[key] = backup;
   }
 
   //
@@ -57,8 +66,6 @@ function configure(obj) {
  * - pages: String or array of pages we serve.
  * - parser: Which parser should be used to send data in real-time.
  * - pathname: The pathname we use for Primus requests.
- * - public: The pathname for public static content.
- * - static: The pathname for our static assets.
  * - transport: The transport engine we should use for real-time.
  *
  * @constructor
@@ -124,7 +131,7 @@ function Pipe(server, options) {
   this.use(require('./plugins/pagelet'));
 
   readable('pages', this.resolve(
-    options('pages', __dirname + '/pages'),
+    options('pages', path.join(process.cwd(), '/pages')),
     this.transform) || []
   );
 
