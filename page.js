@@ -870,11 +870,14 @@ Page.on = function on(module) {
 
   //
   // If Pagelets is a string, assume it's folder with pagelets that should be
-  // transformed in to an object.
+  // transformed in to an object. Ignore files in the main directory.
   //
   if ('string' === typeof pagelets) {
     proto.pagelets = pagelets = fs.readdirSync(path.join(dir, pagelets)).reduce(function reduce(memo, file) {
-      memo[file] = path.join(pagelets, file);
+      var src = path.join(pagelets, file);
+      if (fs.statSync(src).isFile()) return memo;
+
+      memo[file] = src;
       return memo;
     }, {});
   }
