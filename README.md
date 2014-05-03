@@ -27,6 +27,20 @@ against Node.js 0.10.x.
 npm install --save bigpipe
 ```
 
+### Support
+
+Got suck? Or can't wrap your head around a concept or just want some feedback,
+we got a dedicated IRC channel for that on Freenode:
+
+``
+  server: irc.freenode.net
+  room: #bigpipe
+```
+
+Still suck? Create an issue. Every question you have is a bug in our
+documentation and that should be corrected. So please, don't hesitate to create
+issues, many of them.
+
 ### Getting started
 
 In all of these example we assume that your file is setup as:
