@@ -59,7 +59,6 @@ function configure(obj) {
  * - pathname: The pathname we use for Primus requests.
  * - public: The pathname for public static content.
  * - static: The pathname for our static assets.
- * - stream: Where we should write our logs to.
  * - transport: The transport engine we should use for real-time.
  *
  * @constructor
