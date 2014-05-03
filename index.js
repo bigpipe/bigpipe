@@ -41,8 +41,9 @@ function configure(obj) {
    */
   function get(key, backup) {
     if (key in obj) return obj[key];
+    if (backup) obj[key] = backup;
 
-    return obj[key] = backup;
+    return obj[key];
   }
 
   //

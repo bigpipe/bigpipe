@@ -56,14 +56,15 @@ describe('Pipe', function () {
   describe('#options', function () {
     it('has queryable options with defaults', function () {
       expect(app.options).to.be.a('function');
-      expect(app.options('host', 'localhost')).to.equal('localhost');
       expect(app.options('host')).to.equal(undefined);
+      expect(app.options('host', 'localhost')).to.equal('localhost');
 
       var pipe = new Pipe(http.createServer(), {
           pages: __dirname +'/fixtures/pages'
         , dist: '/tmp/dist'
         , host: '127.0.0.1'
       });
+
       expect(pipe.options('host')).to.equal('127.0.0.1');
     });
 
