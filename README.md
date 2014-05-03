@@ -1,20 +1,13 @@
-```
-This module is actively being developed. If you are a fearless developer that
-isn't scared for a couple bugs you're more than welcome to go on this adventure.
-If not, please wait until 1.0 has been released.
-```
-
 # BigPipe [![Build Status][status]](https://travis-ci.org/bigpipe/bigpipe) [![NPM version][npmimgurl]](http://badge.fury.io/js/bigpipe) [![Coverage Status][coverage]](http://coveralls.io/r/bigpipe/bigpipe?branch=master)
 
 [status]: https://travis-ci.org/bigpipe/bigpipe.png
 [npmimgurl]: https://badge.fury.io/js/bigpipe.png
 [coverage]: http://coveralls.io/repos/bigpipe/bigpipe/badge.png?branch=master
 
-
 BigPipe is a radical new web framework that is inspired by the concept behind
 Facebook's BigPipe. The general idea is to decompose web pages in to small
 re-usable chunks of functionality called `Pagelets` and pipeline them through
-several execution stages inside web servers or browsers. This allows progressive
+several execution stages inside web servers and browsers. This allows progressive
 rendering at the front-end and results in exceptional front-end performance.
 
 Most web frameworks are based on request and response pattern, a request comes
@@ -33,6 +26,117 @@ against Node.js 0.10.x.
 ```
 npm install --save bigpipe
 ```
+
+### Getting started
+
+In all of these example we assume that your file is setup as:
+
+```js
+'use strict';
+
+var BigPipe = require('bigpipe');
+```
+
+### BigPipe.createServer()
+
+To create a BigPipe powered server can simply call the `createServer` method.
+This creates an HTTP or HTTPS server based on the options provided.
+
+```js
+var bigpipe = BigPipe.createServer(8080, {
+  pages: __dirname +'/pages',
+  dist:  __dirname +'/dist'
+});
+```
+
+The first argument in the function call is port number you want the server the
+listen on. The second argument is an object with the configuration/options of the
+BigPipe server. The following options are supported:
+
+- **cache** A cache which is used for storing URL lookups. This cache instance
+  should have a `.get(key)` and `.set(key, value)` method. Defaults to `false`
+- **dist** The location of our folder where we can store our compiled CSS and
+  JavaScript to disk. If the path or folder does not exist it will be
+  automatically created. Defaults to `working dir/dist`.
+- **domain** Use Node's domains when processing requests so errors are handled
+  by BigPipe. Defaults to `true` if domains are supported, `false` if domains
+  are not supported.
+- **pages** A directory that contains your Page definitions or an array of Page
+  constructors. Defaults to `working dir/dist`. If you don't provide Pages it
+  will serve a 404 page for every request.
+- **parser** The message parser we should use for our real-time communication.
+  See [Primus] for the available parsers. Defaults to `JSON`.
+- **pathname** The root path of an URL that we can use our real-time
+  communication. This path should not be used by your Pages. Defaults to
+  `/pagelet`
+- **transformer** The transformer or real-time framework we should for the
+  real-time communication. We're bundling and using `ws` by default. See [Primus]
+  for the supported transformers. Please note that you do need to add the
+  transformer dependency to your `package.json` when you choose something else
+  than `ws`.
+- **redirect** When creating a HTTPS server you could automatically start a HTTP
+  server which redirects all traffic to the HTTPS equiv. The value is the port
+  number on which this server should be started. Defaults to `false`.
+
+In addition to the options above, all options of a HTTPS server are also
+supported.  When you provide the server with cert and key files or set the
+port number to `443` it assumes you want to setup up a HTTPS server instead.
+
+```js
+var bigpipe = BigPipe.createServer(443, {
+  key: fs.readFileSync(__dirname +'/ssl.key', 'utf-8'),
+  cert: fs.readFileSync(__dirname +'/ssl.cert', 'utf-8')
+});
+```
+
+When you're creating an HTTPS server you got to option to also setup a simple
+HTTP server which redirects all content to HTTPS instead. This is done by
+supplying the `redirect` property in the options. The value of this property
+should be the port number you want this HTTP server to listen on:
+
+```js
+var bigpipe = BigPipe.createServer(443, {
+  ..
+
+  key: fs.readFileSync(__dirname +'/ssl.key', 'utf-8'),
+  cert: fs.readFileSync(__dirname +'/ssl.cert', 'utf-8'),
+  redirect: 80
+});
+```
+
+### new BigPipe()
+
+If you want more control over the server creation process you can manually
+create a HTTP or HTTPS server and supply it to the BigPipe constructor.
+
+```js
+'use strict';
+
+var server = require('http').createServer()
+  , BigPipe = require('bigpipe');
+
+var bigpipe = new BigPipe(server, { options });
+```
+
+If you are using this pattern to create a BigPipe server instance you need to
+use the `bigpipe.listen` method to listen to the server. When this is called we
+will start our compiling all assets, attach the correct listeners to the
+supplied server, attach event listeners and finally listen on the server. The
+first argument of this method is the port number you want to listen on, the
+second argument is an optional callback function that should be called when
+server is listening for requests.
+
+```js
+bigpipe.listen(8080, function listening() {
+  console.log('hurray, we are listening on port 8080');
+});
+```
+
+### BigPipe.version
+
+**public**, _returns string_.
+
+The current version of the BigPipe framework that is running.
 
 ### Events
 
@@ -83,3 +187,4 @@ BigPipe is released under MIT.
 
 [Travis CI]: http://travisci.org
 [pre-commit]: http://github.com/observing/pre-commit
+[Primus]: https://githbu.com/primus/primus
