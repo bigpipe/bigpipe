@@ -875,7 +875,10 @@ Page.on = function on(module) {
   if ('string' === typeof pagelets) {
     proto.pagelets = pagelets = fs.readdirSync(path.join(dir, pagelets)).reduce(function reduce(memo, file) {
       var src = path.join(pagelets, file);
-      if (fs.statSync(src).isFile()) return memo;
+
+      if (fs.statSync(path.join(dir, src)).isFile()) {
+        return memo;
+      }
 
       memo[file] = src;
       return memo;
