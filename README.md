@@ -51,6 +51,8 @@ var BigPipe = require('bigpipe');
 
 ### BigPipe.createServer()
 
+**public**, _returns BigPipe_.
+
 To create a BigPipe powered server can simply call the `createServer` method.
 This creates an HTTP or HTTPS server based on the options provided.
 
@@ -118,7 +120,7 @@ var bigpipe = BigPipe.createServer(443, {
 
 ### new BigPipe()
 
-**public**, _returns BigPipe.
+**public**, _returns BigPipe_.
 
 If you want more control over the server creation process you can manually
 create a HTTP or HTTPS server and supply it to the BigPipe constructor.
@@ -152,7 +154,7 @@ bigpipe.listen(8080, function listening() {
 
 ```js
 bigpipe.version;
-``
+```
 
 The current version of the BigPipe framework that is running.
 
