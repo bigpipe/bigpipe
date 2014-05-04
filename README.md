@@ -120,6 +120,8 @@ var bigpipe = BigPipe.createServer(443, {
 
 ### new BigPipe()
 
+**public**, _returns BigPipe.
+
 If you want more control over the server creation process you can manually
 create a HTTP or HTTPS server and supply it to the BigPipe constructor.
 
@@ -150,7 +152,35 @@ bigpipe.listen(8080, function listening() {
 
 **public**, _returns string_.
 
+```js
+bigpipe.version;
+``
+
 The current version of the BigPipe framework that is running.
+
+### BigPipe.define()
+
+**public**, _returns BigPipe_.
+
+```js
+bigpipe.define(pages, callback);
+```
+
+Merge page or pages in the collection of existing pages. If given a string it
+will search that directly for the available Page files. After all dependencies
+have been compiled the supplied callback is called.
+
+```js
+bigpipe.define('../pages', function done(err) {
+
+});
+
+bigpipe.define([Page, Page, Page], function done(err) {
+
+}).define('../more/pages', function done(err) {
+
+});
+```
 
 ### Events
 
