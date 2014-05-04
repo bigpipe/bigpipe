@@ -32,7 +32,7 @@ npm install --save bigpipe
 Got suck? Or can't wrap your head around a concept or just want some feedback,
 we got a dedicated IRC channel for that on Freenode:
 
-``
+```
   server: irc.freenode.net
   room: #bigpipe
 ```
