@@ -359,4 +359,4 @@ BigPipe is released under MIT.
 
 [Travis CI]: http://travisci.org
 [pre-commit]: http://github.com/observing/pre-commit
-[Primus]: https://githbu.com/primus/primus
+[Primus]: https://github.com/primus/primus
