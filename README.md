@@ -270,7 +270,7 @@ bigpipe.before('layer', function () {});
 bigpipe.remove('layer');
 ```
 
-### BigPipe.disable(name)
+### BigPipe.disable()
 
 **public**, _returns BigPipe_.
 
@@ -310,7 +310,7 @@ bigpipe.enable('layer');
 bigpipe.use(name, plugin);
 ```
 
-### Events
+## Events
 
 Everything in BigPipe is build upon the EventEmitter interface. It's either a
 plain EventEmitter or a proper stream. This a summary of the events we emit:
@@ -325,7 +325,7 @@ Event                 | Usage       | Location      | Description
 `pagelet::configure`  | public      | server        | A new pagelet has been configured
 `page::configure`     | public      | server        | A new page has been configured
 
-### Debugging
+## Debugging
 
 The library makes use the `debug` module and has all it's internals namespaced
 to `bigpipe:`. These debug messages can be trigged by starting your application
@@ -346,14 +346,14 @@ The following `DEBUG` namespaces are available:
 - `pagelet:primus` Pagelet and Primus interactions
 - `pagelet` Pagelet interactions
 
-### Testing
+## Testing
 
 Tests are automatically run on [Travis CI] to ensure that everything is
 functioning as intended. For local development we automatically install a
 [pre-commit] hook that runs the `npm test` command every time you commit changes.
 This ensures that we don't push any broken code in to this project.
 
-### License
+## License
 
 BigPipe is released under MIT.
 
