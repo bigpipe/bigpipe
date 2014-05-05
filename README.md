@@ -18,7 +18,7 @@ where everything everything is done asynchronous. When received your first batch
 of data, why not send it directly to the browser so it can start downloading the
 required CSS, JavaScript and render it.
 
-### Installation
+## Installation
 
 BigPipe is distributed through the node package manager (npm) and is written
 against Node.js 0.10.x.
@@ -27,7 +27,7 @@ against Node.js 0.10.x.
 npm install --save bigpipe
 ```
 
-### Support
+## Support
 
 Got suck? Or can't wrap your head around a concept or just want some feedback,
 we got a dedicated IRC channel for that on Freenode:
@@ -38,6 +38,20 @@ we got a dedicated IRC channel for that on Freenode:
 Still suck? Create an issue. Every question you have is a bug in our
 documentation and that should be corrected. So please, don't hesitate to create
 issues, many of them.
+
+## Table of Contents
+
+**BigPipe**
+- [Getting started](#getting-started)
+- [BigPipe.createServer()](#bigpipecreateserver)
+- [new BigPipe()](#new-bigpipe)
+- [BigPipe.version](#bigpipeversion)
+- [BigPipe.define()](#bigpipedefine)
+- [BigPipe.before()](#bigpipebefore)
+- [BigPipe.remove()](#bigpiperemove)
+- [BigPipe.disable()](#bigpipedisable)
+- [BigPipe.enable()](#bigpipeenable)
+- [BigPipe.use()](#bigpipeuse)
 
 ### Getting started
 
