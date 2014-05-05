@@ -182,6 +182,120 @@ bigpipe.define([Page, Page, Page], function done(err) {
 });
 ```
 
+### BigPipe.before()
+
+**public**, _returns BigPipe_.
+
+```js
+bigpipe.before(name, fn, options);
+```
+
+BigPipe has two ways of extending it's build-in functionality, we have plugins
+but also middleware layers. The important difference between these is that
+middleware layers allow you modify the incoming requests **before** they are
+used by BigPipe.
+
+There are 2 different kinds of middleware layers, **async** and **sync**. The
+main difference is that the **sync** middleware doesn't require a callback. It's
+completely optional and ideal for just introducing or modifying the properties
+on a request or response object.
+
+All middleware layers need to be named, this allows you to enable, disable or
+remove the middleware layers. The supplied middleware function can either be a
+pre-configured function that is ready to modify the request and responses:
+
+```js
+bigpipe.before('foo', function (req, res) {
+  req.foo = 'bar';
+});
+```
+
+Or an unconfigured function. We assume that a function is unconfigured if the
+supplied function has less than **2** arguments. When we detect these function
+we automatically call the function with the context that is set to `BigPipe` and
+the supplied options object and assume that it returns a configured middleware
+layer.
+
+```js
+bigpipe.before('foo', function (configure) {
+  return function (req, res) {
+    res.foo = configure.foo;
+  };
+}, { foo: 'bar' });
+```
+
+If you're building async middleware layers, you simply need to make sure that
+your function accepts 3 arguments:
+
+- **req** The incoming HTTP request.
+- **req** The outgoing HTTP response.
+- **next** The continuation callback function. This function follows the error
+  first callback pattern.
+
+```js
+bigpipe.before('foo', function (req, res, next) {
+  asyncthings(function (err, data) {
+    req.foo = data;
+    next(err);
+  });
+});
+```
+
+### BigPipe.remove()
+
+**public**, _returns BigPipe_.
+
+```js
+bigpipe.remove(name);
+```
+
+Removes a middleware layer from the stack based on the given name.
+
+```js
+bigpipe.before('layer', function () {});
+bigpipe.remove('layer');
+```
+
+### BigPipe.disable(name)
+
+**public**, _returns BigPipe_.
+
+```js
+bigpipe.disable(name);
+```
+
+Temporarily disable a middleware layer, it's not removed from the stack but it's
+just skipped when we iterate over the middleware layers. When a middleware layer
+has been disabled you can re-enable it.
+
+```js
+bigpipe.before('layer', function () {});
+bigpipe.disable('layer');
+```
+
+### BigPipe.enable()
+
+**public**, _returns BigPipe_.
+
+```js
+bigpipe.enable(name);
+```
+
+Re-Enable a previously disabled module.
+
+```js
+bigpipe.disable('layer');
+bigpipe.enable('layer');
+```
+
+### BigPipe.use()
+
+**public**, _returns BigPipe_.
+
+```js
+bigpipe.use(name, plugin);
+```
+
 ### Events
 
 Everything in BigPipe is build upon the EventEmitter interface. It's either a
@@ -202,7 +316,7 @@ Event                 | Usage       | Location      | Description
 The library makes use the `debug` module and has all it's internals namespaced
 to `bigpipe:`. These debug messages can be trigged by starting your application
 with the `DEBUG=` env variable. In order to filter out all messages except
-bigpipe's message run your server with the following command:
+BigPipe's message run your server with the following command:
 
 ```bash
 DEBUG=bigpipe:* node <server.js>
