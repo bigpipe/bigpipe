@@ -310,6 +310,38 @@ bigpipe.enable('layer');
 bigpipe.use(name, plugin);
 ```
 
+Plugins can be used to extend the functionality of BigPipe it self. You can
+control the client code as well as the server side code of BigPipe using the
+plugin interface. 
+
+```js
+bigpipe.use('ack', {
+  //
+  // Only ran on the server.
+  //
+  server: function (bigpipe, options) {
+     // do stuff
+  },
+
+  //
+  // Runs on the client, it's automatically bundled.
+  //
+  client: function (bigpipe, options) {
+     // do client stuff
+  },
+
+  //
+  // Optional library that needs to be bundled on the client (should be a string)
+  //
+  library: '',
+
+  //
+  // Optional plugin specific options, will be merged with Bigpipe.options
+  //
+  options: {}
+});
+```
+
 ## Events
 
 Everything in BigPipe is build upon the EventEmitter interface. It's either a
