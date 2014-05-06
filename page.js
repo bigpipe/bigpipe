@@ -840,7 +840,7 @@ Page.readable('render', function render() {
  * prefixes the debug statement with the method that was used as well as the
  * entry path.
  *
- * @api private
+ * @api public
  */
 Page.readable('debug', function log(line) {
   var args = Array.prototype.slice.call(arguments, 1);
