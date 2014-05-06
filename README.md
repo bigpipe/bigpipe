@@ -312,7 +312,7 @@ bigpipe.use(name, plugin);
 
 Plugins can be used to extend the functionality of BigPipe it self. You can
 control the client code as well as the server side code of BigPipe using the
-plugin interface. 
+plugin interface.
 
 ```js
 bigpipe.use('ack', {
@@ -513,11 +513,11 @@ plain EventEmitter or a proper stream. This a summary of the events we emit:
 
 Event                 | Usage       | Location      | Description
 ----------------------|-------------|---------------|-------------------------------
-`log`                 | public      | server        | A new log message.
+`log`                 | public      | server        | A new log message
 `transform::pagelet`  | public      | server        | Transform a Pagelet
 `transform::page`     | public      | server        | Transform a Page
 `listening`           | public      | server        | The server is listening
-`error`               | public      | server        | The HTTP serer received an error
+`error`               | public      | server        | The HTTP server received an error
 `pagelet::configure`  | public      | server        | A new pagelet has been configured
 `page::configure`     | public      | server        | A new page has been configured
 
