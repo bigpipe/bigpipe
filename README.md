@@ -419,7 +419,7 @@ preset. The charset does not inherit it's value from the `charset` option.
 
 ```js
 Page.extend({
-  contentType: 'text/html; charset=UTF-7"
+  contentType: 'text/html; charset=UTF-7'
 }).on(module);
 ```
 
