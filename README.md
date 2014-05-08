@@ -460,6 +460,21 @@ Page.extend({
 }).on(module);
 ```
 
+### Page.data
+
+_optional:_ **writable, object**
+
+Optional data that is passed through to the template renderer when rendering
+the view associated with this page.
+
+```js
+Page.extend({
+  data: {
+    timestamp: Date.now()
+  }
+}).on(module);
+```
+
 ### Page.authorize
 
 _optional:_ **writable, function**
