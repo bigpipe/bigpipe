@@ -419,7 +419,7 @@ preset. The charset does not inherit it's value from the `charset` option.
 
 ```js
 Page.extend({
-  contentType: 'text/html; charset=UTF-7"
+  contentType: 'text/html; charset=UTF-7'
 }).on(module);
 ```
 
@@ -457,6 +457,21 @@ The default status code that we should send back to the response.
 ```js
 Page.extend({
   statusCode: 416
+}).on(module);
+```
+
+### Page.data
+
+_optional:_ **writable, object**
+
+Optional data that is passed through to the template renderer when rendering
+the view associated with this page.
+
+```js
+Page.extend({
+  data: {
+    timestamp: Date.now()
+  }
 }).on(module);
 ```
 
