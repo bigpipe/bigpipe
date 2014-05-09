@@ -27,6 +27,12 @@ against Node.js 0.10.x.
 npm install --save bigpipe
 ```
 
+## Versioning
+
+To keep track of cross module compatibility, the imported components will be synced
+on minor releases. For example, `bigpipe@0.5.0` will always be compatible with
+`pagelet@0.5.0` and `pipe.js@0.5.0`.
+
 ## Support
 
 Got stuck? Or can't wrap your head around a concept or just want some feedback,
