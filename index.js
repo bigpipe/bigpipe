@@ -738,7 +738,7 @@ Pipe.readable('forEach', function forEach(req, res, next) {
     debug('applying middleware %s on %s', layer.name, req.url);
 
     if (layer.length === 2) {
-      if (layer.fn.call(pipe, req, res) === false) return;
+      if (layer.fn.call(pipe, req, res)) return;
       return iterate(index);
     }
 
