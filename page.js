@@ -16,7 +16,7 @@ var Formidable = require('formidable').IncomingForm
  * @type {Array}
  * @api private
  */
-var operations = 'POST, PUT, DELETE, PATCH'.split(', ').toLowerCase();
+var operations = 'POST, PUT, DELETE, PATCH'.toLowerCase().split(', ');
 
 /**
  * A simple object representation of a given page.
