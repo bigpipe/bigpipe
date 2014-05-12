@@ -19,7 +19,7 @@ module.exports = function connection(spark) {
   // a client and our BigPipe server. It allows us to know which pagelets are
   // available on a given page and even which page we're currently viewing.
   //
-  var orchestrate = spark.substream('pipe::orchestrate')
+  var orchestrate = spark.substream('pipe:orchestrate')
     , pagelets = Object.create(null)
     , page;
 

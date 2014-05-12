@@ -119,7 +119,7 @@ function Pipe(server, options) {
 
   //
   // Add our default middleware layers, this needs to be done before we
-  // initialise or add plugins as we want to make sure that OUR middleware is
+  // initialize or add plugins as we want to make sure that OUR middleware is
   // loaded first as it's the most important (at least, in our opinion).
   //
   this.before('compiler', this.compiler.serve);
@@ -418,7 +418,7 @@ Pipe.readable('bind', function bind(fn) {
 });
 
 /**
- * Find and initialise pages based on a given id or on the pathname of the
+ * Find and initialize pages based on a given id or on the pathname of the
  * request.
  *
  * @param {HTTP.Request} req The incoming HTTP request.
@@ -469,7 +469,7 @@ Pipe.readable('find', function find(req, res, id, next) {
 
   //
   // It could be that we have selected a couple of authorized pages. Filter
-  // those out before sending the and initialised page to the callback.
+  // those out before sending the and initialized page to the callback.
   //
   (function each(pages) {
     var constructor = pages.shift()
@@ -534,9 +534,9 @@ Pipe.readable('before', function before(name, fn, options) {
   options = options || {};
 
   //
-  // No or only 1 argument means that we need to initialise the middleware, this
-  // is a special initialisation process where we pass in a reference to the
-  // initialised Pipe instance so a pre-compiling process can be done.
+  // No or only 1 argument means that we need to initialize the middleware, this
+  // is a special initialization process where we pass in a reference to the
+  // initialized Pipe instance so a pre-compiling process can be done.
   //
   if (fn.length < 2) fn = fn.call(this, options);
 

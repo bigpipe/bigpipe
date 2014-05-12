@@ -280,7 +280,7 @@ Page.readable('discover', function discover() {
     });
 
     // @TODO free disabled pagelets
-    page.debug('Initialised all allowed pagelets');
+    page.debug('Initialized all allowed pagelets');
     page.emit('discover');
   });
 });
@@ -613,7 +613,7 @@ Page.readable('has', function has(name, enabled) {
 });
 
 /**
- * Get and initialise a given Pagelet.
+ * Get and initialize a given Pagelet.
  *
  * @param {String} name Name of the pagelet.
  * @returns {Pagelet} The created pagelet instance.
@@ -623,8 +623,8 @@ Page.readable('get', function get(name) {
   var Pagelet = this.has(name) || this.has(name, true);
 
   //
-  // It could be that Pagelet is undefined if nothing is initialised or it could
-  // be previously initialised pagelet. As it's already initialised, we can
+  // It could be that Pagelet is undefined if nothing is initialized or it could
+  // be previously initialized pagelet. As it's already initialized, we can
   // simply return it.
   //
   if ('function' !== typeof Pagelet) return Pagelet;
@@ -635,7 +635,7 @@ Page.readable('get', function get(name) {
  * The bootstrap method generates a string that needs to be included in the
  * template in order for pagelets to function.
  *
- * - It includes the pipe.js JavaScript client and initialises it.
+ * - It includes the pipe.js JavaScript client and initializes it.
  * - It includes "core" library files for the page.
  * - It includes "core" CSS for the page.
  * - It adds a noscript meta refresh to force our `sync` method which fully
@@ -702,7 +702,7 @@ Page.readable('bootstrap', function bootstrap(err, data, next) {
   this.compiler.page(this, head);
 
   //
-  // Initialise the library.
+  // Initialize the library.
   //
   head.push(
     '<script>',
@@ -738,7 +738,7 @@ Page.readable('bootstrap', function bootstrap(err, data, next) {
 });
 
 /**
- * Reset the instance to it's original state and initialise it.
+ * Reset the instance to it's original state and initialize it.
  *
  * @param {ServerRequest} req HTTP server request.
  * @param {ServerResponse} res HTTP server response.
@@ -762,7 +762,7 @@ Page.readable('configure', function configure(req, res) {
   //
   // Emit a page configuration event so plugins can hook in to this.
   //
-  this.pipe.emit('page::configure', this);
+  this.pipe.emit('page:configure', this);
 
   //
   // If we have a `no_pagelet_js` flag, we should force a different
@@ -927,7 +927,7 @@ Page.optimize = function optimize(pipe) {
       Page.prototype.pagelets = pipe.resolve(
         Page.prototype.pagelets,
         function map(Pagelet) {
-          return Pagelet.optimize(pipe.emits('transform::pagelet'));
+          return Pagelet.optimize(pipe.emits('transform:pagelet'));
         }
       );
     }
@@ -955,7 +955,7 @@ Page.optimize = function optimize(pipe) {
     //
     // Add the properties to the page.
     //
-    pipe.emit('transform::page', Page);                 // Emit transform event for plugins.
+    pipe.emit('transform:page', Page);                  // Emit transform event for plugins.
     Page.properties = Object.keys(Page.prototype);      // All properties before init.
     Page.router = new Route(router);                    // Actual HTTP route.
     Page.method = method;                               // Available HTTP methods.

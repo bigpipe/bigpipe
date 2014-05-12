@@ -11,7 +11,7 @@ exports.name = 'wrap-pagelet';
 // Server side Pagelet plugin to add additional functionality for BigPipe.
 //
 exports.server = function (pipe) {
-  pipe.on('transform::pagelet', function transform(Pagelet) {
+  pipe.on('transform:pagelet', function transform(Pagelet) {
     debug('Transforming base Pagelet %s with methods for BigPipe functionality', Pagelet.prototype.name);
 
     if (Pagelet.prototype.___bigPiped === true) return;
@@ -82,7 +82,7 @@ exports.server = function (pipe) {
       // Emit a pagelet configuration event so plugins can hook in to this
       // event.
       //
-      this.pipe.emit('paglet::configure', this);
+      this.pipe.emit('paglet:configure', this);
 
       return this;
     });
