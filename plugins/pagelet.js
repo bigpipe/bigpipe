@@ -82,7 +82,7 @@ exports.server = function (pipe) {
       // Emit a pagelet configuration event so plugins can hook in to this
       // event.
       //
-      this.pipe.emit('paglet:configure', this);
+      this.pipe.emit('pagelet:configure', this);
 
       return this;
     });
