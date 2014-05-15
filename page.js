@@ -313,7 +313,7 @@ Page.readable('sync', function render(err, data) {
     }, function done(err, data) {
       // @TODO handle errors
       pagelets.forEach(function forEach(pagelet, index) {
-        base = page.inject(base, pagelet, data[index]);
+        base = page.inject(base, pagelet, data[index].view);
       });
 
       page.queue.push(base);
