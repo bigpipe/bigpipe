@@ -297,36 +297,41 @@ Page.readable('discover', function discover() {
 Page.readable('sync', function render(err, data) {
   if (err) return this.end(err);
 
-  var page = this
-    , base = '';
+  var page = this;
 
+  //
+  // Because we're synchronously rendering the pagelets we need to discover
+  // which one's are enabled before we send the bootstrap code so it can include
+  // the CSS files of the enabled pagelets in the HEAD of the page so there is
+  // styling available.
+  //
   this.once('discover', function discovered() {
-    var pagelets = this.enabled.concat(this.disabled);
+    this.bootstrap(undefined, data, function booted(err, view) {
+      var pagelets = page.enabled.concat(page.disabled);
 
-    async.map(pagelets, function each(pagelet, next) {
-      page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
+      async.map(pagelets, function each(pagelet, next) {
+        page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
 
-      data = page.compiler.pagelet(pagelet);
-      data.processed = ++page.n;
+        pagelet.render({ data: data }, next);
+      }, function done(err, data) {
+        if (err) return page.end(err);
 
-      pagelet.render({ data: data }, next);
-    }, function done(err, data) {
-      // @TODO handle errors
-      pagelets.forEach(function forEach(pagelet, index) {
-        base = page.inject(base, pagelet, data[index].view);
+        pagelets.forEach(function forEach(pagelet, index) {
+          view = page.inject(view, pagelet, data[index].view);
+        });
+
+        //
+        // We need to bump the page.n to the length of the enabled pagelets to
+        // trick the end function in to believing that ALL pagelets have been
+        // flushed and that it can clean write queue and close the connection as
+        // no more data is expected to arrive.
+        //
+        page.n = page.enabled.length;
+        page.queue.push(view);
+        page.end();
       });
-
-      page.queue.push(base);
-      page.end();
     });
-  });
-
-  this.bootstrap(undefined, data, function boostrapped(err, view) {
-    if (err) return this.end(err);
-
-    base = view;
-    page.discover();
-  });
+  }).discover();
 
   return this.debug('Rendering the pagelets in `sync` mode');
 });
@@ -729,8 +734,11 @@ Page.readable('bootstrap', function bootstrap(err, data, next) {
     value: head.join('')
   }));
 
+  //
+  // We've been given a callback function so we should transfer the generated
+  // view in to the callback for processing and rendering.
+  //
   var view = this.temper.fetch(this.view).server(data);
-
   if (next) return next(undefined, view);
 
   this.queue.push(view);
