@@ -683,7 +683,10 @@ Pipe.readable('dispatch', function dispatch(req, res) {
 
       page.domain.on('error', function (err) {
         debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.stack);
-        try { page.end(err); } catch (e) { console.error(e); }
+
+        try { page.end(err); } catch (e) {
+          console.error(e.stack);
+        }
       });
 
       page.domain.run(function run() {
