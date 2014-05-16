@@ -1,6 +1,6 @@
 {
   "name": "bigpipe",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Bigpipe a radical new web framework for Node.js that's inspired by Facebook's bigpipe concept.",
   "main": "index.js",
   "engine": "node >= 0.10.0",
@@ -13,16 +13,16 @@
     "test"
   ],
   "dependencies": {
-    "async": "0.7.x",
+    "async": "0.9.x",
     "debug": "0.8.x",
     "ejs": "1.0.x",
     "eventemitter3": "0.1.x",
     "expirable": "0.1.x",
     "formidable": "1.0.x",
     "fusing": "0.2.x",
-    "mkdirp": "0.4.x",
-    "pagelet": "0.5.x",
-    "pipe.js": "0.5.x",
+    "mkdirp": "0.5.x",
+    "pagelet": "0.6.x",
+    "pipe.js": "0.6.x",
     "primus": "2.2.x",
     "routable": "0.0.x",
     "smithy": "0.5.x",
