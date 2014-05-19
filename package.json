@@ -27,7 +27,7 @@
     "routable": "0.0.x",
     "smithy": "0.5.x",
     "substream": "0.0.x",
-    "temper": "0.1.x",
+    "temper": "0.2.x",
     "trailers": "0.0.x",
     "ws": "0.4.x"
   },
