@@ -923,6 +923,7 @@ Page.optimize = function optimize(pipe) {
     // Parse the methods to an array of accepted HTTP methods. We'll only accept
     // there requests and should deny every other possible method.
     //
+    debug('Optimizing page registered for path %s', router);
     if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
     method = method.filter(Boolean).map(function transformation(method) {
       return method.toUpperCase();
@@ -959,6 +960,7 @@ Page.optimize = function optimize(pipe) {
     Page.prototype.id = [1, 1, 1, 1].map(function generator() {
       return Math.random().toString(36).substring(2).toUpperCase();
     }).join('');
+    debug('Adding random ID %s to page for pagelet retrieval', Page.prototype.id);
 
     //
     // Add the properties to the page.
