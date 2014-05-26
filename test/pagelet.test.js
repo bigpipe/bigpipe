@@ -10,7 +10,7 @@ describe('Pagelet plugin', function () {
     , page, pagelet;
 
   plugin.server(ee);
-  ee.emit('transform::pagelet', Pagelet);
+  ee.emit('transform:pagelet', Pagelet);
 
   beforeEach(function () {
     page = {};
