@@ -63,6 +63,7 @@ module.exports = function connection(spark) {
 
         page.get(data.name).connect(spark, function substream(err, pagelet) {
           if (err) debug('error: Failed to connect to spark');
+          if (data.id && pagelet) pagelet.id = data.id;
 
           debug('Connected pagelet %s with the page', data.name);
           pagelets[data.name] = pagelet;
@@ -82,5 +83,10 @@ module.exports = function connection(spark) {
 
   spark.once('end', function end() {
     debug('closed connection');
+
+    Object.keys(pagelets).forEach(function free(name) {
+      pagelets[name].emit('free');
+      delete pagelets[name];
+    });
   });
 };
