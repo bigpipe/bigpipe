@@ -2,6 +2,7 @@
 
 var debug = require('debug')('bigpipe:server')
   , Compiler = require('./lib/compiler')
+  , fabricator = require('fabricator')
   , Primus = require('primus')
   , Temper = require('temper')
   , fuse = require('fusing')
@@ -199,84 +200,15 @@ Pipe.readable('listen', function listen(port, done) {
  * @api private
  */
 Pipe.readable('resolve', function resolve(files, transform) {
-  /**
-   * It's not required to supply resolve with instances, we can just
-   * automatically require them if they are using the:
-   *
-   *   module.exports = base.extend();
-   *
-   * pattern for defining the pages/pagelets.
-   *
-   * @param {String} constructor
-   * @returns {Object} initialized object
-   * @api private
-   */
-  function init (constructor) {
-    return ('string' === typeof constructor)
-      ? require(constructor)
-      : constructor;
-  }
-
-  if ('string' === typeof files) {
-    files = fs.readdirSync(files).map(function locate(file) {
-      file = path.resolve(files, file);
-
-      //
-      // Only read files and no subdirectories.
-      //
-      if (fs.statSync(file).isFile()) return file;
-    });
-  } else if (!Array.isArray(files)) {
-    files = Object.keys(files).map(function merge(name) {
-      var constructor = init(files[name]);
-
-      if (!constructor.prototype) {
-        debug('%s did not export correcly, did you forgot to add .on(module) at the end of your file?', files[name]);
-        return;
-      }
-
-      //
-      // Add a name to the prototype, if we have this property in the prototype.
-      // This mostly applies for the Pagelets.
-      //
-      if ('name' in constructor.prototype) {
-        constructor.prototype.name = constructor.prototype.name || name;
-      }
-
-      return constructor;
-    }).filter(Boolean);
-  }
-
-  //
-  // Filter out falsie values from above array maps.
-  //
-  files = files.filter(Boolean).filter(function jsonly(file) {
-    var extname = path.extname(file)
-      , type = typeof file;
-
-    //
-    // Make sure we only use valid JavaScript files as sources. We want to
-    // ignore stuff like potential .log files. Also include Page constructors.
-    // If there's no extension name we assume that it's a folder with an
-    // `index.js` file.
-    //
-    return 'string' === type && (!extname || extname === '.js')
-    || 'function' === type;
-  }).map(function map(location) {
-    var constructor = init(location);
-
+  files = fabricator(files).map(function map(constructor) {
     //
     // We didn't receive a proper page instance.
     //
     if ('function' !== typeof constructor) {
       var invalid = (JSON.stringify(constructor) || constructor.toString());
 
-      if ('string' === typeof location) {
-        invalid += ' (file: '+ location +')';
-      }
-
       debug('we received an invalid constructor, ignoring the file: %s', invalid);
-      return undefined;
+      return;
     }
 
     return constructor;

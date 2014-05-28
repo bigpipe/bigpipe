@@ -18,6 +18,7 @@
     "ejs": "1.0.x",
     "eventemitter3": "0.1.x",
     "expirable": "0.1.x",
+    "fabricator": "0.0.x",
     "formidable": "1.0.x",
     "fusing": "0.2.x",
     "mkdirp": "0.5.x",
