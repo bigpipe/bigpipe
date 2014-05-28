@@ -491,7 +491,14 @@ Page.readable('end', function end(err) {
   this.flush(true);
   this.res.end();
   this.emit('end');
-  this.emit('free');
+
+  //
+  // Free all the things.
+  //
+  this.free();
+  this.enabled.concat(this.disabled).each(function free(pagelet) {
+    pagelet.free();
+  });
 
   return this.ended = true;
 });
@@ -961,6 +968,14 @@ Page.optimize = function optimize(pipe) {
       return Math.random().toString(36).substring(2).toUpperCase();
     }).join('');
     debug('Adding random ID %s to page for pagelet retrieval', Page.prototype.id);
+
+    //
+    // Add a private .free method which releases the given instance back in to the
+    // pool.
+    //
+    Page.readable('free', function free() {
+      Page.freelist.free(this);
+    });
 
     //
     // Add the properties to the page.
