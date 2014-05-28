@@ -47,9 +47,13 @@ module.exports = function connection(spark) {
 
           debug('initialised a new Page instance: %s', spark.request.url);
 
+          //
+          // Fake a HTTP response and request object.
+          //
           p.req = spark.request;
           p.res = spark;
-          page = p;
+
+          spark.page = page = p;
         });
       break;
 
@@ -83,6 +87,9 @@ module.exports = function connection(spark) {
 
   spark.once('end', function end() {
     debug('closed connection');
+
+    page.emit('free');
+    spark.page = page = null;
 
     Object.keys(pagelets).forEach(function free(name) {
       pagelets[name].emit('free');
