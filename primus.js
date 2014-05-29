@@ -1,6 +1,6 @@
 'use strict';
 
-var debugs = require('debug');
+var debugs = require('diagnostics');
 
 /**
  * Our real-time glue layer.

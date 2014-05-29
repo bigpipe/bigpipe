@@ -1,7 +1,7 @@
 'use strict';
 
 var Formidable = require('formidable').IncomingForm
-  , debug = require('debug')('bigpipe:page')
+  , debug = require('diagnostics')('bigpipe:page')
   , FreeList = require('freelist').FreeList
   , qs = require('querystring')
   , Route = require('routable')

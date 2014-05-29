@@ -1,6 +1,6 @@
 'use strict';
 
-var debug = require('debug')('bigpipe:pagelet');
+var debug = require('diagnostics')('bigpipe:pagelet');
 
 //
 // Plugin name.

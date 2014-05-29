@@ -1,6 +1,6 @@
 'use strict';
 
-var debug = require('debug')('bigpipe:server')
+var debug = require('diagnostics')('bigpipe:server')
   , Compiler = require('./lib/compiler')
   , Primus = require('primus')
   , Temper = require('temper')
