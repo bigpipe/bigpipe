@@ -5,16 +5,16 @@
 [coverage]: http://coveralls.io/repos/bigpipe/bigpipe/badge.png?branch=master
 
 BigPipe is a radical new web framework that is inspired by the concept behind
-Facebook's BigPipe. The general idea is to decompose web pages in to small
+Facebook's BigPipe. The general idea is to decompose web pages into small
 re-usable chunks of functionality called `Pagelets` and pipeline them through
 several execution stages inside web servers and browsers. This allows progressive
 rendering at the front-end and results in exceptional front-end performance.
 
-Most web frameworks are based on request and response pattern, a request comes
+Most web frameworks are based on a request and response pattern, a request comes
 in, we process the data and output a template. But before we can output the
 template we have to wait until all data has been received in order for the
 template to be processed. This doesn't make any sense for Node.js applications
-where everything everything is done asynchronous. When received your first batch
+where everything is done asynchronously. When receiving your first batch
 of data, why not send it directly to the browser so it can start downloading the
 required CSS, JavaScript and render it.
 
