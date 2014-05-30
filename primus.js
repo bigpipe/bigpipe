@@ -30,14 +30,14 @@ module.exports = function connection(spark) {
       // to that page so we can get the correct pagelet instances.
       //
       case 'page':
-        if (page) page.free();
+        if (page && page.free) page.free();
 
         //
         // As part of setting a new Page instance, we need to release the
         // previously added pagelet
         //
         Object.keys(pagelets).forEach(function free(name) {
-          pagelets[name].free();
+          if (pagelets[name].free) pagelets[name].free();
           delete pagelets[name];
         });
 
@@ -88,11 +88,11 @@ module.exports = function connection(spark) {
   spark.once('end', function end() {
     debug('closed connection');
 
-    page.free();
+    if (page.free) page.free();
     spark.page = page = null;
 
     Object.keys(pagelets).forEach(function free(name) {
-      pagelets[name].free();
+      if (pagelets[name].free) pagelets[name].free();
       delete pagelets[name];
     });
   });
