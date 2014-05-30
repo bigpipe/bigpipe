@@ -830,6 +830,45 @@ Pipe.readable('use', function use(name, plugin) {
 });
 
 /**
+ * Find a bunch of connected real-time connections based on the supplied query
+ * parameters.
+ *
+ * Query:
+ *
+ * - page: The id of the page
+ * - pagelet: The name of the pagelet
+ * - id: The id of a pagelet
+ *
+ * @param {String} url The URL to find.
+ * @param {Object} query Query object.
+ * @returns {Array}
+ * @api public
+ */
+Pipe.readable('find', function find(url, query) {
+  var results = [];
+
+  this.primus.forEach(function each(spark) {
+    if (!spark.page || !spark.page.constructor.router.test(url)) return;
+
+    var page = spark.page;
+
+    if (query.page && query.page === page.id) {
+      results.push(page);
+    }
+
+    if (query.pagelet && page.has(query.pagelet)) {
+      results.push(page.has(query.pagelet));
+    }
+
+    if (query.id) page.enabled.forEach(function each(pagelet) {
+      if (pagelet.id === query.id) results.push(pagelet);
+    });
+  });
+
+  return results;
+});
+
+/**
  * Handle incoming real-time requests.
  *
  * @param {Spark} spark A real-time "socket".
