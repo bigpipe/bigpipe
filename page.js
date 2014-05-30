@@ -497,7 +497,7 @@ Page.readable('end', function end(err) {
   //
   this.free();
   this.enabled.concat(this.disabled).each(function free(pagelet) {
-    pagelet.free();
+    if (pagelet.free) pagelet.free();
   });
 
   return this.ended = true;
