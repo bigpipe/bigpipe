@@ -427,7 +427,7 @@ Pipe.readable('bind', function bind(fn) {
  * @param {Function} next Continuation callback
  * @api private
  */
-Pipe.readable('find', function find(req, res, id, next) {
+Pipe.readable('router', function router(req, res, id, next) {
   if ('function' === typeof id) {
     next = id;
     id = undefined;
@@ -700,7 +700,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
   }
 
   return this.forEach(req, res, function next() {
-    pipe.find(req, res, completed);
+    pipe.router(req, res, completed);
   });
 });
 
