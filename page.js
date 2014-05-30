@@ -496,7 +496,7 @@ Page.readable('end', function end(err) {
   // Free all the things.
   //
   this.free();
-  this.enabled.concat(this.disabled).each(function free(pagelet) {
+  this.enabled.concat(this.disabled).forEach(function free(pagelet) {
     if (pagelet.free) pagelet.free();
   });
 
