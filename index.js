@@ -838,6 +838,7 @@ Pipe.readable('use', function use(name, plugin) {
  * - page: The id of the page
  * - pagelet: The name of the pagelet
  * - id: The id of a pagelet
+ * - enabled: State of pagelet (defaults to true)
  *
  * @param {String} url The URL to find.
  * @param {Object} query Query object.
@@ -857,7 +858,8 @@ Pipe.readable('find', function find(url, query) {
     }
 
     if (query.pagelet && page.has(query.pagelet)) {
-      results.push(page.has(query.pagelet));
+      var enabled = query.enabled === false ? false : true;
+      results.push(page.has(query.pagelet, enabled));
     }
 
     if (query.id) page.enabled.forEach(function each(pagelet) {
