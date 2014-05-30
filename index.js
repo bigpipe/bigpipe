@@ -349,11 +349,6 @@ Pipe.readable('status', function status(req, res, code, data) {
 
   page.data = data || {};
   page.data.env = process.env.NODE_ENV;
-
-  page.once('free', function free() {
-    Page.freelist.free(page);
-  });
-
   page.configure(req, res);
 
   return this;
