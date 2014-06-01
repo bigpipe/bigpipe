@@ -1,6 +1,6 @@
 'use strict';
 
-var debug = require('debug')('bigpipe:server')
+var debug = require('diagnostics')('bigpipe:server')
   , Compiler = require('./lib/compiler')
   , fabricator = require('fabricator')
   , Primus = require('primus')
@@ -281,11 +281,6 @@ Pipe.readable('status', function status(req, res, code, data) {
 
   page.data = data || {};
   page.data.env = process.env.NODE_ENV;
-
-  page.once('free', function free() {
-    Page.freelist.free(page);
-  });
-
   page.configure(req, res);
 
   return this;
@@ -359,7 +354,7 @@ Pipe.readable('bind', function bind(fn) {
  * @param {Function} next Continuation callback
  * @api private
  */
-Pipe.readable('find', function find(req, res, id, next) {
+Pipe.readable('router', function router(req, res, id, next) {
   if ('function' === typeof id) {
     next = id;
     id = undefined;
@@ -632,7 +627,7 @@ Pipe.readable('dispatch', function dispatch(req, res) {
   }
 
   return this.forEach(req, res, function next() {
-    pipe.find(req, res, completed);
+    pipe.router(req, res, completed);
   });
 });
 
@@ -759,6 +754,47 @@ Pipe.readable('use', function use(name, plugin) {
   plugin.server.call(this, this, this.options);
 
   return this;
+});
+
+/**
+ * Find a bunch of connected real-time connections based on the supplied query
+ * parameters.
+ *
+ * Query:
+ *
+ * - page: The id of the page
+ * - pagelet: The name of the pagelet
+ * - id: The id of a pagelet
+ * - enabled: State of pagelet (defaults to true)
+ *
+ * @param {String} url The URL to find.
+ * @param {Object} query Query object.
+ * @returns {Array}
+ * @api public
+ */
+Pipe.readable('find', function find(url, query) {
+  var results = [];
+
+  this.primus.forEach(function each(spark) {
+    if (!spark.page || !spark.page.constructor.router.test(url)) return;
+
+    var page = spark.page;
+
+    if (query.page && query.page === page.id) {
+      results.push(page);
+    }
+
+    if (query.pagelet && page.has(query.pagelet)) {
+      var enabled = query.enabled === false ? false : true;
+      results.push(page.has(query.pagelet, enabled));
+    }
+
+    if (query.id) page.enabled.forEach(function each(pagelet) {
+      if (pagelet.id === query.id) results.push(pagelet);
+    });
+  });
+
+  return results;
 });
 
 /**

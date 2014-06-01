@@ -1,6 +1,6 @@
 'use strict';
 
-var debugs = require('debug');
+var debugs = require('diagnostics');
 
 /**
  * Our real-time glue layer.
@@ -30,26 +30,30 @@ module.exports = function connection(spark) {
       // to that page so we can get the correct pagelet instances.
       //
       case 'page':
-        if (page) page.emit('free');
+        if (page && page.free) page.free();
 
         //
         // As part of setting a new Page instance, we need to release the
         // previously added pagelet
         //
         Object.keys(pagelets).forEach(function free(name) {
-          pagelets[name].emit('free');
+          if (pagelets[name].free) pagelets[name].free();
           delete pagelets[name];
         });
 
         spark.request.url = data.url || spark.request.url;
-        pipe.find(spark.request, spark, data.id, function found(err, p) {
+        pipe.router(spark.request, spark, data.id, function found(err, p) {
           if (err) return debug('Failed to initialise page %s: %j', spark.request.url, err);
 
           debug('initialised a new Page instance: %s', spark.request.url);
 
+          //
+          // Fake a HTTP response and request object.
+          //
           p.req = spark.request;
           p.res = spark;
-          page = p;
+
+          spark.page = page = p;
         });
       break;
 
@@ -84,8 +88,11 @@ module.exports = function connection(spark) {
   spark.once('end', function end() {
     debug('closed connection');
 
+    if (page.free) page.free();
+    spark.page = page = null;
+
     Object.keys(pagelets).forEach(function free(name) {
-      pagelets[name].emit('free');
+      if (pagelets[name].free) pagelets[name].free();
       delete pagelets[name];
     });
   });
