@@ -604,7 +604,7 @@ Page.readable('inject', function inject(base, pagelet, view) {
  * since pagelets are not always constructed yet.
  *
  * @param {String} name Name of the pagelet.
- * @param {String}
+ * @param {String} enabled Make sure that we use the enabled array.
  * @returns {Pagelet} The constructor of a matching Pagelet.
  * @api public
  */
