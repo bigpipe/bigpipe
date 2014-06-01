@@ -3,6 +3,7 @@
 var Formidable = require('formidable').IncomingForm
   , debug = require('diagnostics')('bigpipe:page')
   , FreeList = require('freelist').FreeList
+  , fabricate = require('fabricator')
   , qs = require('querystring')
   , Route = require('routable')
   , async = require('async')
@@ -917,84 +918,88 @@ Page.on = function on(module) {
  * @api private
  */
 Page.optimize = function optimize(pipe) {
-  var method = this.prototype.method
-    , router = this.prototype.path
-    , Page = this;
+  var prototype = this.prototype
+    , method = prototype.method
+    , router = prototype.path
+    , Page = this
+    , pagelets = [];
 
-    //
-    // This page has already been processed, bailout.
-    //
-    if (Page.properties) return Page;
+  //
+  // This page has already been processed, bailout.
+  //
+  if (Page.properties) return Page;
 
-    //
-    // Parse the methods to an array of accepted HTTP methods. We'll only accept
-    // there requests and should deny every other possible method.
-    //
-    debug('Optimizing page registered for path %s', router);
-    if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
-    method = method.filter(Boolean).map(function transformation(method) {
-      return method.toUpperCase();
-    });
+  //
+  // Parse the methods to an array of accepted HTTP methods. We'll only accept
+  // there requests and should deny every other possible method.
+  //
+  debug('Optimizing page registered for path %s', router);
+  if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
+  method = method.filter(Boolean).map(function transformation(method) {
+    return method.toUpperCase();
+  });
 
-    //
-    // Update the pagelets, if any.
-    //
-    if (Page.prototype.pagelets) {
-      Page.prototype.pagelets = pipe.resolve(
-        Page.prototype.pagelets,
-        function map(Pagelet) {
-          return Pagelet.optimize(pipe.emits('transform:pagelet'));
-        }
-      );
-    }
+  //
+  // Recursively traverse pagelets to find all.
+  //
+  fabricate(prototype.pagelets).forEach(function traverse(Pagelet) {
+    Array.prototype.push.apply(pagelets, Pagelet.traverse());
+  });
 
-    //
-    // The view property is a mandatory but it's quite silly to enforce this if
-    // the page is just doing a redirect. We can check for this edge case by
-    // checking if the set statusCode is in the 300~ range.
-    //
-    if (Page.prototype.view) {
-      Page.prototype.view = path.resolve(Page.prototype.directory, Page.prototype.view);
-      pipe.temper.prefetch(Page.prototype.view, Page.prototype.engine);
-    } else if (!(Page.prototype.statusCode >= 300 && Page.prototype.statusCode < 400)) {
-      throw new Error('The page for path '+ Page.prototype.path +' should have a .view property.');
-    }
+  //
+  // Resolve all found pagelets and optimize for use with BigPipe.
+  //
+  prototype.pagelets = pipe.resolve(pagelets, function map(Pagelet) {
+    return Pagelet.optimize(pipe.emits('transform:pagelet'));
+  });
 
-    //
-    // Unique id per page. This is used to track back which page was actually
-    // rendered for the front-end so we can retrieve pagelets much easier.
-    //
-    Page.prototype.id = [1, 1, 1, 1].map(function generator() {
-      return Math.random().toString(36).substring(2).toUpperCase();
-    }).join('');
-    debug('Adding random ID %s to page for pagelet retrieval', Page.prototype.id);
+  //
+  // The view property is a mandatory but it's quite silly to enforce this if
+  // the page is just doing a redirect. We can check for this edge case by
+  // checking if the set statusCode is in the 300~ range.
+  //
+  if (prototype.view) {
+    prototype.view = path.resolve(prototype.directory, prototype.view);
+    pipe.temper.prefetch(prototype.view, prototype.engine);
+  } else if (!(prototype.statusCode >= 300 && prototype.statusCode < 400)) {
+    throw new Error('The page for path '+ prototype.path +' should have a .view property.');
+  }
 
-    //
-    // Add a private .free method which releases the given instance back in to the
-    // pool.
-    //
-    Page.readable('free', function free() {
-      Page.freelist.free(this);
-    });
+  //
+  // Unique id per page. This is used to track back which page was actually
+  // rendered for the front-end so we can retrieve pagelets much easier.
+  //
+  prototype.id = [1, 1, 1, 1].map(function generator() {
+    return Math.random().toString(36).substring(2).toUpperCase();
+  }).join('');
+  debug('Adding random ID %s to page for pagelet retrieval', prototype.id);
 
-    //
-    // Add the properties to the page.
-    //
-    pipe.emit('transform:page', Page);                  // Emit transform event for plugins.
-    Page.properties = Object.keys(Page.prototype);      // All properties before init.
-    Page.router = new Route(router);                    // Actual HTTP route.
-    Page.method = method;                               // Available HTTP methods.
-    Page.id = router.toString() +'&&'+ method.join();   // Unique id.
+  //
+  // Add a private .free method which releases the given instance back in to the
+  // pool.
+  //
+  Page.readable('free', function free() {
+    Page.freelist.free(this);
+  });
 
-    //
-    // Setup a FreeList for the page so we can re-use the page instances and
-    // reduce garbage collection to a bare minimum.
-    //
-    Page.freelist = new FreeList('page', Page.prototype.freelist || 1000, function allocate() {
-      return new Page(pipe);
-    });
+  //
+  // Add the properties to the page.
+  //
+  pipe.emit('transform:page', Page);                  // Emit transform event for plugins.
+  Page.properties = Object.keys(prototype);           // All properties before init.
+  Page.router = new Route(router);                    // Actual HTTP route.
+  Page.method = method;                               // Available HTTP methods.
+  Page.id = router.toString() +'&&'+ method.join();   // Unique id.
 
-    return Page;
+  //
+  // Setup a FreeList for the page so we can re-use the page instances and
+  // reduce garbage collection to a bare minimum.
+  //
+  Page.freelist = new FreeList('page', prototype.freelist || 1000, function allocate() {
+    return new Page(pipe);
+  });
+
+  return Page;
 };
 
 //

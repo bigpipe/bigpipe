@@ -2,7 +2,7 @@
 
 var debug = require('diagnostics')('bigpipe:server')
   , Compiler = require('./lib/compiler')
-  , fabricator = require('fabricator')
+  , fabricate = require('fabricator')
   , Primus = require('primus')
   , Temper = require('temper')
   , fuse = require('fusing')
@@ -132,8 +132,11 @@ function Pipe(server, options) {
   this.pluggable(options('plugins', []));
   this.use(require('./plugins/pagelet'));
 
+  //
+  // Create constructabe page instances.
+  //
   readable('pages', this.resolve(
-    options('pages', path.join(process.cwd(), '/pages')),
+    fabricate(options('pages', path.join(process.cwd(), '/pages'))),
     this.transform) || []
   );
 
@@ -144,9 +147,10 @@ function Pipe(server, options) {
   this.discover(this.pages);
 }
 
-fuse(Pipe, require('eventemitter3'), {
-  resolve: false                  // We have our own resolve method, do not inherit.
-});
+//
+// Add event emitting, do not inherit the resolve method, BigPipe has it own.
+//
+fuse(Pipe, require('eventemitter3'), { resolve: false });
 
 /**
  * The current version of the library.
@@ -200,18 +204,15 @@ Pipe.readable('listen', function listen(port, done) {
  * @api private
  */
 Pipe.readable('resolve', function resolve(files, transform) {
-  files = fabricator(files).map(function map(constructor) {
-    //
-    // We didn't receive a proper page instance.
-    //
-    if ('function' !== typeof constructor) {
-      var invalid = (JSON.stringify(constructor) || constructor.toString());
-
-      debug('we received an invalid constructor, ignoring the file: %s', invalid);
-      return;
-    }
-
-    return constructor;
+  //
+  // Filter invalid page or pagelet instances.
+  //
+  files = files.filter(function filter(constructor) {
+    if ('function' === typeof constructor) return true;
+    return debug(
+      'Invalid page or pagelet constructor, ignoring the file: %s',
+      JSON.stringify(constructor) || constructor.toString()
+    );
   }, this).filter(Boolean);
 
   return transform
@@ -314,7 +315,7 @@ Pipe.readable('define', function define(pages, done) {
   //
   // Transform the mixed pages into useful constructors.
   //
-  pages = this.resolve(pages, this.transform);
+  pages = this.resolve(fabricate(pages), this.transform);
 
   //
   // Add the pages to the collection and catalog the dependencies.
