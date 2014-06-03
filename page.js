@@ -973,10 +973,6 @@ Page.optimize = function optimize(pipe) {
     // pool.
     //
     Page.readable('free', function free() {
-      if (this.pagelets) this.pagelets.forEach(function freePagelets(pagelet) {
-        pagelet.prototype.free();
-      });
-
       Page.freelist.free(this);
     });
 
