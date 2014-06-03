@@ -774,7 +774,8 @@ Pipe.readable('use', function use(name, plugin) {
  * @api public
  */
 Pipe.readable('find', function find(url, query) {
-  var results = [];
+  var results = []
+    , enabled = query.enabled === false ? false : true;
 
   this.primus.forEach(function each(spark) {
     if (!spark.page || !spark.page.constructor.router.test(url)) return;
@@ -785,8 +786,7 @@ Pipe.readable('find', function find(url, query) {
       results.push(page);
     }
 
-    if (query.pagelet && page.has(query.pagelet)) {
-      var enabled = query.enabled === false ? false : true;
+    if (query.pagelet && page.has(query.pagelet, enabled)) {
       results.push(page.has(query.pagelet, enabled));
     }
 

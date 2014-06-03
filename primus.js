@@ -70,6 +70,8 @@ module.exports = function connection(spark) {
           if (data.id && pagelet) pagelet.id = data.id;
 
           debug('Connected pagelet %s with the page', data.name);
+
+          page.enabled.push(pagelet);
           pagelets[data.name] = pagelet;
         });
       break;
