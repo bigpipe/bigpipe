@@ -22,7 +22,7 @@ module.exports = function connection(spark) {
   var orchestrate = spark.substream('pipe:orchestrate')
     , pagelets = Object.create(null)
     , page;
-
+    return;
   orchestrate.on('data', function orchestration(data) {
     switch (data.type) {
       //

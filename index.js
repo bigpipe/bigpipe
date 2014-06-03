@@ -658,19 +658,6 @@ Pipe.readable('dispatch', function dispatch(req, res) {
    * @api private
    */
   function completed(err, page) {
-    //
-    // Release the page again when we receive a `free` event.
-    //
-    page.once('free', function free() {
-      debug('%s - %s is released to the freelist', page.method, page.path);
-      page.constructor.freelist.free(page);
-
-      if (page.domain) {
-        debug('%s - %s \'s domain has been disposed', page.method, page.path);
-        page.domain.dispose();
-      }
-    });
-
     res.once('close', page.emits('close'));
 
     if (pipe.domains) {

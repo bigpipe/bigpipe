@@ -454,8 +454,6 @@ Page.readable('read', function read() {
  * @api private
  */
 Page.readable('end', function end(err) {
-  var page = this;
-
   //
   // The connection was already closed, no need to further process it.
   //
@@ -478,7 +476,7 @@ Page.readable('end', function end(err) {
   //
   // Do not close the connection before the main page has sent headers.
   //
-  if (page.n < page.enabled.length) {
+  if (this.n < this.enabled.length) {
     this.debug('Not all pagelets have been written, (%s out of %s)',
       this.n, this.enabled.length
     );
@@ -500,6 +498,7 @@ Page.readable('end', function end(err) {
     if (pagelet.free) pagelet.free();
   });
 
+  if (this.domain) this.domain.dispose();
   return this.ended = true;
 });
 
@@ -974,6 +973,10 @@ Page.optimize = function optimize(pipe) {
     // pool.
     //
     Page.readable('free', function free() {
+      if (this.pagelets) this.pagelets.forEach(function freePagelets(pagelet) {
+        pagelet.prototype.free();
+      });
+
       Page.freelist.free(this);
     });
 
