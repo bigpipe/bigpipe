@@ -115,6 +115,7 @@ describe('Page', function () {
         page.discover();
       });
 
+      /* Disabled for now, might return before 1.0.0
       it('initializes pagelets by allocating from the Pagelet.freelist', function (done) {
         var Hero = require(__dirname + '/fixtures/pagelets/hero').optimize(app.temper)
           , Faq = require(__dirname + '/fixtures/pages/faq').extend({ pagelets: [ Hero ] })
@@ -127,7 +128,7 @@ describe('Page', function () {
         });
 
         faq.discover();
-      });
+      });*/
     });
   });
 });
