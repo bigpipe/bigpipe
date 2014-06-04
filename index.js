@@ -345,7 +345,7 @@ Pipe.readable('status', function status(req, res, code, data) {
   }
 
   var Page = this.statusCodes[code]
-    , page = Page.freelist.alloc();
+    , page = new Page(this);
 
   page.data = data || {};
   page.data.env = process.env.NODE_ENV;
@@ -431,6 +431,7 @@ Pipe.readable('router', function router(req, res, id, next) {
   var key = id ? id : req.method +'@'+ req.uri.pathname
     , pages = this.cache ? this.cache.get(key) || [] : []
     , length = this.pages.length
+    , pipe = this
     , i = 0
     , page;
 
@@ -467,16 +468,8 @@ Pipe.readable('router', function router(req, res, id, next) {
   // those out before sending the and initialized page to the callback.
   //
   (function each(pages) {
-    var constructor = pages.shift()
-      , freelist = constructor.freelist
-      , page = freelist.alloc();
-
-    //
-    // This case should impossible to reach as we've added a 404 status page as
-    // last page. But if it happens for some odd reason, we're going to have
-    // a other function deal with it.
-    //
-    if (!page) return next(new Error('Couldnt find any pages to render'));
+    var Page = pages.shift()
+      , page = new Page(pipe);
 
     debug('iterating over pages for %s testing %s atm', req.url, page.path);
 
@@ -484,7 +477,7 @@ Pipe.readable('router', function router(req, res, id, next) {
     // Make sure we parse out all the parameters from the URL as they might be
     // required for authorization purposes.
     //
-    page.params = constructor.router.exec(req.uri.pathname) || {};
+    page.params = Page.router.exec(req.uri.pathname) || {};
 
     if ('function' === typeof page.authorize) {
       page.req = req;   // Might be needed to retrieve sessions.
@@ -494,9 +487,6 @@ Pipe.readable('router', function router(req, res, id, next) {
         debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
 
         if (allowed) return next(undefined, page);
-
-        debug('%s - %s is released to the freelist', page.method, page.path);
-        freelist.free(page);
         each(pages);
       });
     }
