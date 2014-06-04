@@ -2,7 +2,6 @@
 
 var Formidable = require('formidable').IncomingForm
   , debug = require('diagnostics')('bigpipe:page')
-  , FreeList = require('freelist').FreeList
   , fabricate = require('fabricator')
   , qs = require('querystring')
   , Route = require('routable')
@@ -23,9 +22,14 @@ var operations = 'POST, PUT, DELETE, PATCH'.toLowerCase().split(', ');
  * A simple object representation of a given page.
  *
  * @constructor
+ * @param {Pipe} pipe BigPipe server instance.
+ * @param {Request} req HTTP request.
+ * @param {Response} res HTTP response.
  * @api public
  */
-function Page(pipe) {
+function Page(pipe, req, res) {
+  if (!(this instanceof Page)) return new Page(pipe, req, res);
+
   this.fuse();
 
   var writable = this.writable
@@ -44,6 +48,10 @@ function Page(pipe) {
   writable('req', null);                      // Incoming HTTP request.
   writable('res', null);                      // Incoming HTTP response.
   writable('n', 0);                           // Number of processed pagelets.
+
+  if (req && res) {
+    this.configure(req, res);                 // Only configure if we have req/res.
+  }
 }
 
 fuse(Page, require('eventemitter3'));
@@ -254,7 +262,8 @@ Page.readable('discover', function discover() {
   // use them during authorization.
   //
   pagelets = this.pagelets.map(function allocate(Pagelet) {
-    return Pagelet.freelist.alloc().init({ page: page });
+    page.debug('allocating pagelet %s', Pagelet.prototype.name);
+    return (new Pagelet()).init({ page: page });
   });
 
   //
@@ -280,7 +289,6 @@ Page.readable('discover', function discover() {
       }
     });
 
-    // @TODO free disabled pagelets
     page.debug('Initialized all allowed pagelets');
     page.emit('discover');
   });
@@ -455,12 +463,13 @@ Page.readable('read', function read() {
  * @api private
  */
 Page.readable('end', function end(err) {
-  var page = this;
-
   //
   // The connection was already closed, no need to further process it.
   //
-  if (this.res.finished || this.ended) return true;
+  if (this.res.finished || this.ended) {
+    this.debug('page has finished, ignoring extra .end call');
+    return true;
+  }
 
   //
   // We've received an error. We need to close down the page and display a 500
@@ -479,7 +488,7 @@ Page.readable('end', function end(err) {
   //
   // Do not close the connection before the main page has sent headers.
   //
-  if (page.n < page.enabled.length) {
+  if (this.n < this.enabled.length) {
     this.debug('Not all pagelets have been written, (%s out of %s)',
       this.n, this.enabled.length
     );
@@ -487,20 +496,15 @@ Page.readable('end', function end(err) {
   }
 
   //
-  // Everything is processed, close the connection and free the Page instance.
+  // Everything is processed, close the connection and clean up references.
   //
   this.flush(true);
   this.res.end();
   this.emit('end');
 
-  //
-  // Free all the things.
-  //
-  this.free();
-  this.enabled.concat(this.disabled).forEach(function free(pagelet) {
-    if (pagelet.free) pagelet.free();
-  });
+  if (this.domain) this.domain.dispose();
 
+  this.debug('ended the connection');
   return this.ended = true;
 });
 
@@ -641,7 +645,7 @@ Page.readable('get', function get(name) {
   // simply return it.
   //
   if ('function' !== typeof Pagelet) return Pagelet;
-  return Pagelet.freelist.alloc().init({ page: this });
+  return (new Pagelet()).init({ page: this });
 });
 
 /**
@@ -761,17 +765,6 @@ Page.readable('bootstrap', function bootstrap(err, data, next) {
  * @api private
  */
 Page.readable('configure', function configure(req, res) {
-  //
-  // Clear all properties that are set during rendering so they are all reset to
-  // their "factory" settings.
-  //
-  this.removeAllListeners();
-  this.queue.length = this.enabled.length = this.disabled.length = this.n = 0;
-  this.flushed = this.ended = false;
-
-  Page.predefine.remove(this.disabled);
-  Page.predefine.remove(this.enabled);
-
   this.req = req;
   this.res = res;
 
@@ -975,14 +968,6 @@ Page.optimize = function optimize(pipe) {
   debug('Adding random ID %s to page for pagelet retrieval', prototype.id);
 
   //
-  // Add a private .free method which releases the given instance back in to the
-  // pool.
-  //
-  Page.readable('free', function free() {
-    Page.freelist.free(this);
-  });
-
-  //
   // Add the properties to the page.
   //
   pipe.emit('transform:page', Page);                  // Emit transform event for plugins.
@@ -990,14 +975,6 @@ Page.optimize = function optimize(pipe) {
   Page.router = new Route(router);                    // Actual HTTP route.
   Page.method = method;                               // Available HTTP methods.
   Page.id = router.toString() +'&&'+ method.join();   // Unique id.
-
-  //
-  // Setup a FreeList for the page so we can re-use the page instances and
-  // reduce garbage collection to a bare minimum.
-  //
-  Page.freelist = new FreeList('page', prototype.freelist || 1000, function allocate() {
-    return new Page(pipe);
-  });
 
   return Page;
 };
