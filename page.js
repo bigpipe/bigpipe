@@ -935,7 +935,7 @@ Page.optimize = function optimize(pipe) {
   //
   // Recursively traverse pagelets to find all.
   //
-  fabricate(prototype.pagelets).forEach(function traverse(Pagelet) {
+  fabricate(prototype.pagelets, { recursive: false }).forEach(function traverse(Pagelet) {
     Array.prototype.push.apply(pagelets, Pagelet.traverse(Pagelet.prototype.name));
   });
 
