@@ -20,7 +20,7 @@
     "expirable": "0.1.x",
     "fabricator": "0.4.x",
     "formidable": "1.0.x",
-    "fusing": "0.2.x",
+    "fusing": "0.3.x",
     "mkdirp": "0.5.x",
     "pagelet": "0.6.x",
     "pipe.js": "0.6.x",

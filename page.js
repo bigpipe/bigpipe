@@ -872,35 +872,8 @@ Page.readable('debug', function log(line) {
  * @api public
  */
 Page.on = function on(module) {
-  var proto = this.prototype
-    , resolve = proto.resolve
-    , pagelets = proto.pagelets
-    , dir = proto.directory = proto.directory || path.dirname(module.filename);
-
-  //
-  // If Pagelets is a string, assume it's folder with pagelets that should be
-  // transformed in to an object. Ignore files in the main directory.
-  //
-  if ('string' === typeof pagelets) {
-    proto.pagelets = pagelets = fs.readdirSync(path.join(dir, pagelets)).reduce(function reduce(memo, file) {
-      var src = path.join(pagelets, file);
-
-      if (fs.statSync(path.join(dir, src)).isFile()) {
-        return memo;
-      }
-
-      memo[file] = src;
-      return memo;
-    }, {});
-  }
-
-  //
-  // Resolve pagelets and resource paths.
-  //
-  if (pagelets) Object.keys(pagelets).forEach(resolve(dir, pagelets));
-
-  module.exports = this;
-  return this;
+  this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
+  return module.exports = this;
 };
 
 /**
@@ -935,7 +908,10 @@ Page.optimize = function optimize(pipe) {
   //
   // Recursively traverse pagelets to find all.
   //
-  fabricate(prototype.pagelets, { recursive: false }).forEach(function traverse(Pagelet) {
+  fabricate(prototype.pagelets, {
+    source: prototype.directory,
+    recursive: false
+  }).forEach(function traverse(Pagelet) {
     Array.prototype.push.apply(pagelets, Pagelet.traverse(Pagelet.prototype.name));
   });
 
