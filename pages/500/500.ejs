@@ -4,9 +4,11 @@
 <body>
   <h1>500, Internal server error</h1>
 
-  <p><% if (message) { %><%= message %><% } %></p>
+  <% if ('message' in locals) { %>
+  <p><%= message %></p>
+  <% } %>
 
-  <% if (env !== 'production' && stack) { %>
+  <% if ('env' in locals && env !== 'production' && stack) { %>
   <pre><%= stack %></pre>
   <% } %>
 
