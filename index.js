@@ -2,6 +2,7 @@
 
 var debug = require('diagnostics')('bigpipe:server')
   , Compiler = require('./lib/compiler')
+  , fabricate = require('fabricator')
   , Primus = require('primus')
   , Temper = require('temper')
   , fuse = require('fusing')
@@ -131,8 +132,11 @@ function Pipe(server, options) {
   this.pluggable(options('plugins', []));
   this.use(require('./plugins/pagelet'));
 
+  //
+  // Create constructible page instances.
+  //
   readable('pages', this.resolve(
-    options('pages', path.join(process.cwd(), '/pages')),
+    fabricate(options('pages', path.join(process.cwd(), '/pages'))),
     this.transform) || []
   );
 
@@ -143,9 +147,10 @@ function Pipe(server, options) {
   this.discover(this.pages);
 }
 
-fuse(Pipe, require('eventemitter3'), {
-  resolve: false                  // We have our own resolve method, do not inherit.
-});
+//
+// Add event emitting, do not inherit the resolve method, BigPipe has it own.
+//
+fuse(Pipe, require('eventemitter3'), { resolve: false });
 
 /**
  * The current version of the library.
@@ -199,87 +204,15 @@ Pipe.readable('listen', function listen(port, done) {
  * @api private
  */
 Pipe.readable('resolve', function resolve(files, transform) {
-  /**
-   * It's not required to supply resolve with instances, we can just
-   * automatically require them if they are using the:
-   *
-   *   module.exports = base.extend();
-   *
-   * pattern for defining the pages/pagelets.
-   *
-   * @param {String} constructor
-   * @returns {Object} initialized object
-   * @api private
-   */
-  function init (constructor) {
-    return ('string' === typeof constructor)
-      ? require(constructor)
-      : constructor;
-  }
-
-  if ('string' === typeof files) {
-    files = fs.readdirSync(files).map(function locate(file) {
-      file = path.resolve(files, file);
-
-      //
-      // Only read files and no subdirectories.
-      //
-      if (fs.statSync(file).isFile()) return file;
-    });
-  } else if (!Array.isArray(files)) {
-    files = Object.keys(files).map(function merge(name) {
-      var constructor = init(files[name]);
-
-      if (!constructor.prototype) {
-        debug('%s did not export correcly, did you forgot to add .on(module) at the end of your file?', files[name]);
-        return;
-      }
-
-      //
-      // Add a name to the prototype, if we have this property in the prototype.
-      // This mostly applies for the Pagelets.
-      //
-      if ('name' in constructor.prototype) {
-        constructor.prototype.name = constructor.prototype.name || name;
-      }
-
-      return constructor;
-    }).filter(Boolean);
-  }
-
   //
-  // Filter out falsie values from above array maps.
+  // Filter invalid page or pagelet instances.
   //
-  files = files.filter(Boolean).filter(function jsonly(file) {
-    var extname = path.extname(file)
-      , type = typeof file;
-
-    //
-    // Make sure we only use valid JavaScript files as sources. We want to
-    // ignore stuff like potential .log files. Also include Page constructors.
-    // If there's no extension name we assume that it's a folder with an
-    // `index.js` file.
-    //
-    return 'string' === type && (!extname || extname === '.js')
-    || 'function' === type;
-  }).map(function map(location) {
-    var constructor = init(location);
-
-    //
-    // We didn't receive a proper page instance.
-    //
-    if ('function' !== typeof constructor) {
-      var invalid = (JSON.stringify(constructor) || constructor.toString());
-
-      if ('string' === typeof location) {
-        invalid += ' (file: '+ location +')';
-      }
-
-      debug('we received an invalid constructor, ignoring the file: %s', invalid);
-      return undefined;
-    }
-
-    return constructor;
+  files = files.filter(function filter(constructor) {
+    if ('function' === typeof constructor) return true;
+    return debug(
+      'Invalid page or pagelet constructor, ignoring the file: %s',
+      JSON.stringify(constructor) || constructor.toString()
+    );
   }, this).filter(Boolean);
 
   return transform
@@ -382,7 +315,7 @@ Pipe.readable('define', function define(pages, done) {
   //
   // Transform the mixed pages into useful constructors.
   //
-  pages = this.resolve(pages, this.transform);
+  pages = this.resolve(fabricate(pages), this.transform);
 
   //
   // Add the pages to the collection and catalog the dependencies.
