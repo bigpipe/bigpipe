@@ -971,7 +971,6 @@ Page.optimize = function optimize(pipe) {
   // Add the properties to the page.
   //
   pipe.emit('transform:page', Page);                  // Emit transform event for plugins.
-  Page.properties = Object.keys(prototype);           // All properties before init.
   Page.router = new Route(router);                    // Actual HTTP route.
   Page.method = method;                               // Available HTTP methods.
   Page.id = router.toString() +'&&'+ method.join();   // Unique id.

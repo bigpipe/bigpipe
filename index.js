@@ -133,7 +133,7 @@ function Pipe(server, options) {
   this.use(require('./plugins/pagelet'));
 
   //
-  // Create constructabe page instances.
+  // Create constructible page instances.
   //
   readable('pages', this.resolve(
     fabricate(options('pages', path.join(process.cwd(), '/pages'))),
