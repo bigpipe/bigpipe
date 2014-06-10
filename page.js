@@ -363,7 +363,7 @@ Page.readable('async', function render(err, data) {
     async.each(this.enabled.concat(this.disabled), function (pagelet, next) {
       page.debug('Invoking pagelet %s/%s render', pagelet.name, pagelet.id);
 
-      data = page.compiler.pagelet(pagelet);
+      data = page.compiler.pagelet(pagelet, pagelet.streaming);
       data.processed = ++page.n;
 
       pagelet.render({
