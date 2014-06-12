@@ -19,7 +19,6 @@ describe('Page', function () {
     app = new Pipe(server, {
         pages: __dirname +'/fixtures/pages'
       , dist: '/tmp/dist'
-      , domains: true
     });
 
     page = new Page(app);

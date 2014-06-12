@@ -12,15 +12,6 @@ var debug = require('diagnostics')('bigpipe:server')
   , fs = require('fs');
 
 //
-// Try to detect if we've got domains support. So we can easily serve 500 error
-// pages when we have an error.
-//
-var domain;
-
-try { domain = require('domain'); }
-catch (e) {}
-
-//
 // Automatically add trailers support to Node.js.
 //
 var trailers = require('trailers');
@@ -64,7 +55,6 @@ function configure(obj) {
  *
  * - cache: A object were we store our URL->page mapping.
  * - dist: The pathname for the compiled assets.
- * - domain: Use domains to handle requests.
  * - pages: String or array of pages we serve.
  * - parser: Which parser should be used to send data in real-time.
  * - pathname: The pathname we use for Primus requests.
@@ -87,7 +77,6 @@ function Pipe(server, options) {
   //
   // Constants and properties that should never be overridden.
   //
-  readable('domains', !!options('domain', domain));   // Use domains for each req.
   readable('statusCodes', Object.create(null));       // Stores error pages.
   readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('plugins', Object.create(null));           // Plugin storage.
@@ -564,7 +553,6 @@ Pipe.readable('pluggable', function pluggable(plugins) {
 /**
  * Dispatch incoming requests.
  *
- * @TODO cancel POST requests, when we don't accept them
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
  * @returns {Pipe} fluent interface
@@ -574,38 +562,29 @@ Pipe.readable('dispatch', function dispatch(req, res) {
   var pipe = this;
 
   /**
-   * We've found a matching route, process the page.
+   * Something failed while processing things. Display an error page.
    *
-   * @param {Error} err We've encountered an error while generating shizzle.
-   * @param {Page} page The page instance.
+   * @param {String}
    * @api private
    */
-  function completed(err, page) {
-    res.once('close', page.emits('close'));
+  function fivehundered(err) {
+    var page = new pipe.statusCodes[500](pipe);
 
-    if (pipe.domains) {
-      page.domain = domain.create();
-
-      page.domain.on('error', function (err) {
-        debug('%s - %s received an error while processing the page, captured by domains: %s', page.method, page.path, err.stack);
-
-        try { page.end(err); } catch (e) {
-          console.error(e.stack);
-        }
-      });
-
-      page.domain.run(function run() {
-        debug('running page %s inside a domain', page.path);
-        page.configure(req, res);
-      });
-    } else {
-      debug('running page %s outside a domain', page.path);
-      page.configure(req, res);
-    }
+    //
+    // Set an error as data so it can be used as data in the template.
+    //
+    page.data = err;
+    page.configure(req, res);
   }
 
-  return this.forEach(req, res, function next() {
-    pipe.router(req, res, completed);
+  return this.forEach(req, res, function next(err) {
+    if (err) return fivehundered(err);
+
+    pipe.router(req, res, function completed(err, page) {
+      if (err) return fivehundered(err);
+
+      page.configure(req, res);
+    });
   });
 });
 

@@ -92,9 +92,6 @@ BigPipe server. The following options are supported:
 - **dist** The location of our folder where we can store our compiled CSS and
   JavaScript to disk. If the path or folder does not exist it will be
   automatically created. Defaults to `working dir/dist`.
-- **domain** Use Node's domains when processing requests so errors are handled
-  by BigPipe. Defaults to `true` if domains are supported, `false` if domains
-  are not supported.
 - **pages** A directory that contains your Page definitions or an array of Page
   constructors. Defaults to `working dir/dist`. If you don't provide Pages it
   will serve a 404 page for every request.

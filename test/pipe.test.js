@@ -16,7 +16,6 @@ describe('Pipe', function () {
     app = new Pipe(server, {
         pages: __dirname +'/fixtures/pages'
       , dist: '/tmp/dist'
-      , domains: true
     });
 
     server.portnumber = common.port;
@@ -180,21 +179,25 @@ describe('Pipe', function () {
   });
 
   describe('#define', function () {
-    it('adds the Page to the pages collection', function () {
+    it('adds the Page to the pages collection', function (next) {
       var faq = require(__dirname + '/fixtures/pages/faq');
-      app.define(faq);
+      app.define(faq, function (err) {
+        if (err) return next(err);
 
-      expect(app.pages).to.have.length(6);
-      expect(app.pages[2]).to.be.an('function');
-      faq.prototype.dependencies = [];
+        expect(app.pages).to.have.length(6);
+        expect(app.pages[2]).to.be.an('function');
+        faq.prototype.dependencies = [];
+      });
     });
 
-    it('will resolve and add the page if directory or array', function () {
-      app.define(__dirname + '/fixtures/pages');
+    it('will resolve and add the page if directory or array', function (next) {
+      app.define(__dirname + '/fixtures/pages', function (err) {
+        if (err) return next(err);
 
-      expect(app.pages).to.have.length(8);
-      app.pages.forEach(function (page) {
-        expect(page).to.have.property('id');
+        expect(app.pages).to.have.length(8);
+        app.pages.forEach(function (page) {
+          expect(page).to.have.property('id');
+        });
       });
     });
   });

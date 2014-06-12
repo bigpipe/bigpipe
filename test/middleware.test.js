@@ -16,7 +16,6 @@ describe('middleware', function () {
     app = new Pipe(server, {
         pages: __dirname +'/fixtures/pages'
       , dist: '/tmp/dist'
-      , domains: true
     });
 
     server.portnumber = common.port;

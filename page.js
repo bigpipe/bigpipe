@@ -502,8 +502,6 @@ Page.readable('end', function end(err) {
   this.res.end();
   this.emit('end');
 
-  if (this.domain) this.domain.dispose();
-
   this.debug('ended the connection');
   return this.ended = true;
 });
@@ -772,6 +770,7 @@ Page.readable('configure', function configure(req, res) {
   // Emit a page configuration event so plugins can hook in to this.
   //
   this.pipe.emit('page:configure', this);
+  res.once('close', this.emits('close'));
 
   //
   // If we have a `no_pagelet_js` flag, we should force a different
