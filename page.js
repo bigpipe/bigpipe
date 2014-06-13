@@ -890,16 +890,12 @@ Page.optimize = function optimize(pipe) {
     , pagelets = [];
 
   //
-  // This page has already been processed, bailout.
-  //
-  if (Page.properties) return Page;
-
-  //
   // Parse the methods to an array of accepted HTTP methods. We'll only accept
   // there requests and should deny every other possible method.
   //
   debug('Optimizing page registered for path %s', router);
   if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
+
   method = method.filter(Boolean).map(function transformation(method) {
     return method.toUpperCase();
   });
@@ -942,9 +938,6 @@ Page.optimize = function optimize(pipe) {
   }).join('');
   debug('Adding random ID %s to page for pagelet retrieval', prototype.id);
 
-  //
-  // Add the properties to the page.
-  //
   pipe.emit('transform:page', Page);                  // Emit transform event for plugins.
   Page.router = new Route(router);                    // Actual HTTP route.
   Page.method = method;                               // Available HTTP methods.
