@@ -187,6 +187,8 @@ describe('Pipe', function () {
         expect(app.pages).to.have.length(6);
         expect(app.pages[2]).to.be.an('function');
         faq.prototype.dependencies = [];
+
+        next();
       });
     });
 
@@ -198,6 +200,8 @@ describe('Pipe', function () {
         app.pages.forEach(function (page) {
           expect(page).to.have.property('id');
         });
+
+        next();
       });
     });
   });
