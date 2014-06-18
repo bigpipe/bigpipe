@@ -834,6 +834,12 @@ Pipe.createServer = function createServer(port, options) {
   //
   var pipe = new Pipe(server, options);
 
+  //
+  // Oh, actually, I don't want you to listen to the server, I'll do that
+  // manually.
+  //
+  if (false === options.listen) return pipe;
+
   pipe.listen(port, function initialized(error) {
     if (error) throw error;
   });
