@@ -6,6 +6,7 @@ before_install:
   - npm install -g npm
   - npm install bigpipe/pagelet
   - npm install bigpipe/pipe.js
+  - cd node_modules/pipe.js && npm run compile
 notifications:
   irc:
     channels: "irc.freenode.org#bigpipe"
