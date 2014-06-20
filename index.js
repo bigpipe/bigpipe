@@ -58,7 +58,7 @@ function configure(obj) {
  * - pages: String or array of pages we serve.
  * - parser: Which parser should be used to send data in real-time.
  * - pathname: The pathname we use for Primus requests.
- * - transport: The transport engine we should use for real-time.
+ * - transformer: The transport engine we should use for real-time.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -89,7 +89,7 @@ function Pipe(server, options) {
   // Setup our real-time server
   //
   readable('primus', new Primus(this.server, {
-    transformer: options('transport', 'websockets'),  // Real-time framework to use.
+    transformer: options('transformer', 'websockets'),  // Real-time framework to use.
     pathname: options('pathname', '/pagelets'),       // Primus pathname.
     parser: options('parser', 'json'),                // Message parser.
     plugin: {
