@@ -771,80 +771,10 @@ Pipe.readable('connection', require('./primus'));
  * @api public
  */
 Pipe.createServer = function createServer(port, options) {
-  options = options || {};
+  options = 'object' === typeof port ? port : options || {};
+  if ('number' === typeof port) options.port = port;
 
-  var certs = options.key && options.cert
-    , secure = certs || 443 === port
-    , spdy = 'spdy' in options
-    , server;
-
-  //
-  // We need to have SSL certs for SPDY and secure servers.
-  //
-  if ((secure || spdy) && !certs) {
-    throw new Error('Missing the SSL key or certificate files in the options.');
-  }
-
-  //
-  // When given a `options.root` assume that our SSL certs and keys are path
-  // references that still needs to be read. This allows a much more human
-  // readable interface for SSL.
-  //
-  if (secure && options.root) {
-    ['cert', 'key', 'ca', 'pfx', 'crl'].filter(function filter(key) {
-      return key in options;
-    }).forEach(function parse(key) {
-      var data = options[key];
-
-      if (Array.isArray(data)) {
-        options[key] = data.map(function read(file) {
-          return fs.readFileSync(path.join(options.root, file));
-        });
-      } else {
-        options[key] = fs.readFileSync(path.join(options.root, data));
-      }
-    });
-  }
-
-  if (spdy) {
-    server = require('spdy').createServer(options);
-    debug('creating a spdy server on port %d', port);
-  } else if (secure) {
-    server = require('https').createServer(options);
-    debug('creating a https server on port %d', port);
-
-    if (+options.redirect) require('http').createServer(function handle(req, res) {
-      res.statusCode = 404;
-
-      if (req.headers.host) {
-        res.statusCode = 301;
-        res.setHeader('Location', 'https://'+ req.headers.host + req.url);
-        debug('redirecting %s to the secure server', req.url);
-      }
-
-      res.end('');
-    }).listen(+options.redirect);
-  } else {
-    server = require('http').createServer();
-    debug('creating a http server on port %d', port);
-  }
-
-  //
-  // Now that we've got a server, we can setup the pipe and start listening.
-  //
-  var pipe = new Pipe(server, options);
-
-  //
-  // Oh, actually, I don't want you to listen to the server, I'll do that
-  // manually.
-  //
-  if (false === options.listen) return pipe;
-
-  pipe.listen(port, function initialized(error) {
-    if (error) throw error;
-  });
-
-  return pipe;
+  return new Pipe(require('create-server')(options), options);
 };
 
 //
