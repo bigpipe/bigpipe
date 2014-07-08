@@ -166,7 +166,10 @@ Pipe.readable('listen', function listen(port, done) {
   // listening on the server once we're actually ready to respond to requests.
   //
   pipe.compiler.catalog(this.pages, function init(error) {
-    if (error) return done(error);
+    if (error) {
+      if (done) return done(error);
+      throw error;
+    }
 
     pipe.primus.on('connection', pipe.bind(pipe.connection));
     pipe.server.on('listening', pipe.emits('listening'));
