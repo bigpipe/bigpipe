@@ -914,7 +914,10 @@ Page.optimize = function optimize(pipe) {
   // Resolve all found pagelets and optimize for use with BigPipe.
   //
   prototype.pagelets = pipe.resolve(pagelets, function map(Pagelet) {
-    return Pagelet.optimize(pipe.emits('transform:pagelet'));
+    return Pagelet.optimize({
+      transform: pipe.emits('transform:pagelet'),
+      temper: pipe.temper
+    });
   });
 
   //

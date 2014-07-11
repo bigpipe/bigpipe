@@ -81,7 +81,7 @@ function Pipe(server, options) {
   readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('plugins', Object.create(null));           // Plugin storage.
   readable('options', options);                       // Configure options.
-  readable('temper', new Temper);                     // Template parser.
+  readable('temper', new Temper())                    // Template parser.
   readable('server', server);                         // HTTP server we work with.
   readable('layers', []);                             // Middleware layer.
 
