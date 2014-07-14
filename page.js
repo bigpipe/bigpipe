@@ -905,7 +905,7 @@ Page.optimize = function optimize(pipe) {
   //
   fabricate(prototype.pagelets, {
     source: prototype.directory,
-    recursive: false
+    recursive: 'string' === typeof prototype.pagelets
   }).forEach(function traverse(Pagelet) {
     Array.prototype.push.apply(pagelets, Pagelet.traverse(Pagelet.prototype.name));
   });
