@@ -777,7 +777,15 @@ Pipe.createServer = function createServer(port, options) {
   options = 'object' === typeof port ? port : options || {};
   if ('number' === typeof port) options.port = port;
 
-  return new Pipe(require('create-server')(options), options);
+  //
+  // Listening is done by our own .listen method, so we need to tell the
+  // createServer module that we don't want it to start listening to our sizzle.
+  // This option is forced and should not be override by users configuration.
+  //
+  options.listen = false;
+
+  var pipe = new Pipe(require('create-server')(options), options);
+  return pipe.listen(options.port);
 };
 
 //
