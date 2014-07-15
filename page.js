@@ -254,36 +254,51 @@ Page.readable('discover', function discover() {
   if (!this.pagelets.length) return this.emit('discover');
 
   var req = this.req
-    , page = this
-    , pagelets;
+    , page = this;
 
   //
-  // Allocate new pagelets for this page and configure them so we can actually
-  // use them during authorization.
+  // We need to do an async map/filter of the pagelets, in order to this as
+  // efficient as possible we're going to use a reduce.
   //
-  pagelets = this.pagelets.map(function allocate(Pagelet) {
-    page.debug('allocating pagelet %s', Pagelet.prototype.name);
-    return (new Pagelet()).init({ page: page });
-  });
+  async.reduce(this.pagelets, {
+    disabled: [],
+    enabled: []
+  }, function reduce(memo, Pagelet, next) {
+    var pagelet, last;
 
-  //
-  // The Pipe#transform has transformed our pagelets object in to an array
-  // so we can easily iterate over them.
-  //
-  async.filter(pagelets, function rejection(pagelet, next) {
-    pagelet.authenticate(req, next);
-  }, function acceptance(allowed) {
-    page.enabled = allowed;
+    if (Array.isArray(Pagelet)) return async.some(Pagelet, function (Pagelet, next) {
+      var test = new Pagelet({ temper: page.pipe.temper });
 
-    //
-    // Keep track of disabled pagelets, also close open POST/PUT request if
-    // the pagelet is not included in or allowed for the current page.
-    //
-    var disabled = page.disabled = pagelets.filter(function disabled(pagelet) {
-      return !~allowed.indexOf(pagelet);
+      test.init({ page: page });
+      test.conditional(req, [], function conditionally(accepted) {
+        if (last) last.destroy();
+
+        if (accepted) pagelet = test;
+        else last = test;
+
+        next(!!pagelet);
+      });
+    }, function () {
+      if (pagelet) memo.enabled.push(pagelet);
+      else memo.disabled.push(last);
+
+      next(undefined, memo);
     });
 
-    allowed.forEach(function initialize(pagelet) {
+    pagelet = new Pagelet({ temper: page.pipe.temper });
+
+    pagelet.init({ page: page });
+    pagelet.conditional(req, [], function conditionally(accepted) {
+      if (accepted) memo.enabled.push(pagelet);
+      else memo.disabled.push(pagelet);
+
+      next(undefined, memo);
+    });
+  }, function (err, pageelts) {
+    page.disabled = pagelets.disabled;
+    page.enabled = pagelets.enabled;
+
+    page.enabled.forEach(function initialize(pagelet) {
       if ('function' === typeof pagelet.initialize) {
         pagelet.initialize();
       }
