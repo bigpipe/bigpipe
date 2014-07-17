@@ -385,6 +385,7 @@ Page.readable('async', function render(err, data) {
         data: data
       }, function rendered(err, content) {
         if (err) return next(err);
+
         page.write(content, next);
       });
     }, this.end.bind(this));
@@ -550,23 +551,25 @@ Page.readable('write', function write(fragment, fn) {
  * @api private
  */
 Page.readable('flush', function flush(flushing) {
-  var page = this;
-
   //
   // Only write the data to the response if we're allowed to flush.
   //
   if ('boolean' === typeof flushing) this.flushed = flushing;
   if (!this.flushed || !this.queue.length) return this;
 
-  this.res.write(this.queue.join(''), 'utf-8', this.emits('flush'));
+  var res = this.queue.join('');
   this.queue.length = 0;
+
+  if (res.length) {
+    this.res.write(res, 'utf-8', this.emits('flush'));
+  }
 
   //
   // Optional write confirmation, it got added in more recent versions of
   // node, so if it's not supported we're just going to call the callback
   // our selfs.
   //
-  if (this.res.write.length !== 3) {
+  if (this.res.write.length !== 3 || !res.length) {
     this.emit('flush');
   }
 
