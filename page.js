@@ -266,7 +266,7 @@ Page.readable('discover', function discover() {
   }, function reduce(memo, Pagelet, next) {
     var pagelet, last;
 
-    if (Array.isArray(Pagelet)) return async.some(Pagelet, function (Pagelet, next) {
+    if (Array.isArray(Pagelet)) return async.detectSeries(Pagelet, function (Pagelet, next) {
       var test = new Pagelet({ temper: page.temper });
 
       test.init({ page: page });
