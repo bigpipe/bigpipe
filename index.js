@@ -81,7 +81,7 @@ function Pipe(server, options) {
   readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('plugins', Object.create(null));           // Plugin storage.
   readable('options', options);                       // Configure options.
-  readable('temper', new Temper())                    // Template parser.
+  readable('temper', new Temper());                   // Template parser.
   readable('server', server);                         // HTTP server we work with.
   readable('layers', []);                             // Middleware layer.
 
@@ -89,7 +89,7 @@ function Pipe(server, options) {
   // Setup our real-time server
   //
   readable('primus', new Primus(this.server, {
-    transformer: options('transformer', 'websockets'),  // Real-time framework to use.
+    transformer: options('transformer', 'websockets'),// Real-time framework to use.
     pathname: options('pathname', '/pagelets'),       // Primus pathname.
     parser: options('parser', 'json'),                // Message parser.
     plugin: {
@@ -171,9 +171,18 @@ Pipe.readable('listen', function listen(port, done) {
       throw error;
     }
 
+    //
+    // Don't allow double calls to .listen this causes the request listener to
+    // be added twice and result in the site being rendered and outputted twice
+    // for the same request.
+    //
+    if (pipe.primus.transformer.listeners('previous::request').length) {
+      throw new Error('BigPipe#listen should only be called once');
+    }
+
+    pipe.primus.transformer.on('previous::request', pipe.bind(pipe.dispatch));
     pipe.primus.on('connection', pipe.bind(pipe.connection));
     pipe.server.on('listening', pipe.emits('listening'));
-    pipe.server.on('request', pipe.bind(pipe.dispatch));
     pipe.server.on('error', pipe.emits('error'));
 
     //
@@ -777,6 +786,8 @@ Pipe.createServer = function createServer(port, options) {
   options = 'object' === typeof port ? port : options || {};
   if ('number' === typeof port) options.port = port;
 
+  var listen = options.listen === false;
+
   //
   // Listening is done by our own .listen method, so we need to tell the
   // createServer module that we don't want it to start listening to our sizzle.
@@ -785,7 +796,9 @@ Pipe.createServer = function createServer(port, options) {
   options.listen = false;
 
   var pipe = new Pipe(require('create-server')(options), options);
-  return pipe.listen(options.port);
+
+  if (!listen) return pipe.listen(options.port);
+  return pipe;
 };
 
 //
