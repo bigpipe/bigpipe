@@ -927,6 +927,7 @@ Page.optimize = function optimize(pipe) {
     source: prototype.directory,
     recursive: 'string' === typeof prototype.pagelets
   }).forEach(function traverse(Pagelet) {
+    if (Array.isArray(Pagelet)) return; // Currently disabled for conditional pagelets.
     Array.prototype.push.apply(pagelets, Pagelet.traverse(Pagelet.prototype.name));
   });
 
@@ -934,6 +935,8 @@ Page.optimize = function optimize(pipe) {
   // Resolve all found pagelets and optimize for use with BigPipe.
   //
   prototype.pagelets = pipe.resolve(pagelets, function map(Pagelet) {
+    if (Array.isArray(Pagelet)) return pipe.resolve(Pagelet, map);
+
     return Pagelet.optimize({
       transform: pipe.emits('transform:pagelet'),
       temper: pipe.temper
