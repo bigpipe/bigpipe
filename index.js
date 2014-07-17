@@ -210,10 +210,14 @@ Pipe.readable('resolve', function resolve(files, transform) {
   //
   files = files.filter(function filter(constructor) {
     if ('function' === typeof constructor) return true;
-    return debug(
+    if (Array.isArray(constructor) && constructor.every(filter)) return true;
+
+    debug(
       'Invalid page or pagelet constructor, ignoring the file: %s',
       JSON.stringify(constructor) || constructor.toString()
     );
+
+    return false;
   }, this).filter(Boolean);
 
   return transform

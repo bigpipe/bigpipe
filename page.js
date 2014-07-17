@@ -927,7 +927,13 @@ Page.optimize = function optimize(pipe) {
     source: prototype.directory,
     recursive: 'string' === typeof prototype.pagelets
   }).forEach(function traverse(Pagelet) {
-    if (Array.isArray(Pagelet)) return; // Currently disabled for conditional pagelets.
+    //
+    // We currently don't allow recursive pagelets within conditional pagelets.
+    //
+    if (Array.isArray(Pagelet)) {
+      return pagelets.push(Pagelet);
+    }
+
     Array.prototype.push.apply(pagelets, Pagelet.traverse(Pagelet.prototype.name));
   });
 
