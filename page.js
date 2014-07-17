@@ -661,7 +661,9 @@ Page.readable('get', function get(name) {
   // simply return it.
   //
   if ('function' !== typeof Pagelet) return Pagelet;
-  return (new Pagelet()).init({ page: this });
+  return (new Pagelet({
+    temper: this.pipe.temper
+  })).init({ page: this });
 });
 
 /**
@@ -840,7 +842,7 @@ Page.readable('render', function render() {
     this.debug('Processing %s request', method);
 
     if (pagelet && method in pagelet) {
-      pagelet.authenticate(this.req, function auth(accepted) {
+      pagelet.conditional(this.req, [], function auth(accepted) {
         if (!accepted) {
           if (method in page) {
             reader.before(page[method], page);
