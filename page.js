@@ -267,7 +267,7 @@ Page.readable('discover', function discover() {
     var pagelet, last;
 
     if (Array.isArray(Pagelet)) return async.some(Pagelet, function (Pagelet, next) {
-      var test = new Pagelet({ temper: page.pipe.temper });
+      var test = new Pagelet({ temper: page.temper });
 
       test.init({ page: page });
       test.conditional(req, [], function conditionally(accepted) {
@@ -285,7 +285,7 @@ Page.readable('discover', function discover() {
       next(undefined, memo);
     });
 
-    pagelet = new Pagelet({ temper: page.pipe.temper });
+    pagelet = new Pagelet({ temper: page.temper });
 
     pagelet.init({ page: page });
     pagelet.conditional(req, [], function conditionally(accepted) {
@@ -294,7 +294,7 @@ Page.readable('discover', function discover() {
 
       next(undefined, memo);
     });
-  }, function (err, pageelts) {
+  }, function (err, pagelets) {
     page.disabled = pagelets.disabled;
     page.enabled = pagelets.enabled;
 
