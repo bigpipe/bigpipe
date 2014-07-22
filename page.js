@@ -266,7 +266,7 @@ Page.readable('discover', function discover() {
   }, function reduce(memo, Pagelet, next) {
     var pagelet, last;
 
-    if (Array.isArray(Pagelet)) return async.detectSeries(Pagelet, function (Pagelet, next) {
+    async.detectSeries(Pagelet, function (Pagelet, next) {
       var test = new Pagelet({ temper: page.temper });
 
       test.init({ page: page });
@@ -281,16 +281,6 @@ Page.readable('discover', function discover() {
     }, function () {
       if (pagelet) memo.enabled.push(pagelet);
       else memo.disabled.push(last);
-
-      next(undefined, memo);
-    });
-
-    pagelet = new Pagelet({ temper: page.temper });
-
-    pagelet.init({ page: page });
-    pagelet.conditional(req, [], function conditionally(accepted) {
-      if (accepted) memo.enabled.push(pagelet);
-      else memo.disabled.push(pagelet);
 
       next(undefined, memo);
     });
@@ -900,9 +890,10 @@ Page.on = function on(module) {
  * serving the requests.
  *
  * @param {BigPipe} pipe The BigPipe instance.
+ * @param {Function} next Completion callback.
  * @api private
  */
-Page.optimize = function optimize(pipe) {
+Page.optimize = function optimize(pipe, next) {
   var prototype = this.prototype
     , method = prototype.method
     , router = prototype.path
@@ -918,35 +909,6 @@ Page.optimize = function optimize(pipe) {
 
   method = method.filter(Boolean).map(function transformation(method) {
     return method.toUpperCase();
-  });
-
-  //
-  // Recursively traverse pagelets to find all.
-  //
-  fabricate(prototype.pagelets, {
-    source: prototype.directory,
-    recursive: 'string' === typeof prototype.pagelets
-  }).forEach(function traverse(Pagelet) {
-    //
-    // We currently don't allow recursive pagelets within conditional pagelets.
-    //
-    if (Array.isArray(Pagelet)) {
-      return pagelets.push(Pagelet);
-    }
-
-    Array.prototype.push.apply(pagelets, Pagelet.traverse(Pagelet.prototype.name));
-  });
-
-  //
-  // Resolve all found pagelets and optimize for use with BigPipe.
-  //
-  prototype.pagelets = pipe.resolve(pagelets, function map(Pagelet) {
-    if (Array.isArray(Pagelet)) return pipe.resolve(Pagelet, map);
-
-    return Pagelet.optimize({
-      transform: pipe.emits('transform:pagelet'),
-      temper: pipe.temper
-    });
   });
 
   //
@@ -974,6 +936,46 @@ Page.optimize = function optimize(pipe) {
   Page.router = new Route(router);                    // Actual HTTP route.
   Page.method = method;                               // Available HTTP methods.
   Page.id = router.toString() +'&&'+ method.join();   // Unique id.
+
+  //
+  // Recursively traverse pagelets to find all.
+  //
+  fabricate(prototype.pagelets, {
+    source: prototype.directory,
+    recursive: 'string' === typeof prototype.pagelets
+  }).forEach(function traverse(Pagelet) {
+    //
+    // We currently don't allow recursive pagelets within conditional pagelets.
+    //
+    if (Array.isArray(Pagelet)) {
+      return pagelets.push(Pagelet);
+    }
+
+    Array.prototype.push.apply(pagelets, Pagelet.traverse(Pagelet.prototype.name));
+  });
+
+  //
+  // Resolve all found pagelets and optimize for use with BigPipe.
+  //
+  async.map(pagelets, function map(Pagelet, next) {
+    if (Array.isArray(Pagelet)) return async.map(Pagelet, map, next);
+
+    return Pagelet.optimize({
+      transform: pipe.emits('transform:pagelet'),
+      temper: pipe.temper
+    }, function mapped(err) {
+      next(err, Pagelet);
+    });
+  }, function (err, pagelets) {
+    if (err) return next(err);
+
+    prototype.pagelets = pagelets.map(function map(Pagelet) {
+      if (Array.isArray(Pagelet)) return Pagelet;
+      return [Pagelet];
+    });
+
+    next();
+  });
 
   return Page;
 };
