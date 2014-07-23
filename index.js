@@ -128,7 +128,9 @@ function Pipe(server, options) {
   // that we need serve from our server.
   //
   this.define(options('pages', path.join(process.cwd(), '/pages')), function () {
-
+    //
+    // we should probably set a boolean or emit an event here as everything is
+    // ready
   });
 }
 
@@ -254,18 +256,6 @@ Pipe.readable('status', function status(req, res, code, data) {
   page.configure(req, res);
 
   return this;
-});
-
-/**
- * We need to extract items from the Page prototype and transform it in to
- * something useful.
- *
- * @param {Page} page Page constructor.
- * @returns {Page} The upgrade page.
- * @api private
- */
-Pipe.readable('transform', function transform(Page) {
-  return Page.optimize(this);
 });
 
 /**

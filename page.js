@@ -263,28 +263,33 @@ Page.readable('discover', function discover() {
   async.reduce(this.pagelets, {
     disabled: [],
     enabled: []
-  }, function reduce(memo, Pagelet, next) {
+  }, function reduce(memo, pagelets, next) {
+    pagelets = pagelets.slice(0);
+
     var pagelet, last;
 
-    async.detectSeries(Pagelet, function (Pagelet, next) {
-      var test = new Pagelet({ temper: page.temper });
+    async.whilst(function work() {
+      return pagelets.length && !pagelet;
+    }, function work(next) {
+      var Pagelet = pagelets.shift()
+        , test = new Pagelet({ temper: page.temper });
 
       test.init({ page: page });
-      test.conditional(req, [], function conditionally(accepted) {
-        if (last) last.destroy();
+      test.conditional(req, pagelets, function conditionally(accepted) {
+        if (last && last.destroy) last.destroy();
 
         if (accepted) pagelet = test;
         else last = test;
 
         next(!!pagelet);
       });
-    }, function () {
+    }, function found() {
       if (pagelet) memo.enabled.push(pagelet);
       else memo.disabled.push(last);
 
       next(undefined, memo);
     });
-  }, function (err, pagelets) {
+  }, function discovered(err, pagelets) {
     page.disabled = pagelets.disabled;
     page.enabled = pagelets.enabled;
 
@@ -616,44 +621,37 @@ Page.readable('inject', function inject(base, pagelet, view) {
  *
  * @param {String} name Name of the pagelet.
  * @param {String} enabled Make sure that we use the enabled array.
- * @returns {Pagelet} The constructor of a matching Pagelet.
+ * @returns {Array} The constructor of a matching Pagelet.
  * @api public
  */
 Page.readable('has', function has(name, enabled) {
   if (!name) return undefined;
 
   var pagelets = enabled ? this.enabled : this.pagelets
-    , i = pagelets.length;
+    , i = pagelets.length
+    , pagelet;
 
   while (i--) {
+    pagelet = enabled ? pagelets[i] : pagelets[i][0];
+
     if (
-       pagelets[i].prototype && pagelets[i].prototype.name === name
-    || pagelets[i].name === name
+       pagelet.prototype && pagelet.prototype.name === name
+    || pagelets.name === name
     ) break;
   }
 
-  return pagelets[i];
+  return enabled ? [pagelets[i]] : pagelets[i];
 });
 
 /**
  * Get and initialize a given Pagelet.
  *
  * @param {String} name Name of the pagelet.
- * @returns {Pagelet} The created pagelet instance.
+ * @returns {Array} The pagelet instances.
  * @api public
  */
 Page.readable('get', function get(name) {
-  var Pagelet = this.has(name) || this.has(name, true);
-
-  //
-  // It could be that Pagelet is undefined if nothing is initialized or it could
-  // be previously initialized pagelet. As it's already initialized, we can
-  // simply return it.
-  //
-  if ('function' !== typeof Pagelet) return Pagelet;
-  return (new Pagelet({
-    temper: this.pipe.temper
-  })).init({ page: this });
+  return (this.has(name) || this.has(name, true) || []).slice(0);
 });
 
 /**
@@ -823,31 +821,43 @@ Page.readable('configure', function configure(req, res) {
  * @api private
  */
 Page.readable('render', function render() {
-  var pagelet = this.get(this.req.query._pagelet)
-    , method = this.req.method.toLowerCase()
+  var method = this.req.method.toLowerCase()
     , page = this;
 
+  //
+  // Only start reading the incoming POST request when we accept the incoming
+  // method for read operations. Render in a regular mode if we do not accept
+  // these requests.
+  //
   if (~operations.indexOf(method)) {
-    var reader = this.read();
+    var pagelets = this.get(this.req.query._pagelet)
+      , reader = this.read();
+
     this.debug('Processing %s request', method);
 
-    if (pagelet && method in pagelet) {
-      pagelet.conditional(this.req, [], function auth(accepted) {
+    async.whilst(function work() {
+      return !!pagelets.length;
+    }, function process(next) {
+      var pagelet = pagelets.shift();
+
+      if (!(method in pagelet)) return next();
+
+      pagelet.init({ page: page });
+      pagelet.conditional(page.req, pagelets, function allowed(accepted) {
         if (!accepted) {
-          if (method in page) {
-            reader.before(page[method], page);
-          } else {
-            page[page.mode]();
-          }
-        } else {
-          reader.before(pagelet[method], pagelet);
+          if (pagelet.destroy) pagelet.destroy();
+          return next();
         }
+
+        reader.before(pagelet[method], pagelet);
       });
-    } else if (method in page) {
-      reader.before(page[method], page);
-    } else {
-      this[this.mode]();
-    }
+    }, function nothing() {
+      if (method in page) {
+        reader.before(page[method], page);
+      } else {
+        page[page.mode]();
+      }
+    });
   } else {
     this[this.mode]();
   }
@@ -905,7 +915,7 @@ Page.optimize = function optimize(pipe, next) {
   // there requests and should deny every other possible method.
   //
   debug('Optimizing page registered for path %s', router);
-  if (!Array.isArray(method)) method = method.split(/[\s,]+?/);
+  if (!Array.isArray(method)) method = method.split(/[\s\,]+?/);
 
   method = method.filter(Boolean).map(function transformation(method) {
     return method.toUpperCase();
@@ -960,12 +970,20 @@ Page.optimize = function optimize(pipe, next) {
   async.map(pagelets, function map(Pagelet, next) {
     if (Array.isArray(Pagelet)) return async.map(Pagelet, map, next);
 
-    return Pagelet.optimize({
+    Pagelet.optimize({
       transform: pipe.emits('transform:pagelet'),
       temper: pipe.temper
     }, function mapped(err) {
       next(err, Pagelet);
     });
+
+    //
+    // Support for older, non async optimized pagelets. Will be removed in
+    // future versions. Deprecate at will.
+    //
+    // Added: 22 Jul. 2014
+    //
+    if (Pagelet.optimize.length === 1) next(undefined, Pagelet);
   }, function (err, pagelets) {
     if (err) return next(err);
 
