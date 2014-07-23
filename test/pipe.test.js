@@ -42,7 +42,7 @@ describe('Pipe', function () {
 
   it('correctly resolves `pages` as a string to an array', function () {
     expect(app.pages).to.be.a('array');
-    expect(app.pages).to.have.length(5);
+    expect(app.pages).to.have.length(3);
   });
 
   it('transforms pages', function () {
@@ -184,7 +184,7 @@ describe('Pipe', function () {
       app.define(faq, function (err) {
         if (err) return next(err);
 
-        expect(app.pages).to.have.length(6);
+        expect(app.pages).to.have.length(4);
         expect(app.pages[2]).to.be.an('function');
         faq.prototype.dependencies = [];
 
@@ -196,7 +196,7 @@ describe('Pipe', function () {
       app.define(__dirname + '/fixtures/pages', function (err) {
         if (err) return next(err);
 
-        expect(app.pages).to.have.length(8);
+        expect(app.pages).to.have.length(6);
         app.pages.forEach(function (page) {
           expect(page).to.have.property('id');
         });
@@ -218,7 +218,7 @@ describe('Pipe', function () {
         dist: '/tmp/dist'
       });
 
-      expect(app.pages).to.have.length(2);
+      expect(app.pages).to.have.length(0);
       expect(app.statusCodes[404]).to.not.equal(require('../pages/404'));
       expect(app.statusCodes[500]).to.not.equal(require('../pages/500'));
     });
