@@ -1,6 +1,7 @@
 'use strict';
 
-var debugs = require('diagnostics');
+var debugs = require('diagnostics')
+  , async = require('async');
 
 /**
  * Our real-time glue layer.
@@ -62,15 +63,30 @@ module.exports = function connection(spark) {
         if (!page) return debug('No initialised page, cannot initialise pagelet %j', data);
         if (!page.has(data.name)) return debug('Unknown pagelet, does not exist on page');
 
-        page.get(data.name).connect(spark, function substream(err, pagelet) {
-          if (err) debug('error: Failed to connect to spark');
-          if (data.id && pagelet) pagelet.id = data.id;
+        var pageletset = page.get(data.name);
 
+        async.whilst(function canihas() {
+          return !!pageletset.length;
+        }, function work(next) {
+          var Pagelet = pageletset.shift()
+            , pagelet = new Pagelet({ temper: page.temper});
+
+          pagelet.init({ page: page });
+          pagelet.connect(spark, function connect(err) {
+            if (err) {
+              if (pagelet.destroy) pagelet.destroy();
+              return next();
+            }
+
+            if (data.id && pagelet) pagelet.id = data.id;
+
+            page.enabled.push(pagelet);
+            pagelets[data.name] = pagelet;
+          });
+        }, function () {
           debug('Connected pagelet %s with the page', data.name);
-
-          page.enabled.push(pagelet);
-          pagelets[data.name] = pagelet;
         });
+
       break;
     }
   });

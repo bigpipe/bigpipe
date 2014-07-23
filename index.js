@@ -72,7 +72,8 @@ function Pipe(server, options) {
   options = configure(options || {});
 
   var readable = this.readable
-    , writable = this.writable;
+    , writable = this.writable
+    , bigpipe = this;
 
   //
   // Constants and properties that should never be overridden.
@@ -81,15 +82,16 @@ function Pipe(server, options) {
   readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('plugins', Object.create(null));           // Plugin storage.
   readable('options', options);                       // Configure options.
-  readable('temper', new Temper())                    // Template parser.
+  readable('temper', new Temper());                   // Template parser.
   readable('server', server);                         // HTTP server we work with.
   readable('layers', []);                             // Middleware layer.
+  readable('pages', []);                              // Stores our pages.
 
   //
-  // Setup our real-time server
+  // Setup our real-time server.
   //
   readable('primus', new Primus(this.server, {
-    transformer: options('transformer', 'websockets'),  // Real-time framework to use.
+    transformer: options('transformer', 'websockets'),// Real-time framework to use.
     pathname: options('pathname', '/pagelets'),       // Primus pathname.
     parser: options('parser', 'json'),                // Message parser.
     plugin: {
@@ -122,24 +124,20 @@ function Pipe(server, options) {
   this.use(require('./plugins/pagelet'));
 
   //
-  // Create constructible page instances.
-  //
-  readable('pages', this.resolve(
-    fabricate(options('pages', path.join(process.cwd(), '/pages'))),
-    this.transform) || []
-  );
-
-  //
   // Finally, now that everything has been setup we can discover the pagelets
   // that we need serve from our server.
   //
-  this.discover(this.pages);
+  this.define(options('pages', path.join(process.cwd(), '/pages')), function () {
+    //
+    // we should probably set a boolean or emit an event here as everything is
+    // ready
+  });
 }
 
 //
-// Add event emitting, do not inherit the resolve method, BigPipe has it own.
+// Inherit from EventEmitter3 as we need to emit listen events etc.
 //
-fuse(Pipe, require('eventemitter3'), { resolve: false });
+fuse(Pipe, require('eventemitter3'));
 
 /**
  * The current version of the library.
@@ -171,9 +169,18 @@ Pipe.readable('listen', function listen(port, done) {
       throw error;
     }
 
+    //
+    // Don't allow double calls to .listen this causes the request listener to
+    // be added twice and result in the site being rendered and outputted twice
+    // for the same request.
+    //
+    if (pipe.primus.transformer.listeners('previous::request').length) {
+      throw new Error('BigPipe#listen should only be called once');
+    }
+
+    pipe.primus.transformer.on('previous::request', pipe.bind(pipe.dispatch));
     pipe.primus.on('connection', pipe.bind(pipe.connection));
     pipe.server.on('listening', pipe.emits('listening'));
-    pipe.server.on('request', pipe.bind(pipe.dispatch));
     pipe.server.on('error', pipe.emits('error'));
 
     //
@@ -187,32 +194,6 @@ Pipe.readable('listen', function listen(port, done) {
 });
 
 /**
- * Transform strings, array of strings, objects, things in to the actual
- * constructors.
- *
- * @param {String|Array|Object} files The files.
- * @param {Function} transform Transformation function
- * @returns {Array}
- * @api private
- */
-Pipe.readable('resolve', function resolve(files, transform) {
-  //
-  // Filter invalid page or pagelet instances.
-  //
-  files = files.filter(function filter(constructor) {
-    if ('function' === typeof constructor) return true;
-    return debug(
-      'Invalid page or pagelet constructor, ignoring the file: %s',
-      JSON.stringify(constructor) || constructor.toString()
-    );
-  }, this).filter(Boolean);
-
-  return transform
-    ? files.map(transform, this)
-    : files;
-});
-
-/**
  * Discover if the user supplied us with custom error pages so we use that
  * in case we need to handle a 404 or and 500 error page.
  *
@@ -220,8 +201,8 @@ Pipe.readable('resolve', function resolve(files, transform) {
  * @returns {Pipe} fluent interface
  * @api private
  */
-Pipe.readable('discover', function discover(pages) {
-  var catalog = pages || []
+Pipe.readable('discover', function discover(pages, next) {
+  var bigpipe = this
     , fivehundered
     , fourofour;
 
@@ -232,25 +213,23 @@ Pipe.readable('discover', function discover(pages) {
     if (page.router.test('/404')) fourofour = page;
   });
 
-  //
-  // We don't have any 500 or 404 handlers, so use some default pages that are
-  // provided by us. But as these page are not processed yet, we need to kick
-  // them through our transform process.
-  //
-  if (!fivehundered) {
-    debug('no /500 error page detected, using default bigpipe error page');
-    fivehundered = this.transform(require('./pages/500'));
-    catalog.push(fivehundered);
-  }
+  async.map([fourofour || '404', fivehundered || '500'], function (Page, next) {
+    if ('string' !== typeof Page) return next(undefined, Page);
 
-  if (!fourofour) {
-    debug('no /404 error page detected, using default bigpipe not found page');
-    fourofour = this.transform(require('./pages/404'));
-    catalog.push(fourofour);
-  }
+    debug('no /'+ Page +' error page detected, using default bigpipe error page');
 
-  this.statusCodes[500] = fivehundered;
-  this.statusCodes[404] = fourofour;
+    Page = require('./pages/'+ Page);
+    Page.optimize(bigpipe, function optimized(err) {
+      next(err, Page);
+    });
+  }, function found(err, status) {
+    if (err) return next(err);
+
+    bigpipe.statusCodes[404] = status[0];
+    bigpipe.statusCodes[500] = status[1];
+
+    next();
+  });
 
   return this;
 });
@@ -280,18 +259,6 @@ Pipe.readable('status', function status(req, res, code, data) {
 });
 
 /**
- * We need to extract items from the Page prototype and transform it in to
- * something useful.
- *
- * @param {Page} page Page constructor.
- * @returns {Page} The upgrade page.
- * @api private
- */
-Pipe.readable('transform', function transform(Page) {
-  return Page.optimize(this);
-});
-
-/**
  * Insert page into collection of pages. If page is a manually instantiated
  * Page push it in, otherwise resolve the path, always transform the page. After
  * dependencies are catalogued the callback will be called.
@@ -301,21 +268,22 @@ Pipe.readable('transform', function transform(Page) {
  * @api public
  */
 Pipe.readable('define', function define(pages, done) {
-  if (!pages) return this;
-  if ('function' === typeof pages) pages = [ pages ];
+  var bigpipe = this;
 
-  //
-  // Transform the mixed pages into useful constructors.
-  //
-  pages = this.resolve(fabricate(pages), this.transform);
+  async.map(fabricate(pages), function map(Page, next) {
+    Page.optimize(bigpipe, function optimized(err) {
+      next(err, Page);
+    });
+  }, function fabricated(err, pages) {
+    if (err) return done(err);
 
-  //
-  // Add the pages to the collection and catalog the dependencies.
-  //
-  this.pages.push.apply(this.pages, pages);
-  this.compiler.catalog(pages, done);
+    bigpipe.pages.push.apply(bigpipe.pages, pages);
+    bigpipe.discover(pages, function discovered(err) {
+      if (err) return done(err);
 
-  debug('added a new set of pages to bigpipe');
+      bigpipe.compiler.catalog(pages, done);
+    });
+  });
 
   return this;
 });
@@ -777,6 +745,8 @@ Pipe.createServer = function createServer(port, options) {
   options = 'object' === typeof port ? port : options || {};
   if ('number' === typeof port) options.port = port;
 
+  var listen = options.listen === false;
+
   //
   // Listening is done by our own .listen method, so we need to tell the
   // createServer module that we don't want it to start listening to our sizzle.
@@ -785,7 +755,9 @@ Pipe.createServer = function createServer(port, options) {
   options.listen = false;
 
   var pipe = new Pipe(require('create-server')(options), options);
-  return pipe.listen(options.port);
+
+  if (!listen) return pipe.listen(options.port);
+  return pipe;
 };
 
 //

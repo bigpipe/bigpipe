@@ -14,6 +14,7 @@
   ],
   "dependencies": {
     "async": "0.9.x",
+    "bigpipe.js": "0.7.x",
     "create-server": "0.0.x",
     "diagnostics": "0.0.x",
     "ejs": "1.0.x",
@@ -24,7 +25,6 @@
     "fusing": "0.3.x",
     "mkdirp": "0.5.x",
     "pagelet": "0.7.x",
-    "bigpipe.js": "0.7.x",
     "primus": "2.3.x",
     "routable": "0.0.x",
     "smithy": "0.5.x",
