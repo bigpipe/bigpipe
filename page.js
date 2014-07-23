@@ -459,7 +459,7 @@ Page.readable('read', function read() {
       return form;
     }
 
-    callback.call(context, fields, files, page[page.mode].bind(page));
+    callback.call(contexts || context, fields, files, page[page.mode].bind(page));
     return form;
   };
 
@@ -838,11 +838,14 @@ Page.readable('render', function render() {
     async.whilst(function work() {
       return !!pagelets.length;
     }, function process(next) {
-      var pagelet = pagelets.shift();
+      var Pagelet = pagelets.shift()
+        , pagelet;
 
-      if (!(method in pagelet)) return next();
+      if (!(method in Pagelet.prototype)) return next();
 
+      pagelet = new Pagelet({ temper: page.temper });
       pagelet.init({ page: page });
+
       pagelet.conditional(page.req, pagelets, function allowed(accepted) {
         if (!accepted) {
           if (pagelet.destroy) pagelet.destroy();
