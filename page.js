@@ -5,6 +5,7 @@ var Formidable = require('formidable').IncomingForm
   , fabricate = require('fabricator')
   , qs = require('querystring')
   , Route = require('routable')
+  , crypto = require('crypto')
   , async = require('async')
   , fuse = require('fusing')
   , path = require('path')
@@ -940,15 +941,12 @@ Page.optimize = function optimize(pipe, next) {
   // Unique id per page. This is used to track back which page was actually
   // rendered for the front-end so we can retrieve pagelets much easier.
   //
-  prototype.id = [1, 1, 1, 1].map(function generator() {
-    return Math.random().toString(36).substring(2).toUpperCase();
-  }).join('');
+  Page.id = prototype.id = crypto.createHash('md5').update(router.toString() +'&&'+ method.join()).digest('hex');
   debug('Adding random ID %s to page for pagelet retrieval', prototype.id);
 
   pipe.emit('transform:page', Page);                  // Emit transform event for plugins.
   Page.router = new Route(router);                    // Actual HTTP route.
   Page.method = method;                               // Available HTTP methods.
-  Page.id = router.toString() +'&&'+ method.join();   // Unique id.
 
   //
   // Recursively traverse pagelets to find all.

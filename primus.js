@@ -1,6 +1,6 @@
 'use strict';
 
-var debugs = require('diagnostics')
+var debug = require('diagnostics')('bigpipe:primus')
   , async = require('async');
 
 /**
@@ -10,8 +10,7 @@ var debugs = require('diagnostics')
  * @api private
  */
 module.exports = function connection(spark) {
-  var debug = debugs('bigpipe:primus:'+ spark.id)
-    , pipe = this;
+  var pipe = this;
 
   debug('new real-time connection');
 
@@ -22,9 +21,10 @@ module.exports = function connection(spark) {
   //
   var orchestrate = spark.substream('pipe:orchestrate')
     , pagelets = Object.create(null)
+    , worker
     , page;
 
-  orchestrate.on('data', function orchestration(data) {
+  worker = async.queue(function work(data, next) {
     switch (data.type) {
       //
       // The user has initiated a new Page so we need to get a new reference
@@ -41,7 +41,7 @@ module.exports = function connection(spark) {
 
         spark.request.url = data.url || spark.request.url;
         pipe.router(spark.request, spark, data.id, function found(err, p) {
-          if (err) return debug('Failed to initialise page %s: %j', spark.request.url, err);
+          if (err) return debug('Failed to initialise page %s: %j', spark.request.url, err), next();
 
           debug('initialised a new Page instance: %s', spark.request.url);
 
@@ -52,6 +52,7 @@ module.exports = function connection(spark) {
           p.res = spark;
 
           spark.page = page = p;
+          next();
         });
       break;
 
@@ -59,9 +60,9 @@ module.exports = function connection(spark) {
       // The user has initialised a new pagelet for a given page.
       //
       case 'pagelet':
-        if (data.name in pagelets) return debug('Pagelet %s is already initialised', data.name);
-        if (!page) return debug('No initialised page, cannot initialise pagelet %j', data);
-        if (!page.has(data.name)) return debug('Unknown pagelet, does not exist on page');
+        if (data.name in pagelets) return debug('Pagelet %s is already initialised', data.name), next();
+        if (!page) return debug('No initialised page, cannot initialise pagelet %j', data), next();
+        if (!page.has(data.name)) return debug('Unknown pagelet, does not exist on page'), next();
 
         var pageletset = page.get(data.name);
 
@@ -82,23 +83,26 @@ module.exports = function connection(spark) {
 
             page.enabled.push(pagelet);
             pagelets[data.name] = pagelet;
+            next();
           });
         }, function () {
           debug('Connected pagelet %s with the page', data.name);
+          next();
         });
 
       break;
     }
+  }, 1);
+
+  orchestrate.on('data', function orchestration(data) {
+    worker.push(data);
   });
 
   //
   // The current page id was sent with the connection string, so initialise
   // a new Page instantly using the given id.
   //
-  if (spark.query._bp_pid) orchestrate.emit('data', {
-    id: spark.query._bp_pid,
-    type: 'page'
-  });
+  if (spark.query._bp_pid) worker.push({ id: spark.query._bp_pid, type: 'page' });
 
   spark.once('end', function end() {
     debug('closed connection');
