@@ -596,7 +596,12 @@ Pipe.readable('forEach', function forEach(req, res, next) {
     debug('applying middleware %s on %s', layer.name, req.url);
 
     if (layer.length === 2) {
-      if (layer.fn.call(pipe, req, res)) return next();
+      //
+      // When true is returned we don't want to continue with the iteration of
+      // the middle and we certainly don't want to call the callback as the
+      // request will be handled by the specified middleware.
+      //
+      if (layer.fn.call(pipe, req, res) === true) return;
       return iterate(index);
     }
 
