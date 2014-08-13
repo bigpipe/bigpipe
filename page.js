@@ -652,6 +652,7 @@ Page.readable('has', function has(name, enabled) {
  * @api public
  */
 Page.readable('get', function get(name) {
+  if (Array.isArray(name)) name = name[0];
   return (this.has(name) || this.has(name, true) || []).slice(0);
 });
 
