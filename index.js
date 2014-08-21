@@ -441,8 +441,12 @@ Pipe.readable('before', function before(name, fn, options) {
   // Override middleware layers if we already have a middleware layer with
   // exactly the same name.
   //
-  if (!~index) this.layers.push(layer);
-  else this.layers[index] = layer;
+  if (~index) {
+    this.layers.push(layer);
+  } else {
+    debug('Duplicate middleware layer found, overwriting %s', name);
+    this.layers[index] = layer;
+  }
 
   return this;
 });
