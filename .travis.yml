@@ -4,9 +4,6 @@ node_js:
   - "0.11"
 before_install:
   - npm install -g npm
-  - npm install bigpipe/pagelet
-  - npm install bigpipe/bigpipe.js
-  - cd node_modules/bigpipe.js && npm install browserify && npm run compile && cd ../../
 notifications:
   irc:
     channels: "irc.freenode.org#bigpipe"
