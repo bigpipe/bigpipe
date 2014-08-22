@@ -278,11 +278,7 @@ Pipe.readable('define', function define(pages, done) {
     if (err) return done(err);
 
     bigpipe.pages.push.apply(bigpipe.pages, pages);
-    bigpipe.discover(pages, function discovered(err) {
-      if (err) return done(err);
-
-      bigpipe.compiler.catalog(pages, done);
-    });
+    bigpipe.discover(pages, done);
   });
 
   return this;
