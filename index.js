@@ -127,11 +127,10 @@ function Pipe(server, options) {
   // Finally, now that everything has been setup we can discover the pagelets
   // that we need serve from our server.
   //
-  this.define(options('pages', path.join(process.cwd(), '/pages')), function () {
-    //
-    // we should probably set a boolean or emit an event here as everything is
-    // ready
-  });
+  this.define(
+    options('pages', path.join(process.cwd(), 'pages')),
+    this.emits('initialized')
+  );
 }
 
 //
