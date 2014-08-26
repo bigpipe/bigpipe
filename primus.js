@@ -1,7 +1,8 @@
 'use strict';
 
 var debug = require('diagnostics')('bigpipe:primus')
-  , async = require('async');
+  , async = require('async')
+  , url = require('url');
 
 /**
  * Our real-time glue layer.
@@ -40,6 +41,8 @@ module.exports = function connection(spark) {
         });
 
         spark.request.url = data.url || spark.request.url;
+        spark.request.uri = url.parse(spark.request.url, true);
+
         pipe.router(spark.request, spark, data.id, function found(err, p) {
           if (err) return debug('Failed to initialise page %s: %j', spark.request.url, err), next();
 
