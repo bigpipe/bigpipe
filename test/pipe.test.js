@@ -255,4 +255,8 @@ describe('Pipe', function () {
       pipe.listen(common.port);
     });
   });
+
+  describe('#createServer', function () {
+    it('will call #listen as soon as the server is completely initialized');
+  });
 });

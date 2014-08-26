@@ -760,7 +760,10 @@ Pipe.createServer = function createServer(port, options) {
 
   var pipe = new Pipe(require('create-server')(options), options);
 
-  if (!listen) return pipe.listen(options.port);
+  if (!listen) return pipe.on('initialized', function listen() {
+    pipe.listen(options.port)
+  });
+
   return pipe;
 };
 
