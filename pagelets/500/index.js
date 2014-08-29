@@ -1,12 +1,12 @@
 'use strict';
 
-var Page = require('../../page');
+var Pagelet = require('pagelet');
 
 //
-// Default 500 error page that will be served if none is provided.
+// Default 500 error pagelet that will be served if none is provided.
 //
-Page.extend({
-  path: '/pagelets/500',
+Pagelet.extend({
+  path: '/500',
   statusCode: 500,
   view: '500.ejs',
   pagelets: {

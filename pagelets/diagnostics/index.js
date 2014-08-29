@@ -1,6 +1,6 @@
 'use strict';
 
-var Pagelet = require('../..').Pagelet;
+var Pagelet = require('pagelet');
 
 Pagelet.extend({
   view: 'diagnostic.ejs',

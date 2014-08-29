@@ -1,12 +1,12 @@
 'use strict';
 
-var Page = require('../../page');
+var Pagelet = require('pagelet');
 
 //
-// Default 404, not found page.
+// Default 404, not found pagelet.
 //
-Page.extend({
-  path: '/pagelet/404',
+Pagelet.extend({
+  path: '/404',
   statusCode: 404,
   view: '404.ejs',
   pagelets: {
