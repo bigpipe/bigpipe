@@ -55,7 +55,7 @@ function configure(obj) {
  *
  * - cache: A object were we store our URL->page mapping.
  * - dist: The pathname for the compiled assets.
- * - pages: String or array of pages we serve.
+ * - pagelets: String or array of pagelets we serve.
  * - parser: Which parser should be used to send data in real-time.
  * - pathname: The pathname we use for Primus requests.
  * - transformer: The transport engine we should use for real-time.
@@ -78,14 +78,14 @@ function Pipe(server, options) {
   //
   // Constants and properties that should never be overridden.
   //
-  readable('statusCodes', Object.create(null));       // Stores error pages.
+  readable('statusCodes', Object.create(null));       // Stores error pagelets.
   readable('cache', options('cache', false));         // Enable URL lookup caching.
   readable('plugins', Object.create(null));           // Plugin storage.
   readable('options', options);                       // Configure options.
   readable('temper', new Temper());                   // Template parser.
   readable('server', server);                         // HTTP server we work with.
   readable('layers', []);                             // Middleware layer.
-  readable('pages', []);                              // Stores our pages.
+  readable('pagelets', []);                           // Stores our pagelets.
 
   //
   // Setup our real-time server.
@@ -100,9 +100,8 @@ function Pipe(server, options) {
   }));
 
   //
-  // Setup the asset compiler before the pages are discovered as they will need
-  // to hook in to the compiler to register all assets that are loaded from
-  // pagelets.
+  // Setup the asset compiler before pagelets are discovered as they will
+  // need to hook in to the compiler to register all assets that are loaded.
   //
   readable('compiler', new Compiler(
     options('dist', path.join(process.cwd(), 'dist')), this, {
@@ -117,7 +116,7 @@ function Pipe(server, options) {
   this.before('compiler', this.compiler.serve);
 
   //
-  // Apply the plugins before resolving and transforming the pages so the
+  // Apply the plugins before resolving and transforming the pagelets so the
   // plugins can hook in to our optimization and transformation process.
   //
   this.pluggable(options('plugins', []));
@@ -128,7 +127,7 @@ function Pipe(server, options) {
   // that we need serve from our server.
   //
   this.define(
-    options('pages', path.join(process.cwd(), 'pages')),
+    options('pagelets', path.join(process.cwd(), 'pagelets')),
     this.emits('initialized')
   );
 }
@@ -162,7 +161,7 @@ Pipe.readable('listen', function listen(port, done) {
   // we don't want to serve un-compiled assets. And we should only start
   // listening on the server once we're actually ready to respond to requests.
   //
-  pipe.compiler.catalog(this.pages, function init(error) {
+  pipe.compiler.catalog(this.pagelets, function init(error) {
     if (error) {
       if (done) return done(error);
       throw error;
@@ -193,33 +192,33 @@ Pipe.readable('listen', function listen(port, done) {
 });
 
 /**
- * Discover if the user supplied us with custom error pages so we use that
- * in case we need to handle a 404 or and 500 error page.
+ * Discover if the user supplied us with custom error pagelets so we use that
+ * in case we need to handle a 404 or and 500 errors.
  *
- * @param {Array} pages All enabled pages.
+ * @param {Array} pagelets All enabled pagelets.
  * @returns {Pipe} fluent interface
  * @api private
  */
-Pipe.readable('discover', function discover(pages, next) {
+Pipe.readable('discover', function discover(pagelets, next) {
   var bigpipe = this
     , fivehundered
     , fourofour;
 
-  debug('discovering build-in error pages');
+  debug('discovering build-in error pagelets');
 
-  pages.forEach(function each(page) {
-    if (page.router.test('/500')) fivehundered = page;
-    if (page.router.test('/404')) fourofour = page;
+  pagelets.forEach(function each(pagelet) {
+    if (pagelet.router.test('/500')) fivehundered = pagelet;
+    if (pagelet.router.test('/404')) fourofour = pagelet;
   });
 
-  async.map([fourofour || '404', fivehundered || '500'], function (Page, next) {
-    if ('string' !== typeof Page) return next(undefined, Page);
+  async.map([fourofour || '404', fivehundered || '500'], function (Pagelet, next) {
+    if ('string' !== typeof Pagelet) return next(undefined, Pagelet);
 
-    debug('no /'+ Page +' error page detected, using default bigpipe error page');
+    debug('no /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
 
-    Page = require('./pages/'+ Page);
-    Page.optimize(bigpipe, function optimized(err) {
-      next(err, Page);
+    Pagelet = require('./pagelets/'+ Pagelet);
+    Pagelet.optimize(bigpipe, function optimized(err) {
+      next(err, Pagelet);
     });
   }, function found(err, status) {
     if (err) return next(err);
@@ -234,12 +233,13 @@ Pipe.readable('discover', function discover(pages, next) {
 });
 
 /**
- * Render a page from our `statusCodes` collection.
+ * Render a pagelet from our `statusCodes` collection.
  *
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
  * @param {Number} code The status we should handle.
- * @param {Mixed} data Nothing or something :D
+ * @param {Mixed} data Nothing or something
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.readable('status', function status(req, res, code, data) {
@@ -247,37 +247,38 @@ Pipe.readable('status', function status(req, res, code, data) {
     throw new Error('Unsupported HTTP code: '+ code +'.');
   }
 
-  var Page = this.statusCodes[code]
-    , page = new Page(this);
+  var Pagelet = this.statusCodes[code]
+    , pagelet = new Pagelet(this);
 
-  page.data = data || {};
-  page.data.env = process.env.NODE_ENV;
-  page.configure(req, res);
+  pagelet.data = data || {};
+  pagelet.data.env = process.env.NODE_ENV;
+  pagelet.configure(req, res);
 
   return this;
 });
 
 /**
- * Insert page into collection of pages. If page is a manually instantiated
- * Page push it in, otherwise resolve the path, always transform the page. After
- * dependencies are catalogued the callback will be called.
+ * Insert pagelet into collection of pagelets. If pagelet is a manually
+ * instantiated Pagelet push it in, otherwise resolve the path, always
+ * transform the pagelet. After dependencies are catalogued the callback
+ * will be called.
  *
- * @param {Mixed} pages array of composed Page objects or file path.
+ * @param {Mixed} pagelets array of composed Pagelet objects or file path.
  * @param {Function} done callback
  * @api public
  */
-Pipe.readable('define', function define(pages, done) {
+Pipe.readable('define', function define(pagelets, done) {
   var bigpipe = this;
 
-  async.map(fabricate(pages), function map(Page, next) {
-    Page.optimize(bigpipe, function optimized(err) {
-      next(err, Page);
+  async.map(fabricate(pagelets), function map(Pagelet, next) {
+    Pagelet.optimize(bigpipe, function optimized(err) {
+      next(err, Pagelet);
     });
-  }, function fabricated(err, pages) {
+  }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
-    bigpipe.pages.push.apply(bigpipe.pages, pages);
-    bigpipe.discover(pages, done);
+    bigpipe.pagelets.push.apply(bigpipe.pagelets, pagelets);
+    bigpipe.discover(pagelets, done);
   });
 
   return this;
@@ -301,12 +302,12 @@ Pipe.readable('bind', function bind(fn) {
 });
 
 /**
- * Find and initialize pages based on a given id or on the pathname of the
+ * Find and initialize pageletss based on a given id or on the pathname of the
  * request.
  *
  * @param {HTTP.Request} req The incoming HTTP request.
  * @param {HTTP.Response} res The outgoing HTTP request.
- * @param {String} id Optional id of page we specifically need.
+ * @param {String} id Optional id of pagelet we specifically need.
  * @param {Function} next Continuation callback
  * @api private
  */
@@ -317,71 +318,76 @@ Pipe.readable('router', function router(req, res, id, next) {
   }
 
   var key = id ? id : req.method +'@'+ req.uri.pathname
-    , pages = this.cache ? this.cache.get(key) || [] : []
-    , length = this.pages.length
+    , cache = this.cache ? this.cache.get(key) || [] : []
+    , pagelets = this.pagelets
+    , length = pagelets.length
     , pipe = this
     , i = 0
-    , page;
+    , pagelet;
 
-  if (!pages.length) {
+  //
+  // Cache is empty.
+  //
+  if (!cache.length) {
     if (id) for (; i < length; i++) {
-      page = this.pages[i];
+      pagelet = pagelets[i];
 
-      if (id === page.prototype.id) {
-        pages.push(page);
+      if (id === pagelet.prototype.id) {
+        cache.push(pagelet);
         break;
       }
     } else for (; i < length; i++) {
-      page = this.pages[i];
+      pagelet = pagelets[i];
 
-      if (!page.router.test(req.uri.pathname)) continue;
-      if (page.method.length && !~page.method.indexOf(req.method)) continue;
+      if (!pagelet.router.test(req.uri.pathname)) continue;
+      if (pagelet.method.length && !~pagelet.method.indexOf(req.method)) continue;
 
-      pages.push(page);
+      cache.push(pagelet);
     }
 
-    if (this.cache && pages.length) {
-      this.cache.set(key, pages);
-      debug('added key %s and its found pages to our internal lookup cache', key);
+    if (this.cache && cache.length) {
+      this.cache.set(key, cache);
+      debug('added key %s and its found pagelets to our internal lookup cache', key);
     }
   }
 
   //
-  // Add an extra 404 page so we always have an page to display.
+  // Add an extra 404 pagelet so we always have a pagelet to display.
   //
-  pages.push(this.statusCodes[404]);
+  cache.push(this.statusCodes[404]);
 
   //
-  // It could be that we have selected a couple of authorized pages. Filter
-  // those out before sending the and initialized page to the callback.
+  // It could be that we have selected a couple of authorized pagelets. Filter
+  // those out before sending the initialized pagelet to the callback.
   //
-  (function each(pages) {
-    var Page = pages.shift()
-      , page = new Page(pipe);
+  (function each(pagelets) {
+    var Pagelet = pagelets.shift()
+      , pagelet = new Pagelet(pipe);
 
-    debug('iterating over pages for %s testing %s atm', req.url, page.path);
+    debug('iterating over pages for %s testing %s atm', req.url, pagelet.path);
 
     //
     // Make sure we parse out all the parameters from the URL as they might be
     // required for authorization purposes.
     //
-    page.params = Page.router.exec(req.uri.pathname) || {};
+    pagelet.params = Pagelet.router.exec(req.uri.pathname) || {};
 
-    if ('function' === typeof page.authorize) {
-      page.req = req;   // Might be needed to retrieve sessions.
-      page.res = res;   // Might be needed for redirects.
+    // TODO replace with conditional pagelet logic.
+    if ('function' === typeof pagelet.authorize) {
+      pagelet.req = req;   // Might be needed to retrieve sessions.
+      pagelet.res = res;   // Might be needed for redirects.
 
-      return page.authorize(req, function authorize(allowed) {
-        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
+      return pagelet.authorize(req, function authorize(allowed) {
+        debug('%s required authorization we are %s', pagelet.path, allowed ? 'allowed' : 'disallowed');
 
-        if (allowed) return next(undefined, page);
-        each(pages);
+        if (allowed) return next(undefined, pagelet);
+        each(pagelets);
       });
     }
 
-    debug('Using %s for %s', page.path, req.url);
-    next(undefined, page);
-  }(pages.slice(0)));
+    debug('Using %s for %s', pagelet.path, req.url);
+    next(undefined, pagelet);
+  }(pagelets.slice(0)));
 
   return this;
 });
@@ -532,28 +538,28 @@ Pipe.readable('dispatch', function dispatch(req, res) {
   var pipe = this;
 
   /**
-   * Something failed while processing things. Display an error page.
+   * Something failed while processing things. Display an error pagelet.
    *
    * @param {String}
    * @api private
    */
   function fivehundered(err) {
-    var page = new pipe.statusCodes[500](pipe);
+    var pagelet = new pipe.statusCodes[500](pipe);
 
     //
     // Set an error as data so it can be used as data in the template.
     //
-    page.data = err;
-    page.configure(req, res);
+    pagelet.data = err;
+    pagelet.configure(req, res);
   }
 
   return this.forEach(req, res, function next(err) {
     if (err) return fivehundered(err);
 
-    pipe.router(req, res, function completed(err, page) {
+    pipe.router(req, res, function completed(err, pagelet) {
       if (err) return fivehundered(err);
 
-      page.configure(req, res);
+      pagelet.configure(req, res);
     });
   });
 });
@@ -694,9 +700,9 @@ Pipe.readable('use', function use(name, plugin) {
  *
  * Query:
  *
- * - page: The id of the page
+ * - id: The id of the pagelet
  * - pagelet: The name of the pagelet
- * - id: The id of a pagelet
+ * - child: The id of a child pagelet
  * - enabled: State of pagelet (defaults to true)
  *
  * @param {String} url The URL to find.
@@ -709,20 +715,20 @@ Pipe.readable('find', function find(url, query) {
     , enabled = query.enabled === false ? false : true;
 
   this.primus.forEach(function each(spark) {
-    if (!spark.page || !spark.page.constructor.router.test(url)) return;
+    if (!spark.pagelet || !spark.pagelet.constructor.router.test(url)) return;
 
-    var page = spark.page;
+    var pagelet = spark.pagelet;
 
-    if (query.page && query.page === page.id) {
-      results.push(page);
+    if (query.id && query.id === pagelet.id) {
+      results.push(pagelet);
     }
 
-    if (query.pagelet && page.has(query.pagelet, enabled)) {
-      results.push(page.has(query.pagelet, enabled));
+    if (query.pagelet && pagelet.has(query.pagelet, enabled)) {
+      results.push(pagelet.has(query.pagelet, enabled));
     }
 
-    if (query.id) page.enabled.forEach(function each(pagelet) {
-      if (pagelet.id === query.id) results.push(pagelet);
+    if (query.child) pagelet.enabled.forEach(function each(child) {
+      if (child.id === query.child) results.push(child);
     });
   });
 
@@ -771,7 +777,6 @@ Pipe.createServer = function createServer(port, options) {
 // Expose our constructors.
 //
 Pipe.Pagelet = require('pagelet');
-Pipe.Page = require('./page');
 
 //
 // Expose the constructor.
