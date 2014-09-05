@@ -79,6 +79,7 @@ module.exports = function connection(spark) {
           pagelet.connect(spark, function connect(err) {
             if (err) {
               if (pagelet.destroy) pagelet.destroy();
+              debug('failed to connect', err);
               return next();
             }
 
