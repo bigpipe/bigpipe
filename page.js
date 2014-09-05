@@ -628,7 +628,7 @@ Page.readable('inject', function inject(base, pagelet, view) {
 Page.readable('has', function has(name, enabled) {
   if (!name) return [];
 
-  if (this.enabled) return this.enabled.filter(function filter(pagelet) {
+  if (enabled) return this.enabled.filter(function filter(pagelet) {
     return pagelet.name === name;
   });
 
