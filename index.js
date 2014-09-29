@@ -697,6 +697,36 @@ Pipe.readable('use', function use(name, plugin) {
 });
 
 /**
+ * Redirect the user.
+ *
+ * @param {String} location Where should we redirect to.
+ * @param {Number} status The status number.
+ * @api public
+ */
+Pipe.readable('redirect', function redirect(location, status, options) {
+  options = options || {};
+
+  this.res.statusCode = +status || 301;
+  this.res.setHeader('Location', location);
+
+  //
+  // Instruct browsers to not cache the redirect.
+  //
+  if (options.cache === false) {
+    this.res.setHeader('Pragma', 'no-cache');
+    this.res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
+    this.res.setHeader('Cache-Control', [
+      'no-store', 'no-cache', 'must-revalidate', 'post-check=0', 'pre-check=0'
+    ].join(', '));
+  }
+
+  this.res.end();
+
+  if (this.listeners('end').length) this.emit('end');
+  return this.debug('Redirecting to %s', location);
+});
+
+/**
  * Optimize the prototypes of Pagelets to reduce work when we're actually
  * serving the requests.
  *

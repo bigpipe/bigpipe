@@ -12,14 +12,6 @@ var Formidable = require('formidable').IncomingForm
   , fs = require('fs');
 
 /**
- * The methods that needs data buffering.
- *
- * @type {Array}
- * @api private
- */
-var operations = 'POST, PUT, DELETE, PATCH'.toLowerCase().split(', ');
-
-/**
  * A simple object representation of a given page.
  *
  * @constructor
@@ -101,85 +93,6 @@ Page.writable('method', 'GET');
 Page.writable('statusCode', 200);
 
 /**
- * An authorization handler to see if the request is authorized to interact with
- * this page. This is set to `null` by default as there isn't any
- * authorization in place. The authorization function will receive 2 arguments:
- *
- * - req, the http request that initialized the pagelet
- * - done, a callback function that needs to be called with only a boolean.
- *
- * ```js
- * Page.extend({
- *   authorize: function authorize(req, done) {
- *     done(true); // True indicates that the request is authorized for access.
- *   }
- * });
- * ```
- *
- * @type {Function}
- * @public
- */
-Page.writable('authorize', null);
-
-/**
- * With what kind of generation mode do we need to output the generated
- * pagelets. We're supporting 3 different modes:
- *
- * - sync:      Fully render the page without any fancy flushing.
- * - async:     Render all pagelets async and flush them as fast as possible.
- * - pipeline:  Same as async but in the specified order.
- *
- * @type {String}
- * @public
- */
-Page.writable('mode', 'async');
-
-/**
- * The location of the base template.
- *
- * @type {String}
- * @public
- */
-Page.writable('view', '');
-
-/**
- * Optional template engine preference. Useful when we detect the wrong template
- * engine based on the view's file name.
- *
- * @type {String}
- * @public
- */
-Page.writable('engine', '');
-
-/**
- * Save the location where we got our resources from, this will help us with
- * fetching assets from the correct location.
- *
- * @type {String}
- * @public
- */
-Page.writable('directory', '');
-
-/**
- * The environment that we're running this page in. If this is set to
- * `development` It would be verbose.
- *
- * @type {String}
- * @public
- */
-Page.writable('env', (process.env.NODE_ENV || 'development').toLowerCase());
-
-/**
- * Provide dynamic data to the view or static object. The data will be merged
- * by dispatch right before rendering the view. The function will be supplied
- * with callback, e.g. function data(next) { ... }
- *
- * @type {Function}
- * @public
- */
-Page.writable('data', {});
-
-/**
  * The pagelets that need to be loaded on this page.
  *
  * @type {Object}
@@ -214,36 +127,6 @@ Page.writable('dependencies', []);
 //
 // !IMPORTANT
 //
-
-/**
- * Redirect the user.
- *
- * @param {String} location Where should we redirect to.
- * @param {Number} status The status number.
- * @api public
- */
-Page.readable('redirect', function redirect(location, status, options) {
-  options = options || {};
-
-  this.res.statusCode = +status || 301;
-  this.res.setHeader('Location', location);
-
-  //
-  // Instruct browsers to not cache the redirect.
-  //
-  if (options.cache === false) {
-    this.res.setHeader('Pragma', 'no-cache');
-    this.res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
-    this.res.setHeader('Cache-Control', [
-      'no-store', 'no-cache', 'must-revalidate', 'post-check=0', 'pre-check=0'
-    ].join(', '));
-  }
-
-  this.res.end();
-
-  if (this.listeners('end').length) this.emit('end');
-  return this.debug('Redirecting to %s', location);
-});
 
 /**
  * Discover pagelets that we're allowed to use.
@@ -617,50 +500,6 @@ Page.readable('inject', function inject(base, pagelet, view) {
 });
 
 /**
- * Helper to check if the page has pagelet by name, must use prototype.name
- * since pagelets are not always constructed yet.
- *
- * @param {String} name Name of the pagelet.
- * @param {String} enabled Make sure that we use the enabled array.
- * @returns {Array} The constructor of a matching Pagelet.
- * @api public
- */
-Page.readable('has', function has(name, enabled) {
-  if (!name) return [];
-
-  if (enabled) return this.enabled.filter(function filter(pagelet) {
-    return pagelet.name === name;
-  });
-
-  var pagelets = this.pagelets
-    , i = pagelets.length
-    , pagelet;
-
-  while (i--) {
-    pagelet = pagelets[i][0];
-
-    if (
-       pagelet.prototype && pagelet.prototype.name === name
-    || pagelets.name === name
-    ) return pagelets[i];
-  }
-
-  return [];
-});
-
-/**
- * Get and initialize a given Pagelet.
- *
- * @param {String} name Name of the pagelet.
- * @returns {Array} The pagelet instances.
- * @api public
- */
-Page.readable('get', function get(name) {
-  if (Array.isArray(name)) name = name[0];
-  return (this.has(name) || this.has(name, true) || []).slice(0);
-});
-
-/**
  * The bootstrap method generates a string that needs to be included in the
  * template in order for pagelets to function.
  *
@@ -770,58 +609,6 @@ Page.readable('bootstrap', function bootstrap(err, data, next) {
 });
 
 /**
- * Reset the instance to it's original state and initialize it.
- *
- * @param {ServerRequest} req HTTP server request.
- * @param {ServerResponse} res HTTP server response.
- * @api private
- */
-Page.readable('configure', function configure(req, res) {
-  this.req = req;
-  this.res = res;
-
-  //
-  // Emit a page configuration event so plugins can hook in to this.
-  //
-  this.pipe.emit('page:configure', this);
-  res.once('close', this.emits('close'));
-
-  //
-  // If we have a `no_pagelet_js` flag, we should force a different
-  // rendering mode. This parameter is automatically added when we've
-  // detected that someone is browsing the site without JavaScript enabled.
-  //
-  // In addition to that, the other render modes only work if your browser
-  // supports trailing headers which where introduced in HTTP 1.1 so we need
-  // to make sure that this is something that the browser understands.
-  // Instead of checking just for `1.1` we want to make sure that it just
-  // tests for every http version above 1.0 as http 2.0 is just around the
-  // corner.
-  //
-  if (
-       'no_pagelet_js' in req.query && +req.query.no_pagelet_js === 1
-    || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
-  ) {
-    this.debug('forcing `sync` instead of %s due lack of HTTP 1.1 or JS', this.mode);
-    this.mode = 'sync';
-  }
-
-  if (this.initialize) {
-    if (this.initialize.length) {
-      this.debug('Waiting for `initialize` method before rendering');
-      this.initialize(this.render.bind(this));
-    } else {
-      this.initialize();
-      this.render();
-    }
-  } else {
-    this.render();
-  }
-
-  return this;
-});
-
-/**
  * Render execution flow.
  *
  * @api private
@@ -871,38 +658,6 @@ Page.readable('render', function render() {
     this[this.mode]();
   }
 });
-
-/**
- * Simple logger module that prefixes debug with some extra information. It
- * prefixes the debug statement with the method that was used as well as the
- * entry path.
- *
- * @api public
- */
-Page.readable('debug', function log(line) {
-  var args = Array.prototype.slice.call(arguments, 1);
-
-  debug.apply(debug, ['%s - %s: '+line, this.method, this.path].concat(args));
-  return this;
-});
-
-/**
- * Expose a clean way of setting the proper directory for the templates and
- * relative resolving of pagelets.
- *
- * ```js
- * Page.extend({
- *   ..
- * }).on(module);
- * ```
- *
- * @param {Module} module The reference to the module object.
- * @api public
- */
-Page.on = function on(module) {
-  this.prototype.directory = this.prototype.directory || path.dirname(module.filename);
-  return module.exports = this;
-};
 
 /**
  * Optimize the prototypes of the Page to reduce work when we're actually
