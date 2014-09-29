@@ -877,8 +877,8 @@ Pipe.readable('find', function find(url, query) {
       results.push(pagelet);
     }
 
-    if (query.pagelet && pagelet.has(query.pagelet, enabled)) {
-      results.push(pagelet.has(query.pagelet, enabled));
+    if (query.pagelet) {
+      Array.prototype.push.apply(results, pagelet.has(query.pagelet, enabled));
     }
 
     if (query.child) pagelet.enabled.forEach(function each(child) {

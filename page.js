@@ -626,22 +626,26 @@ Page.readable('inject', function inject(base, pagelet, view) {
  * @api public
  */
 Page.readable('has', function has(name, enabled) {
-  if (!name) return undefined;
+  if (!name) return [];
 
-  var pagelets = enabled ? this.enabled : this.pagelets
+  if (enabled) return this.enabled.filter(function filter(pagelet) {
+    return pagelet.name === name;
+  });
+
+  var pagelets = this.pagelets
     , i = pagelets.length
     , pagelet;
 
   while (i--) {
-    pagelet = enabled ? pagelets[i] : pagelets[i][0];
+    pagelet = pagelets[i][0];
 
     if (
        pagelet.prototype && pagelet.prototype.name === name
     || pagelets.name === name
-    ) break;
+    ) return pagelets[i];
   }
 
-  return enabled ? [pagelets[i]] : pagelets[i];
+  return [];
 });
 
 /**
