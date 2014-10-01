@@ -124,15 +124,6 @@ function Pipe(server, options) {
   // plugins can hook in to our optimization and transformation process.
   //
   this.pluggable(options('plugins', []));
-
-  //
-  // Finally, now that everything has been setup we can discover the pagelets
-  // that we need serve from our server.
-  //
-  this.define(
-    options('pagelets', path.join(process.cwd(), 'pagelets')),
-    this.emits('initialized')
-  );
 }
 
 //
@@ -147,6 +138,34 @@ fuse(Pipe, require('eventemitter3'));
  * @public
  */
 Pipe.readable('version', require(__dirname +'/package.json').version);
+
+/**
+ * Initialize the pipe instance. This method should be called manually after
+ * constructing the pipe instance. Pipe.createServer will call this m
+ *
+ * @param {Boolean} delay Should the listen call be delayed?
+ * @returns {Pipe} fluent interface
+ * @api public
+ */
+Pipe.readable('initialize', function initialize(delay) {
+  var pipe = this
+    , port = this.options('port', 8080)
+    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'));
+
+  //
+  // Discover the pagelets that we need serve from our server. Start
+  // listening after everything is initialized. By default the server
+  // will listen. Passing this option is only required if listening
+  // needs to be done with a manual call. Pipe.createServer will pass
+  // options.listen === false as argument.
+  //
+  this.define(pagelets, function listen() {
+    if (delay) return;
+    pipe.listen(port);
+  });
+
+  return this;
+});
 
 /**
  * Start listening for incoming requests.
@@ -220,9 +239,7 @@ Pipe.readable('discover', function discover(pagelets, next) {
     debug('no /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
 
     Pagelet = require('./pagelets/'+ Pagelet);
-    Pagelet.optimize(bigpipe, function optimized(err) {
-      next(err, Pagelet);
-    });
+    bigpipe.optimize(Pagelet, next);
   }, function found(err, status) {
     if (err) return next(err);
 
@@ -251,7 +268,7 @@ Pipe.readable('status', function status(req, res, code, data) {
   }
 
   var Pagelet = this.statusCodes[code]
-    , pagelet = new Pagelet(this);
+    , pagelet = new Pagelet({ pipe: this });
 
   pagelet.data = data || {};
   pagelet.data.env = process.env.NODE_ENV;
@@ -274,9 +291,7 @@ Pipe.readable('define', function define(pagelets, done) {
   var bigpipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
-    bigpipe.optimize(Pagelet, function optimized(err) {
-      next(err, Pagelet);
-    });
+    bigpipe.optimize(Pagelet, next);
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
@@ -365,7 +380,7 @@ Pipe.readable('router', function router(req, res, id, next) {
   //
   (function each(pagelets) {
     var Pagelet = pagelets.shift()
-      , pagelet = new Pagelet(pipe);
+      , pagelet = new Pagelet({ pipe: pipe });
 
     debug('iterating over pages for %s testing %s atm', req.url, pagelet.path);
 
@@ -794,12 +809,12 @@ Pipe.readable('read', function read() {
  * @returns {Boolean} Closed the connection.
  * @api private
  */
-Pipe.readable('end', function end(err) {
+Pipe.readable('end', function end(err, pagelet) {
   //
   // The connection was already closed, no need to further process it.
   //
-  if (this.res.finished || this.ended) {
-    this.debug('page has finished, ignoring extra .end call');
+  if (pagelet.res.finished || pagelet.ended) {
+    pagelet.debug('pagelet has finished, ignoring extra .end call');
     return true;
   }
 
@@ -811,18 +826,18 @@ Pipe.readable('end', function end(err) {
   // to the client and we're presented with an error.
   //
   if (err) {
-    this.emit('end', err);
-    this.pipe.status(this.req, this.res, 500, err);
-    this.debug('Captured an error: %s, displaying error page instead', err);
-    return this.ended = true;
+    pagelet.emit('end', err);
+    pagelet.debug('Captured an error: %s, displaying error page instead', err);
+    this.status(pagelet.req, pagelet.res, 500, err);
+    return pagelet.ended = true;
   }
 
   //
   // Do not close the connection before the main page has sent headers.
   //
-  if (this.n < this.enabled.length) {
-    this.debug('Not all pagelets have been written, (%s out of %s)',
-      this.n, this.enabled.length
+  if (pagelet.n < pagelet.enabled.length) {
+    pagelet.debug('Not all pagelets have been written, (%s out of %s)',
+      pagelet.n, pagelet.enabled.length
     );
     return false;
   }
@@ -830,12 +845,12 @@ Pipe.readable('end', function end(err) {
   //
   // Everything is processed, close the connection and clean up references.
   //
-  this.flush(true);
-  this.res.end();
-  this.emit('end');
+  this.flush(true, pagelet);
+  pagelet.res.end();
+  pagelet.emit('end');
 
-  this.debug('ended the connection');
-  return this.ended = true;
+  pagelet.debug('ended the connection');
+  return pagelet.ended = true;
 });
 
 /**
@@ -845,19 +860,19 @@ Pipe.readable('end', function end(err) {
  * @param {Function} fn Optional callback to be called when data has been written.
  * @api private
  */
-Pipe.readable('write', function write(fragment, fn) {
+Pipe.readable('write', function write(pagelet, fragment, fn) {
   //
   // If the response was closed, do not attempt to write anything anymore.
   //
-  if (this.res.finished) {
+  if (pagelet.res.finished) {
     return fn(new Error('Response was closed, unable to write Pagelet'));
   }
 
-  this.debug('Writing pagelet\'s response');
-  this.queue.push(fragment);
+  pagelet.debug('Writing pagelet\'s response');
+  pagelet.queue.push(fragment);
 
   if (fn) this.once('flush', fn);
-  return this.flush();
+  return this.flush(pagelet);
 });
 
 /**
@@ -866,18 +881,18 @@ Pipe.readable('write', function write(fragment, fn) {
  * @param {Boolean} flushing Should flush the queued data.
  * @api private
  */
-Pipe.readable('flush', function flush(flushing) {
+Pipe.readable('flush', function flush(pagelet, flushing) {
   //
   // Only write the data to the response if we're allowed to flush.
   //
-  if ('boolean' === typeof flushing) this.flushed = flushing;
-  if (!this.flushed || !this.queue.length) return this;
+  if ('boolean' === typeof flushing) pagelet.flushed = flushing;
+  if (!pagelet.flushed || !pagelet.queue.length) return this;
 
-  var res = this.queue.join('');
-  this.queue.length = 0;
+  var res = pagelet.queue.join('');
+  pagelet.queue.length = 0;
 
   if (res.length) {
-    this.res.write(res, 'utf-8', this.emits('flush'));
+    pagelet.res.write(res, 'utf-8', pagelet.emits('flush'));
   }
 
   //
@@ -885,8 +900,8 @@ Pipe.readable('flush', function flush(flushing) {
   // node, so if it's not supported we're just going to call the callback
   // our selfs.
   //
-  if (this.res.write.length !== 3 || !res.length) {
-    this.emit('flush');
+  if (pagelet.res.write.length !== 3 || !res.length) {
+    pagelet.emit('flush');
   }
 
   return this;
@@ -907,9 +922,9 @@ Pipe.readable('flush', function flush(flushing) {
  * @returns {Page} fluent interface
  * @api private
  */
-Pipe.readable('bootstrap', function bootstrap(err, data, next) {
-  var path = this.req.uri.pathname
-    , charset = this.charset
+Pipe.readable('bootstrap', function bootstrap(err, pagelet, data, next) {
+  var path = pagelet.req.uri.pathname
+    , charset = pagelet.charset
     , head = [];
 
   //
@@ -917,7 +932,7 @@ Pipe.readable('bootstrap', function bootstrap(err, data, next) {
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
   // the request once that happens.
   //
-  if (this.res.finished) return this;
+  if (pagelet.res.finished) return this;
   if (err) return this.end(err);
 
   data = this.mixin(data || {}, this.data || {});
@@ -940,11 +955,11 @@ Pipe.readable('bootstrap', function bootstrap(err, data, next) {
   // force them selfs in to a `sync` render mode as the URL could have been
   // shared through social media
   //
-  if (this.mode !== 'sync') {
+  if (pagelet.mode !== 'sync') {
     head.push(
       '<noscript>',
         '<meta http-equiv="refresh" content="0; URL='+ path +'?'+ qs.stringify(
-          this.merge(this.req.query, { no_pagelet_js: 1 })
+          this.merge(pagelet.req.query, { no_pagelet_js: 1 })
         )+'">',
       '</noscript>'
     );
@@ -960,7 +975,7 @@ Pipe.readable('bootstrap', function bootstrap(err, data, next) {
   //
   // Add all required assets and dependencies to the HEAD of the page.
   //
-  this.compiler.page(this, head);
+  this.compiler.page(pagelet, head);
 
   //
   // Initialize the library.
@@ -968,8 +983,8 @@ Pipe.readable('bootstrap', function bootstrap(err, data, next) {
   head.push(
     '<script>',
       'pipe = new BigPipe(undefined, ', JSON.stringify({
-          pagelets: this.pagelets.length,     // Amount of pagelets to load
-          id: this.id                         // Current Page id.
+          pagelets: pagelet.pagelets.length,     // Amount of child pagelets to load
+          id: pagelet.id                         // Current Pagelet id.
         }), ' );',
     '</script>'
   );
@@ -977,14 +992,14 @@ Pipe.readable('bootstrap', function bootstrap(err, data, next) {
   // @TODO rel prefetch for resources that are used on the next page?
   // @TODO cache manifest.
 
-  this.res.statusCode = this.statusCode;
-  this.res.setHeader('Content-Type', this.contentType);
+  pagelet.res.statusCode = pagelet.statusCode;
+  pagelet.res.setHeader('Content-Type', pagelet.contentType);
 
   //
   // Supply data to the view and render after. Make sure the defined head
   // key cannot be overwritten by any custom data.
   //
-  Object.defineProperties(data, Page.predefine.create('bootstrap', {
+  Object.defineProperties(data, Pipe.predefine.create('bootstrap', {
     writable: false,
     enumerable: true,
     value: head.join('')
@@ -994,11 +1009,11 @@ Pipe.readable('bootstrap', function bootstrap(err, data, next) {
   // We've been given a callback function so we should transfer the generated
   // view in to the callback for processing and rendering.
   //
-  var view = this.temper.fetch(this.view).server(data);
+  var view = this.temper.fetch(pagelet.view).server(data);
   if (next) return next(undefined, view);
 
-  this.queue.push(view);
-  return this.flush(true);
+  pagelet.queue.push(view);
+  return this.flush(pagelet, true);
 });
 
 
@@ -1025,6 +1040,14 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
     , pagelets = []
     , pipe = this
     , err;
+
+  //
+  // Options are optional, check if options is the actual callback.
+  //
+  if ('function' === typeof options) {
+    done = options;
+    options = {};
+  }
 
   //
   // Parse the methods to an array of accepted HTTP methods. We'll only accept
@@ -1148,7 +1171,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
     // @TODO Should this actually be async, or is sync good enough.
     //
     pipe.emit('transform:pagelet', Pagelet);
-    done();
+    done(null, Pagelet);
   });
 
   return pipe;
@@ -1223,14 +1246,7 @@ Pipe.createServer = function createServer(port, options) {
   // This option is forced and should not be override by users configuration.
   //
   options.listen = false;
-
-  var pipe = new Pipe(require('create-server')(options), options);
-
-  if (!listen) return pipe.on('initialized', function listen() {
-    pipe.listen(options.port);
-  });
-
-  return pipe;
+  return new Pipe(require('create-server')(options), options).initialize(listen);
 };
 
 //
