@@ -1,8 +1,10 @@
 'use strict';
 
 var debug = require('diagnostics')('bigpipe:server')
+  , Formidable = require('formidable').IncomingForm
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
+  , qs = require('querystring')
   , Route = require('routable')
   , crypto = require('crypto')
   , Primus = require('primus')
@@ -122,7 +124,6 @@ function Pipe(server, options) {
   // plugins can hook in to our optimization and transformation process.
   //
   this.pluggable(options('plugins', []));
-  this.use(require('./plugins/pagelet'));
 
   //
   // Finally, now that everything has been setup we can discover the pagelets
@@ -273,7 +274,7 @@ Pipe.readable('define', function define(pagelets, done) {
   var bigpipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
-    Pagelet.optimize(bigpipe, function optimized(err) {
+    bigpipe.optimize(Pagelet, function optimized(err) {
       next(err, Pagelet);
     });
   }, function fabricated(err, pagelets) {
@@ -727,6 +728,281 @@ Pipe.readable('redirect', function redirect(location, status, options) {
 });
 
 /**
+ * Start buffering and reading the incoming request.
+ *
+ * @returns {Form}
+ * @api private
+ */
+Pipe.readable('read', function read() {
+  var form = new Formidable()
+    , pipe = this
+    , fields = {}
+    , files = {}
+    , context
+    , before;
+
+  form.on('progress', function progress(received, expected) {
+    //
+    // @TODO if we're not sure yet if we should handle this form, we should only
+    // buffer it to a predefined amount of bytes. Once that limit is reached we
+    // need to `form.pause()` so the client stops uploading data. Once we're
+    // given the heads up, we can safely resume the form and it's uploading.
+    //
+  }).on('field', function field(key, value) {
+    fields[key] = value;
+  }).on('file', function file(key, value) {
+    files[key] = value;
+  }).on('error', function error(err) {
+    page[page.mode](err);
+    fields = files = {};
+  }).on('end', function end() {
+    form.removeAllListeners();
+
+    if (before) {
+      before.call(context, fields, files, page[page.mode].bind(page));
+    }
+  });
+
+  /**
+   * Add a hook for adding a completion callback.
+   *
+   * @param {Function} callback
+   * @returns {Form}
+   * @api public
+   */
+  form.before = function befores(callback, contexts) {
+    if (form.listeners('end').length)  {
+      form.resume();      // Resume a possible buffered post.
+
+      before = callback;
+      context = contexts;
+
+      return form;
+    }
+
+    callback.call(contexts || context, fields, files, page[page.mode].bind(page));
+    return form;
+  };
+
+  return form.parse(this.req);
+});
+
+/**
+ * Close the connection once the main page was sent.
+ *
+ * @param {Error} err Optional error argument to trigger the error page.
+ * @returns {Boolean} Closed the connection.
+ * @api private
+ */
+Pipe.readable('end', function end(err) {
+  //
+  // The connection was already closed, no need to further process it.
+  //
+  if (this.res.finished || this.ended) {
+    this.debug('page has finished, ignoring extra .end call');
+    return true;
+  }
+
+  //
+  // We've received an error. We need to close down the page and display a 500
+  // error page instead.
+  //
+  // @TODO handle the case when we've already flushed the initial bootstrap code
+  // to the client and we're presented with an error.
+  //
+  if (err) {
+    this.emit('end', err);
+    this.pipe.status(this.req, this.res, 500, err);
+    this.debug('Captured an error: %s, displaying error page instead', err);
+    return this.ended = true;
+  }
+
+  //
+  // Do not close the connection before the main page has sent headers.
+  //
+  if (this.n < this.enabled.length) {
+    this.debug('Not all pagelets have been written, (%s out of %s)',
+      this.n, this.enabled.length
+    );
+    return false;
+  }
+
+  //
+  // Everything is processed, close the connection and clean up references.
+  //
+  this.flush(true);
+  this.res.end();
+  this.emit('end');
+
+  this.debug('ended the connection');
+  return this.ended = true;
+});
+
+/**
+ * Process the pagelet for an async or pipeline based render flow.
+ *
+ * @param {Mixed} fragment Content returned from Pagelet.render().
+ * @param {Function} fn Optional callback to be called when data has been written.
+ * @api private
+ */
+Pipe.readable('write', function write(fragment, fn) {
+  //
+  // If the response was closed, do not attempt to write anything anymore.
+  //
+  if (this.res.finished) {
+    return fn(new Error('Response was closed, unable to write Pagelet'));
+  }
+
+  this.debug('Writing pagelet\'s response');
+  this.queue.push(fragment);
+
+  if (fn) this.once('flush', fn);
+  return this.flush();
+});
+
+/**
+ * Flush all queued rendered pagelets to the request object.
+ *
+ * @param {Boolean} flushing Should flush the queued data.
+ * @api private
+ */
+Pipe.readable('flush', function flush(flushing) {
+  //
+  // Only write the data to the response if we're allowed to flush.
+  //
+  if ('boolean' === typeof flushing) this.flushed = flushing;
+  if (!this.flushed || !this.queue.length) return this;
+
+  var res = this.queue.join('');
+  this.queue.length = 0;
+
+  if (res.length) {
+    this.res.write(res, 'utf-8', this.emits('flush'));
+  }
+
+  //
+  // Optional write confirmation, it got added in more recent versions of
+  // node, so if it's not supported we're just going to call the callback
+  // our selfs.
+  //
+  if (this.res.write.length !== 3 || !res.length) {
+    this.emit('flush');
+  }
+
+  return this;
+});
+
+/**
+ * The bootstrap method generates a string that needs to be included in the
+ * template in order for pagelets to function.
+ *
+ * - It includes the pipe.js JavaScript client and initializes it.
+ * - It includes "core" library files for the page.
+ * - It includes "core" CSS for the page.
+ * - It adds a noscript meta refresh to force our `sync` method which fully
+ *   renders the HTML server side.
+ *
+ * @param {Error} err An Error has been received while receiving data.
+ * @param {Object} data Data for the template.
+ * @returns {Page} fluent interface
+ * @api private
+ */
+Pipe.readable('bootstrap', function bootstrap(err, data, next) {
+  var path = this.req.uri.pathname
+    , charset = this.charset
+    , head = [];
+
+  //
+  // It could be that the initialization handled the page rendering through
+  // a `page.redirect()` or a `page.notFound()` call so we should terminate
+  // the request once that happens.
+  //
+  if (this.res.finished) return this;
+  if (err) return this.end(err);
+
+  data = this.mixin(data || {}, this.data || {});
+
+  //
+  // Add a meta charset so the browser knows the encoding of the content so it
+  // will not buffer it up in memory to make an educated guess. This will ensure
+  // that the HTML is shown as fast as possible.
+  //
+  if (charset) head.push('<meta charset="' + charset + '">');
+
+  //
+  // BigPipe depends heavily on the support of JavaScript in browsers as the
+  // rendering of the page's components is done through JavaScript. When the
+  // user has JavaScript disabled they will see a blank page instead. To prevent
+  // this from happening we're injecting a `noscript` tag in to the page which
+  // forces the `sync` render mode.
+  //
+  // Also when we have JavaScript enabled make sure the user doesn't accidentally
+  // force them selfs in to a `sync` render mode as the URL could have been
+  // shared through social media
+  //
+  if (this.mode !== 'sync') {
+    head.push(
+      '<noscript>',
+        '<meta http-equiv="refresh" content="0; URL='+ path +'?'+ qs.stringify(
+          this.merge(this.req.query, { no_pagelet_js: 1 })
+        )+'">',
+      '</noscript>'
+    );
+  } else {
+    head.push(
+      '<script>',
+        'if (~location.search.indexOf("no_pagelet_js=1"))',
+        'location.href = location.href.replace(location.search, "")',
+      '</script>'
+    );
+  }
+
+  //
+  // Add all required assets and dependencies to the HEAD of the page.
+  //
+  this.compiler.page(this, head);
+
+  //
+  // Initialize the library.
+  //
+  head.push(
+    '<script>',
+      'pipe = new BigPipe(undefined, ', JSON.stringify({
+          pagelets: this.pagelets.length,     // Amount of pagelets to load
+          id: this.id                         // Current Page id.
+        }), ' );',
+    '</script>'
+  );
+
+  // @TODO rel prefetch for resources that are used on the next page?
+  // @TODO cache manifest.
+
+  this.res.statusCode = this.statusCode;
+  this.res.setHeader('Content-Type', this.contentType);
+
+  //
+  // Supply data to the view and render after. Make sure the defined head
+  // key cannot be overwritten by any custom data.
+  //
+  Object.defineProperties(data, Page.predefine.create('bootstrap', {
+    writable: false,
+    enumerable: true,
+    value: head.join('')
+  }));
+
+  //
+  // We've been given a callback function so we should transfer the generated
+  // view in to the callback for processing and rendering.
+  //
+  var view = this.temper.fetch(this.view).server(data);
+  if (next) return next(undefined, view);
+
+  this.queue.push(view);
+  return this.flush(true);
+});
+
+
+/**
  * Optimize the prototypes of Pagelets to reduce work when we're actually
  * serving the requests.
  *
@@ -741,7 +1017,7 @@ Pipe.readable('redirect', function redirect(location, status, options) {
  * @returns {Pagelet}
  * @api private
  */
-Pipe.readabe.on('optimize', function optimize(Pagelet, options, done) {
+Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   var prototype = Pagelet.prototype
     , method = prototype.method
     , router = prototype.path
