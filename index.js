@@ -159,12 +159,10 @@ Pipe.readable('initialize', function initialize(delay) {
   // needs to be done with a manual call. Pipe.createServer will pass
   // options.listen === false as argument.
   //
-  this.define(pagelets, function listen() {
+  return this.define(pagelets, function listen() {
     if (delay) return;
     pipe.listen(port);
   });
-
-  return this;
 });
 
 /**
@@ -229,6 +227,7 @@ Pipe.readable('discover', function discover(pagelets, next) {
   debug('discovering build-in error pagelets');
 
   pagelets.forEach(function each(pagelet) {
+    if (!pagelet.router) return;
     if (pagelet.router.test('/500')) fivehundered = pagelet;
     if (pagelet.router.test('/404')) fourofour = pagelet;
   });
@@ -357,6 +356,7 @@ Pipe.readable('router', function router(req, res, id, next) {
     } else for (; i < length; i++) {
       pagelet = pagelets[i];
 
+      if (!pagelet.router) continue;
       if (!pagelet.router.test(req.uri.pathname)) continue;
       if (pagelet.method.length && !~pagelet.method.indexOf(req.method)) continue;
 
@@ -382,13 +382,13 @@ Pipe.readable('router', function router(req, res, id, next) {
     var Pagelet = pagelets.shift()
       , pagelet = new Pagelet({ pipe: pipe });
 
-    debug('iterating over pages for %s testing %s atm', req.url, pagelet.path);
+    debug('iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
 
     //
     // Make sure we parse out all the parameters from the URL as they might be
     // required for authorization purposes.
     //
-    pagelet.params = Pagelet.router.exec(req.uri.pathname) || {};
+    if (Pagelet.router) pagelet.params = Pagelet.router.exec(req.uri.pathname) || {};
 
     // TODO replace with conditional pagelet logic.
     if ('function' === typeof pagelet.authorize) {
@@ -1063,7 +1063,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   //
   // Add the actual HTTP route and available HTTP methods.
   //
-  Pagelet.router = new Route(router);
+  if (router) Pagelet.router = new Route(router);
   Pagelet.method = method;
 
   options = options || {};
@@ -1099,7 +1099,9 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   // actually rendered for the front-end so we can retrieve child pagelets
   // much easier.
   //
-  Pagelet.id = prototype.id = crypto.createHash('md5').update(
+  // @TODO do we need to have this on top of a random pagelet.id by default?
+  //
+  if (router) Pagelet.id = prototype.id = crypto.createHash('md5').update(
     router.toString() +'&&'+ method.join()
   ).digest('hex');
   debug('Adding random ID %s to page for pagelet retrieval', prototype.id);
