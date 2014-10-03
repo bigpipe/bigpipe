@@ -1051,7 +1051,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   // Parse the methods to an array of accepted HTTP methods. We'll only accept
   // these requests and should deny every other possible method.
   //
-  debug('Optimizing pagelet registered for path %s', router);
+  debug('Optimizing pagelet %s registered for path %s', name, router);
   if (!Array.isArray(method)) method = method.split(/[\s\,]+?/);
 
   method = method.filter(Boolean).map(function transformation(method) {
@@ -1120,19 +1120,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   //
   // Recursively traverse pagelets to find all children.
   //
-  fabricate(prototype.pagelets, {
-    source: prototype.directory,
-    recursive: 'string' === typeof prototype.pagelets
-  }).forEach(function traverse(Pagelet) {
-    //
-    // We currently don't allow recursive pagelets within conditional pagelets.
-    //
-    if (Array.isArray(Pagelet)) {
-      return pagelets.push(Pagelet);
-    }
-
-    Array.prototype.push.apply(pagelets, Pagelet.traverse(name));
-  });
+  Array.prototype.push.apply(pagelets, Pagelet.traverse(name));
 
   //
   // Resolve all found pagelets and optimize for use with BigPipe.
