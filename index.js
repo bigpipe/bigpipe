@@ -76,8 +76,7 @@ function Pipe(server, options) {
   options = configure(options || {});
 
   var readable = this.readable
-    , writable = this.writable
-    , bigpipe = this;
+    , writable = this.writable;
 
   //
   // Constants and properties that should never be overridden.
@@ -220,7 +219,7 @@ Pipe.readable('listen', function listen(port, done) {
  * @api private
  */
 Pipe.readable('discover', function discover(pagelets, next) {
-  var bigpipe = this
+  var pipe = this
     , fivehundered
     , fourofour;
 
@@ -238,12 +237,12 @@ Pipe.readable('discover', function discover(pagelets, next) {
     debug('no /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
 
     Pagelet = require('./pagelets/'+ Pagelet);
-    bigpipe.optimize(Pagelet, next);
+    pipe.optimize(Pagelet, next);
   }, function found(err, status) {
     if (err) return next(err);
 
-    bigpipe.statusCodes[404] = status[0];
-    bigpipe.statusCodes[500] = status[1];
+    pipe.statusCodes[404] = status[0];
+    pipe.statusCodes[500] = status[1];
 
     next();
   });
@@ -287,15 +286,15 @@ Pipe.readable('status', function status(req, res, code, data) {
  * @api public
  */
 Pipe.readable('define', function define(pagelets, done) {
-  var bigpipe = this;
+  var pipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
-    bigpipe.optimize(Pagelet, next);
+    pipe.optimize(Pagelet, next);
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
-    bigpipe.pagelets.push.apply(bigpipe.pagelets, pagelets);
-    bigpipe.discover(pagelets, done);
+    pipe.pagelets.push.apply(pipe.pagelets, pagelets);
+    pipe.discover(pagelets, done);
   });
 
   return this;
