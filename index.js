@@ -1095,18 +1095,6 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   Pagelet.resolve.call(Pagelet, ['css', 'js', 'dependencies']);
 
   //
-  // Unique id per pagelet. This is used to track back which pagelet was
-  // actually rendered for the front-end so we can retrieve child pagelets
-  // much easier.
-  //
-  // @TODO do we need to have this on top of a random pagelet.id by default?
-  //
-  if (router) Pagelet.id = prototype.id = crypto.createHash('md5').update(
-    router.toString() +'&&'+ method.join()
-  ).digest('hex');
-  debug('Adding random ID %s to page for pagelet retrieval', prototype.id);
-
-  //
   // Support lowercase variant of RPC
   //
   if ('rpc' in prototype) {
@@ -1132,7 +1120,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   });
 
   //
-  // Recursively traverse pagelets to find all.
+  // Recursively traverse pagelets to find all children.
   //
   fabricate(prototype.pagelets, {
     source: prototype.directory,
@@ -1153,12 +1141,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   //
   async.map(pagelets, function map(Child, next) {
     if (Array.isArray(Child)) return async.map(Child, map, next);
-
-    pipe.optimize(Child, {
-      temper: pipe.temper // @TODO unsure if this still need to be passed.
-    }, function mapped(err) {
-      next(err, Child);
-    });
+    pipe.optimize(Child, next);
   }, function (err, pagelets) {
     if (err) return done(err);
 
