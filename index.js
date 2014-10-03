@@ -389,13 +389,11 @@ Pipe.readable('router', function router(req, res, id, next) {
     // required for authorization purposes.
     //
     if (Pagelet.router) pagelet.params = Pagelet.router.exec(req.uri.pathname) || {};
-
-    // TODO replace with conditional pagelet logic.
-    if ('function' === typeof pagelet.authorize) {
+    if ('function' === typeof pagelet.if) {
       pagelet.req = req;   // Might be needed to retrieve sessions.
       pagelet.res = res;   // Might be needed for redirects.
 
-      return pagelet.authorize(req, function authorize(allowed) {
+      return pagelet.conditional(req, function authorize(allowed) {
         debug('%s required authorization we are %s', pagelet.path, allowed ? 'allowed' : 'disallowed');
 
         if (allowed) return next(undefined, pagelet);
