@@ -926,13 +926,15 @@ Pipe.readable('flush', function flush(pagelet, flushing) {
  * @TODO remove pagelet's that have `authorized` set to `false`
  * @TODO Also write the CSS and JavaScript.
  *
- * @param {String} base The template where we need to inject in to.
- * @param {Pagelet} pagelet The pagelet instance we're rendering
+ * @param {String} base The template that is injected in to.
  * @param {String} view The generated pagelet view.
+ * @param {Pagelet} pagelet The pagelet instance we're rendering
  * @returns {String} updated base template
  * @api private
  */
-Pipe.readable('inject', function inject(name, base, view) {
+Pipe.readable('inject', function inject(base, view, pagelet) {
+  var name = pagelet.name;
+
   [
     "data-pagelet='"+ name +"'",
     'data-pagelet="'+ name +'"',
@@ -976,7 +978,7 @@ Pipe.readable('inject', function inject(name, base, view) {
  * @returns {Page} fluent interface
  * @api private
  */
-Pipe.readable('bootstrap', function bootstrap(err, parent, next) {
+Pipe.readable('bootstrap', function bootstrap(err, parent) {
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
@@ -1008,20 +1010,11 @@ Pipe.readable('bootstrap', function bootstrap(err, parent, next) {
     id: parent.id,                         // Current Pagelet id.
   });
 
-  view = this.inject(
-    bootstrapper.name,
+  return this.inject(
     this.temper.fetch(parent.view).server(),
-    this.temper.fetch(bootstrapper.view).server(bootstrapper)
+    this.temper.fetch(bootstrapper.view).server(bootstrapper),
+    bootstrapper
   );
-
-  //
-  // We've been given a callback function so we should transfer the generated
-  // view in to the callback for processing and rendering.
-  //
-  if (next) return next(undefined, view);
-
-  parent.res.queue.push(view);
-  return this.flush(parent, true);
 });
 
 /**
