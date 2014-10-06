@@ -53,11 +53,22 @@ function configure(obj) {
 }
 
 /**
+ * Simple helper function to generate some what unique id's for given
+ * constructed pagelet.
+ *
+ * @returns {String}
+ * @api private
+ */
+function generator() {
+  return Math.random().toString(36).substring(2).toUpperCase();
+}
+
+/**
  * Our pagelet management.
  *
  * The following options are available:
  *
- * - cache: A object were we store our URL->page mapping.
+ * - cache: A object were we store our URL->pagelet mapping.
  * - dist: The pathname for the compiled assets.
  * - pagelets: String or array of pagelets we serve.
  * - parser: Which parser should be used to send data in real-time.
@@ -318,7 +329,7 @@ Pipe.readable('bind', function bind(fn) {
 });
 
 /**
- * Find and initialize pageletss based on a given id or on the pathname of the
+ * Find and initialize pagelets based on a given id or on the pathname of the
  * request.
  *
  * @param {HTTP.Request} req The incoming HTTP request.
@@ -379,7 +390,7 @@ Pipe.readable('router', function router(req, res, id, next) {
   //
   (function each(pagelets) {
     var Pagelet = pagelets.shift()
-      , pagelet = new Pagelet({ pipe: pipe, req: req, res: res });
+      , pagelet = new Pagelet({ pipe: pipe });
 
     debug('iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
 
@@ -742,7 +753,7 @@ Pipe.readable('redirect', function redirect(location, status, options) {
  * @returns {Form}
  * @api private
  */
-Pipe.readable('read', function read() {
+Pipe.readable('read', function read(pagelet) {
   var form = new Formidable()
     , pipe = this
     , fields = {}
@@ -762,13 +773,13 @@ Pipe.readable('read', function read() {
   }).on('file', function file(key, value) {
     files[key] = value;
   }).on('error', function error(err) {
-    page[page.mode](err);
+    pagelet[pagelet.mode](err);
     fields = files = {};
   }).on('end', function end() {
     form.removeAllListeners();
 
     if (before) {
-      before.call(context, fields, files, page[page.mode].bind(page));
+      before.call(context, fields, files, pagelet[pagelet.mode].bind(pagelet));
     }
   });
 
@@ -789,17 +800,17 @@ Pipe.readable('read', function read() {
       return form;
     }
 
-    callback.call(contexts || context, fields, files, page[page.mode].bind(page));
+    callback.call(contexts || context, fields, files, pagelet[pagelet.mode].bind(pagelet));
     return form;
   };
 
-  return form.parse(this.req);
+  return form.parse(pagelet.req);
 });
 
 /**
- * Close the connection once the main page was sent.
+ * Close the connection once all pagelets are sent.
  *
- * @param {Error} err Optional error argument to trigger the error page.
+ * @param {Error} err Optional error argument to trigger the error pagelet.
  * @returns {Boolean} Closed the connection.
  * @api private
  */
@@ -807,31 +818,31 @@ Pipe.readable('end', function end(err, pagelet) {
   //
   // The connection was already closed, no need to further process it.
   //
-  if (pagelet.res.finished || pagelet.ended) {
+  if (pagelet.res.finished || pagelet.res.ended) {
     pagelet.debug('pagelet has finished, ignoring extra .end call');
     return true;
   }
 
   //
-  // We've received an error. We need to close down the page and display a 500
-  // error page instead.
+  // We've received an error. We need to close down parent pagelet and
+  // display a 500 error pagelet instead.
   //
   // @TODO handle the case when we've already flushed the initial bootstrap code
   // to the client and we're presented with an error.
   //
   if (err) {
     pagelet.emit('end', err);
-    pagelet.debug('Captured an error: %s, displaying error page instead', err);
+    pagelet.debug('Captured an error: %s, displaying error pagelet instead', err);
     this.status(pagelet.req, pagelet.res, 500, err);
-    return pagelet.ended = true;
+    return pagelet.res.ended = true;
   }
 
   //
-  // Do not close the connection before the main page has sent headers.
+  // Do not close the connection before the pagelet has sent headers.
   //
-  if (pagelet.n < pagelet.enabled.length) {
+  if (pagelet.res.n < pagelet.enabled.length) {
     pagelet.debug('Not all pagelets have been written, (%s out of %s)',
-      pagelet.n, pagelet.enabled.length
+      pagelet.res.n, pagelet.enabled.length
     );
     return false;
   }
@@ -839,12 +850,12 @@ Pipe.readable('end', function end(err, pagelet) {
   //
   // Everything is processed, close the connection and clean up references.
   //
-  this.flush(true, pagelet);
+  this.flush(pagelet, true);
   pagelet.res.end();
   pagelet.emit('end');
 
   pagelet.debug('ended the connection');
-  return pagelet.ended = true;
+  return pagelet.res.ended = true;
 });
 
 /**
@@ -863,9 +874,9 @@ Pipe.readable('write', function write(pagelet, fragment, fn) {
   }
 
   pagelet.debug('Writing pagelet\'s response');
-  pagelet.queue.push(fragment);
+  pagelet.res.queue.push(fragment);
 
-  if (fn) this.once('flush', fn);
+  if (fn) pagelet.res.once('flush', fn);
   return this.flush(pagelet);
 });
 
@@ -879,14 +890,16 @@ Pipe.readable('flush', function flush(pagelet, flushing) {
   //
   // Only write the data to the response if we're allowed to flush.
   //
-  if ('boolean' === typeof flushing) pagelet.flushed = flushing;
-  if (!pagelet.flushed || !pagelet.queue.length) return this;
+  if ('boolean' === typeof flushing) pagelet.res.flushed = flushing;
+  if (!pagelet.res.flushed || !pagelet.res.queue.length) return this;
 
-  var res = pagelet.queue.join('');
-  pagelet.queue.length = 0;
+  var res = pagelet.res.queue.join('');
+  pagelet.res.queue.length = 0;
 
   if (res.length) {
-    pagelet.res.write(res, 'utf-8', pagelet.emits('flush'));
+    pagelet.res.write(res, 'utf-8', function () {
+      pagelet.res.emit('flush');
+    });
   }
 
   //
@@ -895,7 +908,7 @@ Pipe.readable('flush', function flush(pagelet, flushing) {
   // our selfs.
   //
   if (pagelet.res.write.length !== 3 || !res.length) {
-    pagelet.emit('flush');
+    pagelet.res.emit('flush');
   }
 
   return this;
@@ -1006,7 +1019,7 @@ Pipe.readable('bootstrap', function bootstrap(err, pagelet, data, next) {
   var view = this.temper.fetch(pagelet.view).server(data);
   if (next) return next(undefined, view);
 
-  pagelet.queue.push(view);
+  pagelet.res.queue.push(view);
   return this.flush(pagelet, true);
 });
 
@@ -1044,6 +1057,11 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   }
 
   //
+  // Generate a unique ID used for real time connection lookups.
+  //
+  prototype.id = options.id || [1, 1, 1, 1].map(generator).join('-');
+
+  //
   // Parse the methods to an array of accepted HTTP methods. We'll only accept
   // these requests and should deny every other possible method.
   //
@@ -1077,7 +1095,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   }
 
   //
-  // Ensure we have a custom error page when we fail to render this fragment.
+  // Ensure we have a custom error pagelet when we fail to render this fragment.
   //
   if (prototype.error) {
     options.temper.prefetch(prototype.error, path.extname(prototype.error).slice(1));
