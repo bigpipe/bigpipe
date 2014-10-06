@@ -4,7 +4,6 @@ var debug = require('diagnostics')('bigpipe:server')
   , Formidable = require('formidable').IncomingForm
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
-  , qs = require('querystring')
   , Route = require('routable')
   , crypto = require('crypto')
   , Primus = require('primus')
@@ -18,7 +17,12 @@ var debug = require('diagnostics')('bigpipe:server')
 //
 // Automatically add trailers support to Node.js.
 //
-var trailers = require('trailers');
+var trailers = require('trailers')
+
+//
+// Reference to the default bootstrap pagelet.
+//
+var Bootstrap = require('./pagelets/bootstrap');
 
 /**
  * Queryable options with merge and fallback functionality.
@@ -100,6 +104,7 @@ function Pipe(server, options) {
   readable('server', server);                         // HTTP server we work with.
   readable('layers', []);                             // Middleware layer.
   readable('pagelets', []);                           // Stores our pagelets.
+  readable('Bootstrap', options('Bootstrap', Bootstrap));
 
   //
   // Setup our real-time server.
@@ -915,114 +920,109 @@ Pipe.readable('flush', function flush(pagelet, flushing) {
 });
 
 /**
- * The bootstrap method generates a string that needs to be included in the
- * template in order for pagelets to function.
+ * Inject the output of a template directly in to view's pagelet placeholder
+ * element.
  *
+ * @TODO remove pagelet's that have `authorized` set to `false`
+ * @TODO Also write the CSS and JavaScript.
+ *
+ * @param {String} base The template where we need to inject in to.
+ * @param {Pagelet} pagelet The pagelet instance we're rendering
+ * @param {String} view The generated pagelet view.
+ * @returns {String} updated base template
+ * @api private
+ */
+Pipe.readable('inject', function inject(name, base, view) {
+  [
+    "data-pagelet='"+ name +"'",
+    'data-pagelet="'+ name +'"',
+    'data-pagelet='+ name,
+  ].forEach(function locate(attribute) {
+    var index = base.indexOf(attribute)
+      , end;
+
+    //
+    // As multiple versions of the pagelet can be included in to one single
+    // parent pagelet we need to search for multiple occurrences of the
+    // `data-pagelet` attribute.
+    //
+    while (~index) {
+      end = base.indexOf('>', index);
+
+      if (~end) {
+        base = base.slice(0, end + 1) + view + base.slice(end + 1);
+        index = end + 1 + view.length;
+      }
+
+      index = base.indexOf(attribute, index + 1);
+    }
+  });
+
+  return base;
+});
+
+/**
+ * The bootstrap method injects the _bootstrap pagelet that adds specific
+ * directives to the HEAD element, which are required for BigPipe to function.
+ *
+ * - Sets a default set of meta tags in the HEAD element
  * - It includes the pipe.js JavaScript client and initializes it.
- * - It includes "core" library files for the page.
- * - It includes "core" CSS for the page.
- * - It adds a noscript meta refresh to force our `sync` method which fully
+ * - It includes "core" library files for the page (pagelet dependencies).
+ * - It includes "core" CSS for the page (pagelet dependencies).
+ * - It adds a noscript meta refresh to force a `sync` method which fully
  *   renders the HTML server side.
  *
  * @param {Error} err An Error has been received while receiving data.
- * @param {Object} data Data for the template.
  * @returns {Page} fluent interface
  * @api private
  */
-Pipe.readable('bootstrap', function bootstrap(err, pagelet, data, next) {
-  var path = pagelet.req.uri.pathname
-    , charset = pagelet.charset
-    , head = [];
-
+Pipe.readable('bootstrap', function bootstrap(err, parent, next) {
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
   // the request once that happens.
   //
-  if (pagelet.res.finished) return this;
+  if (parent.res.finished) return this;
   if (err) return this.end(err);
 
-  data = this.mixin(data || {}, this.data || {});
-
-  //
-  // Add a meta charset so the browser knows the encoding of the content so it
-  // will not buffer it up in memory to make an educated guess. This will ensure
-  // that the HTML is shown as fast as possible.
-  //
-  if (charset) head.push('<meta charset="' + charset + '">');
-
-  //
-  // BigPipe depends heavily on the support of JavaScript in browsers as the
-  // rendering of the page's components is done through JavaScript. When the
-  // user has JavaScript disabled they will see a blank page instead. To prevent
-  // this from happening we're injecting a `noscript` tag in to the page which
-  // forces the `sync` render mode.
-  //
-  // Also when we have JavaScript enabled make sure the user doesn't accidentally
-  // force them selfs in to a `sync` render mode as the URL could have been
-  // shared through social media
-  //
-  if (pagelet.mode !== 'sync') {
-    head.push(
-      '<noscript>',
-        '<meta http-equiv="refresh" content="0; URL='+ path +'?'+ qs.stringify(
-          this.merge(pagelet.req.query, { no_pagelet_js: 1 })
-        )+'">',
-      '</noscript>'
-    );
-  } else {
-    head.push(
-      '<script>',
-        'if (~location.search.indexOf("no_pagelet_js=1"))',
-        'location.href = location.href.replace(location.search, "")',
-      '</script>'
-    );
-  }
+  var dependencies = []
+    , bootstrapper, view;
 
   //
   // Add all required assets and dependencies to the HEAD of the page.
   //
-  this.compiler.page(pagelet, head);
+  this.compiler.page(parent, dependencies);
 
   //
-  // Initialize the library.
   //
-  head.push(
-    '<script>',
-      'pipe = new BigPipe(undefined, ', JSON.stringify({
-          pagelets: pagelet.pagelets.length,     // Amount of child pagelets to load
-          id: pagelet.id                         // Current Pagelet id.
-        }), ' );',
-    '</script>'
+  //
+  bootstrapper = new Bootstrap({
+    length: parent.pagelets.length,        // Number of pagelets that should be written.
+    path: parent.req.uri.pathname,
+    dependencies: dependencies,
+    query: parent.req.query,
+    temper: this.temper,
+    mode: parent.mode,                     // Mode of the current pagelet.
+    res: parent.res,
+    req: parent.req,
+    id: parent.id,                         // Current Pagelet id.
+  });
+
+  view = this.inject(
+    bootstrapper.name,
+    this.temper.fetch(parent.view).server(),
+    this.temper.fetch(bootstrapper.view).server(bootstrapper)
   );
-
-  // @TODO rel prefetch for resources that are used on the next page?
-  // @TODO cache manifest.
-
-  pagelet.res.statusCode = pagelet.statusCode;
-  pagelet.res.setHeader('Content-Type', pagelet.contentType);
-
-  //
-  // Supply data to the view and render after. Make sure the defined head
-  // key cannot be overwritten by any custom data.
-  //
-  Object.defineProperties(data, Pipe.predefine.create('bootstrap', {
-    writable: false,
-    enumerable: true,
-    value: head.join('')
-  }));
 
   //
   // We've been given a callback function so we should transfer the generated
   // view in to the callback for processing and rendering.
   //
-  var view = this.temper.fetch(pagelet.view).server(data);
   if (next) return next(undefined, view);
 
-  pagelet.res.queue.push(view);
-  return this.flush(pagelet, true);
+  parent.res.queue.push(view);
+  return this.flush(parent, true);
 });
-
 
 /**
  * Optimize the prototypes of Pagelets to reduce work when we're actually
@@ -1242,6 +1242,11 @@ Pipe.createServer = function createServer(port, options) {
 // Expose our constructors.
 //
 Pipe.Pagelet = require('pagelet');
+
+//
+// Expose the default bootstrap pagelet.
+//
+Pipe.Boostrap = Bootstrap;
 
 //
 // Expose the constructor.
