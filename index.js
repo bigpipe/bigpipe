@@ -988,8 +988,7 @@ Pipe.readable('bootstrap', function bootstrap(err, parent) {
   if (err) return this.end(err);
 
   var Base = parent.pagelets.bootstrap || Bootstrap
-    , dependencies = []
-    , bootstrapper, view;
+    , dependencies = [];
 
   //
   // Add all required assets and dependencies to the HEAD of the page.
