@@ -975,7 +975,8 @@ Pipe.readable('inject', function inject(base, view, pagelet) {
  *   renders the HTML server side.
  *
  * @param {Error} err An Error has been received while receiving data.
- * @returns {Page} fluent interface
+ * @param {Pagelet} parent Main pagelet that was found by the Router.
+ * @returns {Pipe} fluent interface
  * @api private
  */
 Pipe.readable('bootstrap', function bootstrap(err, parent) {
