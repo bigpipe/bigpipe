@@ -104,7 +104,6 @@ function Pipe(server, options) {
   readable('server', server);                         // HTTP server we work with.
   readable('layers', []);                             // Middleware layer.
   readable('pagelets', []);                           // Stores our pagelets.
-  readable('Bootstrap', options('Bootstrap', Bootstrap));
 
   //
   // Setup our real-time server.
@@ -987,7 +986,8 @@ Pipe.readable('bootstrap', function bootstrap(err, parent) {
   if (parent.res.finished) return this;
   if (err) return this.end(err);
 
-  var dependencies = []
+  var Bootstrap = parent.pagelets.bootstrap || Bootstrap
+    , dependencies = []
     , bootstrapper, view;
 
   //
@@ -1007,7 +1007,7 @@ Pipe.readable('bootstrap', function bootstrap(err, parent) {
     mode: parent.mode,                     // Mode of the current pagelet.
     res: parent.res,
     req: parent.req,
-    id: parent.id,                         // Current Pagelet id.
+    id: parent.id                          // Current Pagelet id.
   });
 
   return this.inject(
@@ -1235,11 +1235,6 @@ Pipe.createServer = function createServer(port, options) {
 // Expose our constructors.
 //
 Pipe.Pagelet = require('pagelet');
-
-//
-// Expose the default bootstrap pagelet.
-//
-Pipe.Boostrap = Bootstrap;
 
 //
 // Expose the constructor.

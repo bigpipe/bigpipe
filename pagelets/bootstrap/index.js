@@ -57,18 +57,19 @@ Pagelet.extend({
   id: '',
 
   /**
-   * [constructor description]
-   * @param  {[type]} options [description]
-   * @return {[type]}         [description]
+   * Extend the default constructor of the pagelet to set additional defaults
+   * based on the provided options.
+   *
+   * @param {Object} options
+   * @api public
    */
   constructor: function constructor(options) {
     Pagelet.prototype.constructor.apply(this, arguments);
 
-    options = options || {};
-
     //
     // Merge provided options.
     //
+    options = options || {};
     for (var key in options) this[key] = options[key];
 
     //
