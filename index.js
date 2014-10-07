@@ -173,6 +173,7 @@ Pipe.readable('initialize', function initialize(delay) {
   // needs to be done with a manual call. Pipe.createServer will pass
   // options.listen === false as argument.
   //
+  pagelets.bootstrap = pagelets.bootstrap || pagelets.Bootstrap || Bootstrap;
   return this.define(pagelets, function listen() {
     if (delay) return;
     pipe.listen(port);
@@ -986,7 +987,7 @@ Pipe.readable('bootstrap', function bootstrap(err, parent) {
   if (parent.res.finished) return this;
   if (err) return this.end(err);
 
-  var Bootstrap = parent.pagelets.bootstrap || Bootstrap
+  var Base = parent.pagelets.bootstrap || Bootstrap
     , dependencies = []
     , bootstrapper, view;
 
@@ -996,25 +997,22 @@ Pipe.readable('bootstrap', function bootstrap(err, parent) {
   this.compiler.page(parent, dependencies);
 
   //
+  // TODO: document why each property is provided.
+  // TODO: do not simply add one to the lenght?
   //
-  //
-  bootstrapper = new Bootstrap({
-    length: parent.pagelets.length,        // Number of pagelets that should be written.
+  bootstrapper = new Base({
+    length: parent.pagelets.length + 1,        // Number of pagelets that should be written.
     path: parent.req.uri.pathname,
     dependencies: dependencies,
     query: parent.req.query,
     temper: this.temper,
     mode: parent.mode,                     // Mode of the current pagelet.
+    parent: parent.name,
     res: parent.res,
-    req: parent.req,
-    id: parent.id                          // Current Pagelet id.
+    req: parent.req
   });
 
-  return this.inject(
-    this.temper.fetch(parent.view).server(),
-    this.temper.fetch(bootstrapper.view).server(bootstrapper),
-    bootstrapper
-  );
+  return this.temper.fetch(bootstrapper.view).server(bootstrapper);
 });
 
 /**

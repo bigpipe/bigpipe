@@ -42,6 +42,13 @@ Pagelet.extend({
   author: 'BigPipe',
   dependencies: [],
   view: 'view.ejs',
+  classes: '',
+
+  //
+  // Name of the main or base pagelet. This pagelet was discovered by routing as
+  // the parent of all child pagelets.
+  //
+  parent: '',
 
   //
   // Add a meta charset so the browser knows the encoding of the content so it
@@ -54,7 +61,6 @@ Pagelet.extend({
   // Used for proper client side initialization of the library.
   //
   length: 0,
-  id: '',
 
   /**
    * Extend the default constructor of the pagelet to set additional defaults

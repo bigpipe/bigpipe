@@ -1,12 +1,18 @@
-<title><%= title %></title>
-<meta charset="<%= charset %>">
-<meta http-equiv="X-UA-Compatible" content="ie=edge;chrome=1">
-<meta name="description" content="<%= description %>">
-<meta name="keywords" content="<%= keywords.join() %>">
-<meta name="robots" content="<%= robots.join() %>">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="author" content="<%= author %>">
-<link rel="shortcut icon" href="<%= favicon %>">
-<%- fallback %>
-<%- dependencies.join('') %>
-<script>pipe = new BigPipe(undefined, { pagelets: <%= length %>, id: '<%= id %>' })</script>
+<!DOCTYPE html>
+<html class="no-js">
+  <head>
+    <meta charset="<%= charset %>">
+    <title><%= title %></title>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge;chrome=1">
+    <meta name="description" content="<%= description %>">
+    <meta name="keywords" content="<%= keywords.join() %>">
+    <meta name="robots" content="<%= robots.join() %>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="<%= author %>">
+    <link rel="shortcut icon" href="<%= favicon %>">
+    <%- fallback %>
+    <%- dependencies.join('') %>
+    <script>pipe = new BigPipe(undefined, { pagelets: <%= length %>, id: '<%= id %>' })</script>
+  </head>
+  <body data-pagelet="<%= parent %>" class="<%= classes %>"></body>
+</html>
