@@ -998,9 +998,9 @@ Pipe.readable('bootstrap', function bootstrap(err, parent) {
 
   //
   // TODO: document why each property is provided.
-  // TODO: do not simply add one to the lenght?
+  // TODO: do not simply add one to the length?
   //
-  bootstrapper = new Base({
+  return new Base({
     length: parent.pagelets.length + 1,        // Number of pagelets that should be written.
     path: parent.req.uri.pathname,
     dependencies: dependencies,
@@ -1010,9 +1010,7 @@ Pipe.readable('bootstrap', function bootstrap(err, parent) {
     parent: parent.name,
     res: parent.res,
     req: parent.req
-  });
-
-  return this.temper.fetch(bootstrapper.view).server(bootstrapper);
+  }).html();
 });
 
 /**

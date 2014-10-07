@@ -41,8 +41,7 @@ Pagelet.extend({
   favicon: '/favicon.ico',
   author: 'BigPipe',
   dependencies: [],
-  view: 'view.ejs',
-  classes: '',
+  view: 'view.html',
 
   //
   // Name of the main or base pagelet. This pagelet was discovered by routing as
@@ -61,6 +60,31 @@ Pagelet.extend({
   // Used for proper client side initialization of the library.
   //
   length: 0,
+
+  /**
+   * Render the HTML template with the data provided. Temper provides a minimal
+   * templater to handle data in HTML templates. Data has to be specifically
+   * provided, properties of `this` are not enumarable and would not be included.
+   *
+   * @return {String} Generated template.
+   * @api public
+   */
+  html: function html() {
+    return this.temper.fetch(this.view).server({
+      title: this.title,
+      description: this.description,
+      keywords: this.keywords,
+      robots: this.robots,
+      favicon: this.favicon,
+      author: this.author,
+      dependencies: this.dependencies.join(''),
+      fallback: this.fallback,
+      charset: this.charset,
+      parent: this.parent,
+      length: this.length,
+      id: this.id
+    });
+  },
 
   /**
    * Extend the default constructor of the pagelet to set additional defaults
