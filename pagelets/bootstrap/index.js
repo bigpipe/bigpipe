@@ -29,8 +29,16 @@ var script = [
 ].join('');
 
 //
-// Default head pagelet, injected into the pagelet that is the target of the
-// router. This basic HEAD/bootstrap pagelet can easily be extended.
+// This basic HEAD/bootstrap pagelet can easily be extended.
+// Bootstrap adds specific directives to the HEAD element, which are required
+// for BigPipe to function.
+//
+// - Sets a default set of meta tags in the HEAD element
+// - It includes the pipe.js JavaScript client and initializes it.
+// - It includes "core" library files for the page (pagelet dependencies).
+// - It includes "core" CSS for the page (pagelet dependencies).
+// - It adds a noscript meta refresh to force a `sync` method which fully
+//   renders the HTML server side.
 //
 Pagelet.extend({
   name: 'bootstrap',
@@ -57,9 +65,19 @@ Pagelet.extend({
   charset: 'utf-8',
 
   //
-  // Used for proper client side initialization of the library.
+  // Used for proper client side library initialization.
   //
   length: 0,
+
+  //
+  // Set a number of properties on the response as it is available to all pagelets.
+  // This will ensure the correct amount of pagelets are processed and that the
+  // entire queue is written to the client.
+  //
+  flushed: false,
+  ended: false,
+  queue: [],
+  n: 0,
 
   /**
    * Render the HTML template with the data provided. Temper provides a minimal
@@ -97,10 +115,14 @@ Pagelet.extend({
     Pagelet.prototype.constructor.apply(this, arguments);
 
     //
-    // Merge provided options.
+    // Merge provided options, but skip the pipe property as
+    // the __super__ constructor has set is as read-only.
     //
     options = options || {};
-    for (var key in options) this[key] = options[key];
+    for (var key in options) {
+      if ('pipe' === key) continue;
+      this[key] = options[key];
+    }
 
     //
     // Set the default fallback script, see explanation above.

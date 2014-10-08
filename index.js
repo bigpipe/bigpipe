@@ -823,7 +823,7 @@ Pipe.readable('end', function end(err, pagelet) {
   //
   // The connection was already closed, no need to further process it.
   //
-  if (pagelet.res.finished || pagelet.res.ended) {
+  if (pagelet.res.finished || pagelet.bootstrap.ended) {
     pagelet.debug('pagelet has finished, ignoring extra .end call');
     return true;
   }
@@ -839,15 +839,15 @@ Pipe.readable('end', function end(err, pagelet) {
     pagelet.emit('end', err);
     pagelet.debug('Captured an error: %s, displaying error pagelet instead', err);
     this.status(pagelet.req, pagelet.res, 500, err);
-    return pagelet.res.ended = true;
+    return pagelet.bootstrap.ended = true;
   }
 
   //
   // Do not close the connection before the pagelet has sent headers.
   //
-  if (pagelet.res.n < pagelet.enabled.length) {
+  if (pagelet.bootstrap.n < pagelet.enabled.length) {
     pagelet.debug('Not all pagelets have been written, (%s out of %s)',
-      pagelet.res.n, pagelet.enabled.length
+      pagelet.bootstrap.n, pagelet.enabled.length
     );
     return false;
   }
@@ -860,7 +860,7 @@ Pipe.readable('end', function end(err, pagelet) {
   pagelet.emit('end');
 
   pagelet.debug('ended the connection');
-  return pagelet.res.ended = true;
+  return pagelet.bootstrap.ended = true;
 });
 
 /**
@@ -879,7 +879,7 @@ Pipe.readable('write', function write(pagelet, fragment, fn) {
   }
 
   pagelet.debug('Writing pagelet\'s response');
-  pagelet.res.queue.push(fragment);
+  pagelet.bootstrap.queue.push(fragment);
 
   if (fn) pagelet.res.once('flush', fn);
   return this.flush(pagelet);
@@ -895,11 +895,11 @@ Pipe.readable('flush', function flush(pagelet, flushing) {
   //
   // Only write the data to the response if we're allowed to flush.
   //
-  if ('boolean' === typeof flushing) pagelet.res.flushed = flushing;
-  if (!pagelet.res.flushed || !pagelet.res.queue.length) return this;
+  if ('boolean' === typeof flushing) pagelet.bootstrap.flushed = flushing;
+  if (!pagelet.bootstrap.flushed || !pagelet.bootstrap.queue.length) return this;
 
-  var res = pagelet.res.queue.join('');
-  pagelet.res.queue.length = 0;
+  var res = pagelet.bootstrap.queue.join('');
+  pagelet.bootstrap.queue.length = 0;
 
   if (res.length) {
     pagelet.res.write(res, 'utf-8', function () {
@@ -964,53 +964,30 @@ Pipe.readable('inject', function inject(base, view, pagelet) {
 });
 
 /**
- * The bootstrap method injects the _bootstrap pagelet that adds specific
- * directives to the HEAD element, which are required for BigPipe to function.
+ * Initialize a new Bootstrap Pagelet and return it so the routed Pagelet and
+ * its childs can use it as state keeper. The HTML of the bootstrap pagelet is
+ * flushed asap to the client.
  *
- * - Sets a default set of meta tags in the HEAD element
- * - It includes the pipe.js JavaScript client and initializes it.
- * - It includes "core" library files for the page (pagelet dependencies).
- * - It includes "core" CSS for the page (pagelet dependencies).
- * - It adds a noscript meta refresh to force a `sync` method which fully
- *   renders the HTML server side.
- *
- * @param {Error} err An Error has been received while receiving data.
  * @param {Pagelet} parent Main pagelet that was found by the Router.
- * @returns {Pipe} fluent interface
+ * @param {Object} Base Optional custom bootstrapper, set as child pagelet of parent.
+ * @param {Object} options Optional options
+ * @returns {Bootstrap} Bootstrap Pagelet.
  * @api private
  */
-Pipe.readable('bootstrap', function bootstrap(err, parent) {
+Pipe.readable('bootstrap', function bootstrap(parent, Base, options) {
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
   // the request once that happens.
   //
   if (parent.res.finished) return this;
-  if (err) return this.end(err);
 
-  var Base = parent.pagelets.bootstrap || Bootstrap
-    , dependencies = [];
+  options = options || {};
+  options.pipe = this.pipe;
+  options.temper = this.temper;
 
-  //
-  // Add all required assets and dependencies to the HEAD of the page.
-  //
-  this.compiler.page(parent, dependencies);
-
-  //
-  // TODO: document why each property is provided.
-  // TODO: do not simply add one to the length?
-  //
-  return new Base({
-    length: parent.pagelets.length + 1,        // Number of pagelets that should be written.
-    path: parent.req.uri.pathname,
-    dependencies: dependencies,
-    query: parent.req.query,
-    temper: this.temper,
-    mode: parent.mode,                     // Mode of the current pagelet.
-    parent: parent.name,
-    res: parent.res,
-    req: parent.req
-  }).html();
+  Base = Base || Bootstrap;
+  return new Base(options);
 });
 
 /**
