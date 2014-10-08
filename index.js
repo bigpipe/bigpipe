@@ -923,9 +923,6 @@ Pipe.readable('flush', function flush(pagelet, flushing) {
  * Inject the output of a template directly in to view's pagelet placeholder
  * element.
  *
- * @TODO remove pagelet's that have `authorized` set to `false`
- * @TODO Also write the CSS and JavaScript.
- *
  * @param {String} base The template that is injected in to.
  * @param {String} view The generated pagelet view.
  * @param {Pagelet} pagelet The pagelet instance we're rendering
