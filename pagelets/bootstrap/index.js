@@ -48,7 +48,7 @@ Pagelet.extend({
   robots: ['index', 'follow'],
   favicon: '/favicon.ico',
   author: 'BigPipe',
-  dependencies: [],
+  dependencies: '',
   view: 'view.html',
 
   //
@@ -79,6 +79,14 @@ Pagelet.extend({
   queue: [],
   n: 0,
 
+  //
+  // Set of keys used by the HTML renderer to deduce the required data.
+  //
+  keys: [
+    'title', 'description', 'keywords', 'robots', 'favicon', 'author',
+    'dependencies', 'fallback', 'charset', 'parent', 'length', 'id'
+  ],
+
   /**
    * Render the HTML template with the data provided. Temper provides a minimal
    * templater to handle data in HTML templates. Data has to be specifically
@@ -88,20 +96,13 @@ Pagelet.extend({
    * @api public
    */
   html: function html() {
-    return this.temper.fetch(this.view).server({
-      title: this.title,
-      description: this.description,
-      keywords: this.keywords,
-      robots: this.robots,
-      favicon: this.favicon,
-      author: this.author,
-      dependencies: this.dependencies.join(''),
-      fallback: this.fallback,
-      charset: this.charset,
-      parent: this.parent,
-      length: this.length,
-      id: this.id
-    });
+    var bootstrap = this
+      , data = this.keys.reduce(function reduce(memo, key) {
+          memo[key] = bootstrap[key];
+          return memo;
+        }, {});
+
+    return this.temper.fetch(this.view).server(data);
   },
 
   /**
@@ -118,7 +119,7 @@ Pagelet.extend({
     //
     // Store the provided global dependencies and set additional properties.
     //
-    this.dependencies = options.dependencies;
+    this.dependencies = options.dependencies.join('');
     this.enchance(parent);
   },
 

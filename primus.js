@@ -21,40 +21,40 @@ module.exports = function connection(spark) {
   // available on a given page and even which page we're currently viewing.
   //
   var orchestrate = spark.substream('pipe:orchestrate')
-    , pagelets = Object.create(null)
+    , children = Object.create(null)
     , worker
-    , page;
+    , parent;
 
   worker = async.queue(function work(data, next) {
     switch (data.type) {
       //
-      // The user has initiated a new Page so we need to get a new reference
-      // to that page so we can get the correct pagelet instances.
+      // The user has initiated a new Parent Pagelet so we need to get
+      // a new reference to that pagelet so we can get the correct children.
       //
-      case 'page':
+      case 'parent':
         //
-        // As part of setting a new Page instance, we need to release the
+        // As part of setting a new parent instance, we need to release the
         // previously added pagelet
         //
-        Object.keys(pagelets).forEach(function free(name) {
-          delete pagelets[name];
+        Object.keys(children).forEach(function free(name) {
+          delete children[name];
         });
 
         spark.request.url = data.url || spark.request.url;
         spark.request.uri = url.parse(spark.request.url, true);
 
-        pipe.router(spark.request, spark, data.id, function found(err, p) {
+        pipe.router(spark.request, spark, data.id, function found(err, pagelet) {
           if (err) return debug('Failed to initialise page %s: %j', spark.request.url, err), next();
 
-          debug('initialised a new Page instance: %s', spark.request.url);
+          debug('initialised a new Parent Pagelet instance: %s', spark.request.url);
 
           //
           // Fake a HTTP response and request object.
           //
-          p.req = spark.request;
-          p.res = spark;
+          pagelet.req = spark.request;
+          pagelet.res = spark;
 
-          spark.page = page = p;
+          spark.parent = parent = pagelet;
           next();
         });
       break;
@@ -62,20 +62,24 @@ module.exports = function connection(spark) {
       //
       // The user has initialised a new pagelet for a given page.
       //
-      case 'pagelet':
-        if (data.name in pagelets) return debug('Pagelet %s is already initialised', data.name), next();
-        if (!page) return debug('No initialised page, cannot initialise pagelet %j', data), next();
-        if (!page.has(data.name)) return debug('Unknown pagelet, does not exist on page'), next();
+      case 'child':
+        if (data.name in children) return debug('Child Pagelet %s is already initialised', data.name), next();
+        if (!parent) return debug('No initialised parent Pagelet, cannot initialise child %j', data), next();
+        if (!parent.has(data.name)) return debug('Unknown child pagelet, does not exist on parent'), next();
 
-        var pageletset = page.get(data.name);
+        var pagelets = parent.child(data.name);
 
         async.whilst(function canihas() {
-          return !!pageletset.length;
+          return !!pagelets.length;
         }, function work(next) {
-          var Pagelet = pageletset.shift()
-            , pagelet = new Pagelet({ temper: page.temper});
+          var Pagelet = pagelets.shift()
+            , pagelet = new Pagelet({
+                temper: parent.temper,
+                req: parent.req,
+                res: parent.res
+              });
 
-          pagelet.init({ page: page });
+          //pagelet.init(); ??? is this required, triggers pagelets.async/sync
           pagelet.connect(spark, function connect(err) {
             if (err) {
               if (pagelet.destroy) pagelet.destroy();
@@ -85,12 +89,12 @@ module.exports = function connection(spark) {
 
             if (data.id && pagelet) pagelet.id = data.id;
 
-            page.enabled.push(pagelet);
-            pagelets[data.name] = pagelet;
+            parent.enabled.push(pagelet);
+            children[data.name] = pagelet;
             next();
           });
         }, function () {
-          debug('Connected pagelet %s with the page', data.name);
+          debug('Connected child pagelet %s with the parent pagelet %s', data.name, parent.name);
           next();
         });
 
@@ -103,18 +107,18 @@ module.exports = function connection(spark) {
   });
 
   //
-  // The current page id was sent with the connection string, so initialise
-  // a new Page instantly using the given id.
+  // The current parent Pagelet id was sent with the connection string,
+  // so initialise a new Pagelet instantly using the given id.
   //
-  if (spark.query._bp_pid) worker.push({ id: spark.query._bp_pid, type: 'page' });
+  if (spark.query._bp_pid) worker.push({ id: spark.query._bp_pid, type: 'parent' });
 
   spark.once('end', function end() {
     debug('closed connection');
 
-    spark.page = page = null;
+    spark.parent = parent = null;
 
-    Object.keys(pagelets).forEach(function free(name) {
-      delete pagelets[name];
+    Object.keys(children).forEach(function free(name) {
+      delete children[name];
     });
   });
 };
