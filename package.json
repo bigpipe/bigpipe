@@ -17,7 +17,6 @@
     "bigpipe.js": "0.8.x",
     "create-server": "0.0.x",
     "diagnostics": "0.0.x",
-    "ejs": "1.0.x",
     "eventemitter3": "0.1.x",
     "expirable": "0.1.x",
     "fabricator": "0.4.x",

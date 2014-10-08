@@ -8,8 +8,25 @@ var Pagelet = require('pagelet');
 Pagelet.extend({
   path: '/500',
   statusCode: 500,
-  view: '500.ejs',
+  view: '500.html',
+  env: process.env.NODE_ENV,
+  data: {},
   pagelets: {
-    'diagnostics': '../../pagelets/diagnostics'
+    'diagnostics': '../diagnostics'
+  },
+
+  /**
+   * Return available data depending on environment settings.
+   *
+   * @param {Function} render Completion callback.
+   * @api private
+   */
+  get: function get(render) {
+    var self = this;
+
+    render(null, {
+      message: data.message,
+      stack: self.env && self.env !== 'production' ? data.stack : ''
+    })
   }
 }).on(module);

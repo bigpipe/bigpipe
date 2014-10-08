@@ -272,7 +272,7 @@ Pipe.readable('discover', function discover(pagelets, next) {
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
  * @param {Number} code The status we should handle.
- * @param {Mixed} data Nothing or something
+ * @param {Mixed} data Nothing or something, usually an Error
  * @returns {Pipe} fluent interface
  * @api private
  */
@@ -284,8 +284,7 @@ Pipe.readable('status', function status(req, res, code, data) {
   var Pagelet = this.statusCodes[code]
     , pagelet = new Pagelet({ pipe: pipe, req: req, res: res });
 
-  pagelet.data = data || {};
-  pagelet.data.env = process.env.NODE_ENV;
+  pagelet.data = data;
   pagelet.configure(req, res);
 
   return this;
@@ -565,27 +564,11 @@ Pipe.readable('pluggable', function pluggable(plugins) {
 Pipe.readable('dispatch', function dispatch(req, res) {
   var pipe = this;
 
-  /**
-   * Something failed while processing things. Display an error pagelet.
-   *
-   * @param {String}
-   * @api private
-   */
-  function fivehundered(err) {
-    var pagelet = new pipe.statusCodes[500](pipe);
-
-    //
-    // Set an error as data so it can be used as data in the template.
-    //
-    pagelet.data = err;
-    pagelet.configure(req, res);
-  }
-
   return this.forEach(req, res, function next(err) {
-    if (err) return fivehundered(err);
+    if (err) return pipe.status(req, res, 500, err);
 
     pipe.router(req, res, function completed(err, pagelet) {
-      if (err) return fivehundered(err);
+      if (err) return pipe.status(req, res, 500, err);
 
       pagelet.configure(req, res);
     });
