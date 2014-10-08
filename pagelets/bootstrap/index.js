@@ -12,7 +12,7 @@ var Pagelet = require('pagelet')
 //
 var noscript = [
   '<noscript>',
-  '<meta http-equiv="refresh" content="0; URL={{path}}?{{query}}">',
+  '<meta http-equiv="refresh" content="0; URL={path}?{query}">',
   '</noscript>'
 ].join('');
 
@@ -108,31 +108,48 @@ Pagelet.extend({
    * Extend the default constructor of the pagelet to set additional defaults
    * based on the provided options.
    *
+   * @param {Pagelet} parent Main pagelet.
    * @param {Object} options
    * @api public
    */
-  constructor: function constructor(options) {
-    Pagelet.prototype.constructor.apply(this, arguments);
+  constructor: function constructor(parent, options) {
+    Pagelet.prototype.constructor.call(this, options);
 
     //
-    // Merge provided options, but skip the pipe property as
-    // the __super__ constructor has set is as read-only.
+    // Store the provided global dependencies and set additional properties.
     //
-    options = options || {};
-    for (var key in options) {
-      if ('pipe' === key) continue;
-      this[key] = options[key];
-    }
+    this.dependencies = options.dependencies;
+    this.enchance(parent);
+  },
+
+  /**
+   * Set specific options on the bootstrap paglet.
+   *
+   * @param {Pagelet} parent Main pagelet.
+   * @api private
+   */
+  enchance: function enchance(parent) {
+    //
+    // Number of pagelets that should be written, increased with 1 as the parent
+    // pagelet itself should be written as well.
+    //
+    this.length = parent.pagelets.length + 1;
+
+    //
+    // Name of the parent pagelet, used to set the correct data-pagelet
+    // property on the `body` element.
+    //
+    this.parent = parent.name;
 
     //
     // Set the default fallback script, see explanation above.
     //
-    this.fallback = 'sync' === options.mode ? script : noscript.replace(
-      '{{path}}',
-      options.path
+    this.fallback = 'sync' === parent.mode ? script : noscript.replace(
+      '{path}',
+      this.req.uri.pathname
     ).replace(
-      '{{query}}',
-      qs.stringify(this.merge({ no_pagelet_js: 1 }, options.query))
+      '{query}',
+      qs.stringify(this.merge({ no_pagelet_js: 1 }, this.req.query))
     );
   }
 }).on(module);

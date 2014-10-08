@@ -987,7 +987,7 @@ Pipe.readable('bootstrap', function bootstrap(parent, Base, options) {
   options.temper = this.temper;
 
   Base = Base || Bootstrap;
-  return new Base(options);
+  return new Base(parent, options);
 });
 
 /**
