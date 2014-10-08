@@ -13,7 +13,7 @@ var debug = require('diagnostics')('bigpipe:primus')
 module.exports = function connection(spark) {
   var pipe = this;
 
-  debug('new real-time connection');
+  debug('New real-time connection');
 
   //
   // The orchestrate "substream" is used to sync state back and forth between
@@ -44,9 +44,9 @@ module.exports = function connection(spark) {
         spark.request.uri = url.parse(spark.request.url, true);
 
         pipe.router(spark.request, spark, data.id, function found(err, pagelet) {
-          if (err) return debug('Failed to initialise page %s: %j', spark.request.url, err), next();
+          if (err) return debug('Failed to initialise parent Pagelet %s: %j', spark.request.url, err), next();
 
-          debug('initialised a new Parent Pagelet instance: %s', spark.request.url);
+          debug('Initialised a new parent Pagelet instance: %s', spark.request.url);
 
           //
           // Fake a HTTP response and request object.
@@ -83,7 +83,7 @@ module.exports = function connection(spark) {
           pagelet.connect(spark, function connect(err) {
             if (err) {
               if (pagelet.destroy) pagelet.destroy();
-              debug('failed to connect', err);
+              debug('Failed to connect', err);
               return next();
             }
 

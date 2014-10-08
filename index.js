@@ -219,7 +219,7 @@ Pipe.readable('listen', function listen(port, done) {
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
-    debug('succesfully prepared the assets, starting HTTP server on port %d', port);
+    debug('Succesfully prepared the assets, starting HTTP server on port %d', port);
     pipe.server.listen(port, done);
   });
 
@@ -239,7 +239,7 @@ Pipe.readable('discover', function discover(pagelets, next) {
     , fivehundered
     , fourofour;
 
-  debug('discovering build-in error pagelets');
+  debug('Discovering build-in error pagelets');
 
   pagelets.forEach(function each(pagelet) {
     if (!pagelet.router) return;
@@ -250,7 +250,7 @@ Pipe.readable('discover', function discover(pagelets, next) {
   async.map([fourofour || '404', fivehundered || '500'], function (Pagelet, next) {
     if ('string' !== typeof Pagelet) return next(undefined, Pagelet);
 
-    debug('no /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
+    debug('No /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
 
     Pagelet = require('./pagelets/'+ Pagelet);
     pipe.optimize(Pagelet, next);
@@ -380,7 +380,7 @@ Pipe.readable('router', function router(req, res, id, next) {
 
     if (this.cache && cache.length) {
       this.cache.set(key, cache);
-      debug('added key %s and its found pagelets to our internal lookup cache', key);
+      debug('Added key %s and its found pagelets to our internal lookup cache', key);
     }
   }
 
@@ -397,7 +397,7 @@ Pipe.readable('router', function router(req, res, id, next) {
     var Pagelet = pagelets.shift()
       , pagelet = new Pagelet({ pipe: pipe });
 
-    debug('iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
+    debug('Iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
 
     //
     // Make sure we parse out all the parameters from the URL as they might be
@@ -406,7 +406,7 @@ Pipe.readable('router', function router(req, res, id, next) {
     if (Pagelet.router) pagelet.params = Pagelet.router.exec(req.uri.pathname) || {};
     if ('function' === typeof pagelet.if) {
       return pagelet.conditional(req, function authorize(allowed) {
-        debug('%s required authorization we are %s', pagelet.path, allowed ? 'allowed' : 'disallowed');
+        debug('Authorization required for %s: %s', pagelet.path, allowed ? 'allowed' : 'disallowed');
 
         if (allowed) return next(undefined, pagelet);
         each(pagelets);
@@ -626,7 +626,7 @@ Pipe.readable('forEach', function forEach(req, res, next) {
     if (!layer) return next();
     if (!layer.enabled) return iterate(index);
 
-    debug('applying middleware %s on %s', layer.name, req.url);
+    debug('Applying middleware %s on %s', layer.name, req.url);
 
     if (layer.length === 2) {
       //
@@ -711,7 +711,7 @@ Pipe.readable('use', function use(name, plugin) {
     throw new Error('The plugin name was already defined. Please select an unique name for each plugin');
   }
 
-  debug('added plugin `%s`', name);
+  debug('Added plugin `%s`', name);
 
   this.plugins[name] = plugin;
   if (!plugin.server) return this;
@@ -824,7 +824,7 @@ Pipe.readable('end', function end(err, pagelet) {
   // The connection was already closed, no need to further process it.
   //
   if (pagelet.res.finished || pagelet.bootstrap.ended) {
-    pagelet.debug('pagelet has finished, ignoring extra .end call');
+    pagelet.debug('Pagelet has finished, ignoring extra .end call');
     return true;
   }
 
@@ -859,7 +859,7 @@ Pipe.readable('end', function end(err, pagelet) {
   pagelet.res.end();
   pagelet.emit('end');
 
-  pagelet.debug('ended the connection');
+  pagelet.debug('Ended the connection');
   return pagelet.bootstrap.ended = true;
 });
 
