@@ -2,6 +2,7 @@ describe('Pipe', function () {
   'use strict';
 
   var common = require('./common')
+    , Compiler = require('../lib/compiler')
     , http = require('http')
     , expect = common.expect
     , Pipe = common.Pipe
@@ -14,21 +15,19 @@ describe('Pipe', function () {
     });
 
     app = new Pipe(server, {
-        pages: __dirname +'/fixtures/pages'
-      , dist: '/tmp/dist'
+      pagelets: __dirname +'/fixtures/pagelets',
+      dist: '/tmp/dist'
     });
 
-    server.portnumber = common.port;
-    server.listen(server.portnumber, done);
+    app.prepare(function () {
+      server.listen(done);
+    });
   });
 
   afterEach(function (done) {
     server.close(done);
-  });
-
-  it('exposes the Page constructor', function () {
-    expect(Pipe.Page).to.be.a('function');
-    expect(Pipe.Page.extend).to.be.a('function');
+    app = null;
+    server = null;
   });
 
   it('exposes the Pagelet constructor', function () {
@@ -40,16 +39,27 @@ describe('Pipe', function () {
     expect(app).to.be.instanceOf(require('eventemitter3'));
   });
 
-  it('correctly resolves `pages` as a string to an array', function () {
-    expect(app.pages).to.be.a('array');
-    expect(app.pages).to.have.length(3);
+  it('correctly resolves `pagelets` as a string to an array', function () {
+    expect(app.pagelets).to.be.a('array');
+    expect(app.pagelets).to.have.length(5);
   });
 
-  it('transforms pages', function () {
-    var Page = app.pages[0];
+  it('transforms pagelets', function () {
+    var Pagelet = app.pagelets[0];
 
-    expect(Page.router).to.be.instanceOf(require('routable'));
-    expect(Page.method).to.be.a('array');
+    expect(Pagelet.router).to.be.instanceOf(require('routable'));
+    expect(Pagelet.method).to.be.a('array');
+  });
+
+  it('has compiler for asset management', function () {
+    var property = Object.getOwnPropertyDescriptor(app, 'compiler');
+
+    expect(app).to.have.property('compiler');
+    expect(app.compiler).to.be.an('object');
+    expect(app.compiler).to.be.instanceof(Compiler);
+    expect(property.writable).to.equal(false);
+    expect(property.enumerable).to.equal(false);
+    expect(property.configurable).to.equal(false);
   });
 
   describe('#options', function () {
@@ -90,23 +100,23 @@ describe('Pipe', function () {
       this.method = method || 'GET';
     }
 
-    it('finds the / page', function (done) {
-      app.router(new Request('/'), {}, function (err, page) {
+    it('finds the / pagelet', function (done) {
+      app.router(new Request('/'), {}, function (err, pagelet) {
         if (err) return done(err);
 
-        expect(page).to.be.instanceOf(Pipe.Page);
-        expect(page.statusCode).to.equal(200);
+        expect(pagelet).to.be.instanceOf(Pipe.Pagelet);
+        expect(pagelet.statusCode).to.equal(200);
 
         done();
       });
     });
 
     it('doesnt find / for POST requests', function (done) {
-      app.router(new Request('/', 'POST'), {}, function (err, page) {
+      app.router(new Request('/', 'POST'), {}, function (err, pagelet) {
         if (err) return done(err);
 
-        expect(page).to.be.instanceOf(Pipe.Page);
-        expect(page.statusCode).to.equal(404);
+        expect(pagelet).to.be.instanceOf(Pipe.Pagelet);
+        expect(pagelet.statusCode).to.equal(404);
 
         done();
       });
@@ -114,11 +124,11 @@ describe('Pipe', function () {
 
     ['GET', 'POST', 'MOO'].forEach(function (method) {
       it('finds /all for '+ method, function (done) {
-        app.router(new Request('/all', method), {}, function (err, page) {
+        app.router(new Request('/all', method), {}, function (err, pagelet) {
           if (err) return done(err);
 
-          expect(page).to.be.instanceOf(Pipe.Page);
-          expect(page.statusCode).to.equal(200);
+          expect(pagelet).to.be.instanceOf(Pipe.Pagelet);
+          expect(pagelet.statusCode).to.equal(200);
 
           done();
         });
@@ -126,11 +136,11 @@ describe('Pipe', function () {
     });
 
     it('always returns a 404 page for unknown urls', function (done) {
-      app.router(new Request('/'+ Math.random(), 'POST'), {}, function (err, page) {
+      app.router(new Request('/'+ Math.random(), 'POST'), {}, function (err, pagelet) {
         if (err) return done(err);
 
-        expect(page).to.be.instanceOf(Pipe.Page);
-        expect(page.statusCode).to.equal(404);
+        expect(pagelet).to.be.instanceOf(Pipe.Pagelet);
+        expect(pagelet.statusCode).to.equal(404);
 
         done();
       });
@@ -141,64 +151,71 @@ describe('Pipe', function () {
         get: function (url) {
           expect(url).to.equal('GET@/');
           pattern.push('get');
-          return cache.page;
+          return cache.pagelet;
         },
-        set: function (url, page) {
+        set: function (url, pagelet) {
           expect(url).to.equal('GET@/');
-          expect(page).to.be.a('array');
+          expect(pagelet).to.be.a('array');
           pattern.push('set');
-          cache.page = page;
+          cache.pagelet = pagelet;
         }
       };
 
       var pattern = [];
 
-      app = new Pipe(server, {
-          pages: __dirname + '/fixtures/pages'
-        , dist: '/tmp/dist'
-        , cache: cache
+      //
+      // Hack required for tests, as optimized pagelets are in require cache and
+      // should not be optimized again.
+      //
+      delete require.cache;
+      var local = new Pipe(server, {
+        pagelets: __dirname +'/fixtures/pagelets',
+        dist: '/tmp/dist',
+        cache: cache
       });
 
-      app.router(new Request('/'), {}, function (err, page) {
-        if (err) return done(err);
-
-        expect(page).to.be.instanceOf(Pipe.Page);
-        expect(page.statusCode).to.equal(200);
-
-        app.router(new Request('/'), {}, function (err, page) {
+      local.prepare(function prepared() {
+        local.router(new Request('/'), {}, function (err, pagelet) {
           if (err) return done(err);
 
-          expect(page).to.be.instanceOf(Pipe.Page);
-          expect(page.statusCode).to.equal(200);
-          expect(pattern.join()).to.equal('get,set,get');
+          expect(pagelet).to.be.instanceOf(Pipe.Pagelet);
+          expect(pagelet.statusCode).to.equal(200);
 
-          done();
+          local.router(new Request('/'), {}, function (err, pagelet) {
+            if (err) return done(err);
+
+            expect(pagelet).to.be.instanceOf(Pipe.Pagelet);
+            expect(pagelet.statusCode).to.equal(200);
+            expect(pattern.join()).to.equal('get,set,get');
+
+            done();
+          });
         });
       });
     });
   });
 
   describe('#define', function () {
-    it('adds the Page to the pages collection', function (next) {
-      var faq = require(__dirname + '/fixtures/pages/faq');
+    it('adds Pagelet to the pagelets collection', function (next) {
+      var faq = require(__dirname + '/fixtures/pagelets/faq');
       app.define(faq, function (err) {
         if (err) return next(err);
 
-        expect(app.pages).to.have.length(4);
-        expect(app.pages[2]).to.be.an('function');
+        expect(app.pagelets).to.have.length(6);
+        expect(app.pagelets[2]).to.be.an('function');
         faq.prototype.dependencies = [];
 
         next();
       });
     });
 
-    it('will resolve and add the page if directory or array', function (next) {
-      app.define(__dirname + '/fixtures/pages', function (err) {
+    it('will resolve and add the pagelets if directory', function (next) {
+      app.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        expect(app.pages).to.have.length(6);
-        app.pages.forEach(function (page) {
-          expect(page).to.have.property('id');
+        expect(app.pagelets).to.have.length(9);
+        app.pagelets.forEach(function (pagelet) {
+          expect(pagelet.prototype).to.have.property('id');
         });
 
         next();
@@ -207,34 +224,41 @@ describe('Pipe', function () {
   });
 
   describe('#discover', function () {
-    it('provides default pages if no /404 or /500 is found', function () {
-      expect(app.statusCodes[404]).to.equal(require('../pages/404'));
-      expect(app.statusCodes[500]).to.equal(require('../pages/500'));
+    it('provides default pagelets if no /404 or /500 is found', function () {
+      expect(app.statusCodes[404]).to.equal(require('../pagelets/404'));
+      expect(app.statusCodes[500]).to.equal(require('../pagelets/500'));
     });
 
-    it('uses user provided 404 and 500 pages based on routes', function () {
+    it('uses user provided 404 and 500 pagelets based on routes', function () {
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/discover',
         dist: '/tmp/dist'
       });
 
-      expect(app.pages).to.have.length(0);
-      expect(app.statusCodes[404]).to.not.equal(require('../pages/404'));
-      expect(app.statusCodes[500]).to.not.equal(require('../pages/500'));
+      expect(app.pagelets).to.have.length(0);
+      expect(app.statusCodes[404]).to.not.equal(require('../pagelets/404'));
+      expect(app.statusCodes[500]).to.not.equal(require('../pagelets/500'));
     });
   });
 
   describe('#resolve', function () {
-    it('omits any directories from the read of the pages directory', function () {
+    it('omits any directories from the pagelets directory without an index.js', function () {
       app = new Pipe(server, {
         pages: __dirname + '/fixtures/pages',
         dist: '/tmp/dist'
       });
 
-      app.pages.forEach(function (page) {
-        expect(page.id).to.not.match(/^dummy/);
+      app.pagelets.forEach(function (pagelets) {
+        expect(pagelets.id).to.not.match(/^dummy/);
       });
     });
+  });
+
+  describe('#prepare', function () {
+    it('adds and optimizes the default Bootstrap pagelet');
+    it('adds and optimizes user provided Bootstrap pagelet');
+    it('adds pagelets source in options to the pipe.pagelets array');
+    it('catalogs dependencies and assets from all pagelets');
   });
 
   describe('#listen', function () {
@@ -258,5 +282,46 @@ describe('Pipe', function () {
 
   describe('#createServer', function () {
     it('will call #listen as soon as the server is completely initialized');
+  });
+
+  describe('#redirect', function () {
+    it('redirects to specified location', function (done) {
+      var property = Object.getOwnPropertyDescriptor(Pipe.prototype, 'redirect')
+        , pagelet = new Pipe.Pagelet({res: {}, pipe: app });
+
+      expect(Pipe.prototype).to.have.property('redirect');
+      expect(Pipe.prototype.redirect).to.be.a('function');
+      expect(property.writable).to.equal(false);
+      expect(property.enumerable).to.equal(false);
+      expect(property.configurable).to.equal(false);
+
+      pagelet.res.setHeader = function setHeader(header, value) {
+        expect(header).to.equal('Location');
+        expect(value).to.equal('/redirected');
+      };
+
+      pagelet.res.end = function end() {
+        expect(pagelet.res.statusCode).to.equal(301);
+        done();
+      };
+
+      app.redirect(pagelet, '/redirected');
+    });
+
+    it('allows to set custom statusCode', function (done) {
+      var pagelet = new Pipe.Pagelet({res: {}, pipe: app });
+
+      pagelet.res.setHeader = function setHeader(header, value) {
+        expect(header).to.equal('Location');
+        expect(value).to.equal('/redirected');
+      };
+
+      pagelet.res.end = function end() {
+        expect(pagelet.res.statusCode).to.equal(400);
+        done();
+      };
+
+      app.redirect(pagelet, '/redirected', 400);
+    });
   });
 });

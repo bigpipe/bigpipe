@@ -154,31 +154,39 @@ fuse(Pipe, require('eventemitter3'));
 Pipe.readable('version', require(__dirname +'/package.json').version);
 
 /**
- * Initialize the pipe instance. This method should be called manually after
- * constructing the pipe instance. Pipe.createServer will call this m
+ * Prepare all pagelets and assets.
  *
- * @param {Boolean} delay Should the listen call be delayed?
- * @returns {Pipe} fluent interface
+ * @param {Function} done Completion callback.
+ * @return {Pipe} fluent interface
  * @api public
  */
-Pipe.readable('initialize', function initialize(delay) {
+Pipe.readable('prepare', function prepare(done) {
   var pipe = this
-    , port = this.options('port', 8080)
-    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'));
+    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'))
+    , Base = pagelets.bootstrap || pagelets.Bootstrap || Bootstrap;
 
   //
-  // Discover the pagelets that we need serve from our server. Start
-  // listening after everything is initialized. By default the server
-  // will listen. Passing this option is only required if listening
-  // needs to be done with a manual call. Pipe.createServer will pass
-  // options.listen === false as argument.
+  // Discover the pagelets that we need serve from our server. After find
+  // all assets and compile them before we start listening to the server as
+  // we don't want to serve un-compiled assets.
   //
-  pagelets.bootstrap = pagelets.bootstrap || pagelets.Bootstrap || Bootstrap;
-  return this.define(pagelets, function listen() {
-    if (delay) return;
-    pipe.listen(port);
+  this.define(pagelets, function catalog(error, pagelets) {
+    if (error) return done(error);
+
+    //
+    // Optimize a user provided bootstrap if available, by default
+    // the bootstrap provided with BigPipe will be optimized.
+    //
+    pipe.optimize(Base, function optimized(error, Bootstrap) {
+      if (error) return done(error);
+
+      pipe.pagelets.push(Bootstrap);
+      pipe.compiler.catalog(pipe.pagelets, done);
+    });
   });
-});
+
+  return this;
+})
 
 /**
  * Start listening for incoming requests.
@@ -192,11 +200,10 @@ Pipe.readable('listen', function listen(port, done) {
   var pipe = this;
 
   //
-  // Find all assets and compile them before we start listening to the server as
-  // we don't want to serve un-compiled assets. And we should only start
-  // listening on the server once we're actually ready to respond to requests.
+  // Make sure we should only start listening on the server once
+  // we're actually ready to respond to requests.
   //
-  pipe.compiler.catalog(this.pagelets, function init(error) {
+  this.prepare(function prepared(error) {
     if (error) {
       if (done) return done(error);
       throw error;
@@ -414,7 +421,7 @@ Pipe.readable('router', function router(req, res, id, next) {
 
     debug('Using %s for %s', pagelet.path, req.url);
     next(undefined, pagelet);
-  }(pagelets.slice(0)));
+  }(cache.slice(0)));
 
   return this;
 });
@@ -712,27 +719,27 @@ Pipe.readable('use', function use(name, plugin) {
  * @param {Number} status The status number.
  * @api public
  */
-Pipe.readable('redirect', function redirect(location, status, options) {
+Pipe.readable('redirect', function redirect(pagelet, location, status, options) {
   options = options || {};
 
-  this.res.statusCode = +status || 301;
-  this.res.setHeader('Location', location);
+  pagelet.res.statusCode = +status || 301;
+  pagelet.res.setHeader('Location', location);
 
   //
   // Instruct browsers to not cache the redirect.
   //
   if (options.cache === false) {
-    this.res.setHeader('Pragma', 'no-cache');
-    this.res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
-    this.res.setHeader('Cache-Control', [
+    pagelet.res.setHeader('Pragma', 'no-cache');
+    pagelet.res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
+    pagelet.res.setHeader('Cache-Control', [
       'no-store', 'no-cache', 'must-revalidate', 'post-check=0', 'pre-check=0'
     ].join(', '));
   }
 
-  this.res.end();
+  pagelet.res.end();
 
-  if (this.listeners('end').length) this.emit('end');
-  return this.debug('Redirecting to %s', location);
+  if (pagelet.listeners('end').length) pagelet.emit('end');
+  return pagelet.debug('Redirecting to %s', location);
 });
 
 /**
@@ -1050,7 +1057,9 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   //
   // Map all dependencies to an absolute path or URL.
   //
-  Pagelet.resolve.call(Pagelet, ['css', 'js', 'dependencies']);
+  if ('object' !== typeof prototype.dependencies) {
+    Pagelet.resolve.call(Pagelet, ['css', 'js', 'dependencies']);
+  }
 
   //
   // Support lowercase variant of RPC
@@ -1173,7 +1182,8 @@ Pipe.createServer = function createServer(port, options) {
   options = 'object' === typeof port ? port : options || {};
   if ('number' === typeof port) options.port = port;
 
-  var listen = options.listen === false;
+  var listen = options.listen === false
+    , pipe;
 
   //
   // Listening is done by our own .listen method, so we need to tell the
@@ -1181,7 +1191,14 @@ Pipe.createServer = function createServer(port, options) {
   // This option is forced and should not be override by users configuration.
   //
   options.listen = false;
-  return new Pipe(require('create-server')(options), options).initialize(listen);
+  pipe = new Pipe(require('create-server')(options), options);
+
+  //
+  // By default the server will listen. Passing options.listen === false
+  // is only required if listening needs to be done with a manual call.
+  // Pipe.createServer will pass as argument.
+  //
+  return listen ? pipe : pipe.listen(options.port);
 };
 
 //

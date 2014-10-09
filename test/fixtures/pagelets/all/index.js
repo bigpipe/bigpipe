@@ -1,12 +1,10 @@
 'use strict';
 
-var Page = require('../../../').Page;
-
 //
 // A simple index page test route.
 //
-Page.extend({
+require('pagelet').extend({
   method: '',
   path: '/all',
-  view: '../view/all.ejs'
+  view: '../../view/all.html'
 }).on(module);
