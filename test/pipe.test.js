@@ -9,7 +9,8 @@ describe('Pipe', function () {
     , server
     , app;
 
-  beforeEach(function (done) {
+
+  before(function (done) {
     server = http.createServer(function () {
       throw new Error('Unhandled request');
     });
@@ -19,15 +20,15 @@ describe('Pipe', function () {
       dist: '/tmp/dist'
     });
 
-    app.prepare(function () {
-      server.listen(done);
-    });
+    app.prepare(done);
+  });
+
+  beforeEach(function (done) {
+    server.listen(done);
   });
 
   afterEach(function (done) {
     server.close(done);
-    app = null;
-    server = null;
   });
 
   it('exposes the Pagelet constructor', function () {
@@ -41,7 +42,7 @@ describe('Pipe', function () {
 
   it('correctly resolves `pagelets` as a string to an array', function () {
     expect(app.pagelets).to.be.a('array');
-    expect(app.pagelets).to.have.length(5);
+    expect(app.pagelets).to.have.length(4);
   });
 
   it('transforms pagelets', function () {
@@ -163,11 +164,6 @@ describe('Pipe', function () {
 
       var pattern = [];
 
-      //
-      // Hack required for tests, as optimized pagelets are in require cache and
-      // should not be optimized again.
-      //
-      delete require.cache;
       var local = new Pipe(server, {
         pagelets: __dirname +'/fixtures/pagelets',
         dist: '/tmp/dist',
@@ -201,7 +197,7 @@ describe('Pipe', function () {
       app.define(faq, function (err) {
         if (err) return next(err);
 
-        expect(app.pagelets).to.have.length(6);
+        expect(app.pagelets).to.have.length(5);
         expect(app.pagelets[2]).to.be.an('function');
         faq.prototype.dependencies = [];
 
@@ -213,7 +209,7 @@ describe('Pipe', function () {
       app.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        expect(app.pagelets).to.have.length(9);
+        expect(app.pagelets).to.have.length(8);
         app.pagelets.forEach(function (pagelet) {
           expect(pagelet.prototype).to.have.property('id');
         });

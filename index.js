@@ -19,11 +19,6 @@ var debug = require('diagnostics')('bigpipe:server')
 //
 var trailers = require('trailers')
 
-//
-// Reference to the default bootstrap pagelet.
-//
-var Bootstrap = require('./pagelets/bootstrap');
-
 /**
  * Queryable options with merge and fallback functionality.
  *
@@ -163,7 +158,12 @@ Pipe.readable('version', require(__dirname +'/package.json').version);
 Pipe.readable('prepare', function prepare(done) {
   var pipe = this
     , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'))
-    , Base = pagelets.bootstrap || pagelets.Bootstrap || Bootstrap;
+    , Bootstrap = require('./pagelets/bootstrap');
+
+  //
+  // Set reference to either a developer provided bootstrap or the default.
+  //
+  this.Bootstrap = Bootstrap = pagelets.bootstrap || pagelets.Bootstrap || Bootstrap;
 
   //
   // Discover the pagelets that we need serve from our server. After find
@@ -177,10 +177,9 @@ Pipe.readable('prepare', function prepare(done) {
     // Optimize a user provided bootstrap if available, by default
     // the bootstrap provided with BigPipe will be optimized.
     //
-    pipe.optimize(Base, function optimized(error, Bootstrap) {
+    pipe.optimize(Bootstrap, function optimized(error) {
       if (error) return done(error);
 
-      pipe.pagelets.push(Bootstrap);
       pipe.compiler.catalog(pipe.pagelets, done);
     });
   });
@@ -973,7 +972,7 @@ Pipe.readable('bootstrap', function bootstrap(parent, Base, options) {
   options.pipe = this.pipe;
   options.temper = this.temper;
 
-  Base = Base || Bootstrap;
+  Base = Base || this.Bootstrap;
   return new Base(parent, options);
 });
 
@@ -1057,9 +1056,7 @@ Pipe.readable('optimize', function optimize(Pagelet, options, done) {
   //
   // Map all dependencies to an absolute path or URL.
   //
-  if ('object' !== typeof prototype.dependencies) {
-    Pagelet.resolve.call(Pagelet, ['css', 'js', 'dependencies']);
-  }
+  Pagelet.resolve.call(Pagelet, ['css', 'js', 'dependencies']);
 
   //
   // Support lowercase variant of RPC
