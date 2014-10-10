@@ -48,7 +48,6 @@ describe('Pipe', function () {
   it('transforms pagelets', function () {
     var Pagelet = app.pagelets[0];
 
-    expect(Pagelet.router).to.be.instanceOf(require('routable'));
     expect(Pagelet.method).to.be.a('array');
   });
 
@@ -63,14 +62,14 @@ describe('Pipe', function () {
     expect(property.configurable).to.equal(false);
   });
 
-  describe('#options', function () {
+  describe('.options', function () {
     it('has queryable options with defaults', function () {
       expect(app.options).to.be.a('function');
       expect(app.options('host')).to.equal(undefined);
       expect(app.options('host', 'localhost')).to.equal('localhost');
 
       var pipe = new Pipe(http.createServer(), {
-          pages: __dirname +'/fixtures/pages'
+          pagelets: __dirname +'/fixtures/pagelets'
         , dist: '/tmp/dist'
         , host: '127.0.0.1'
       });
@@ -83,7 +82,7 @@ describe('Pipe', function () {
       expect(app.options('test')).to.equal(undefined);
 
       var pipe = new Pipe(http.createServer(), {
-          pages: __dirname +'/fixtures/pages'
+          pagelets: __dirname +'/fixtures/pagelets'
         , dist: '/tmp/dist'
         , host: '127.0.0.1'
       });
@@ -93,7 +92,7 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#router', function () {
+  describe('.router', function () {
     function Request(url, method) {
       this.url = url;
       this.uri = require('url').parse(url, true);
@@ -147,7 +146,7 @@ describe('Pipe', function () {
       });
     });
 
-    it('adds and retrieves pages from a provided cache', function (done) {
+    it('adds and retrieves pagelets from a provided cache', function (done) {
       var cache = {
         get: function (url) {
           expect(url).to.equal('GET@/');
@@ -191,7 +190,7 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#define', function () {
+  describe('.define', function () {
     it('adds Pagelet to the pagelets collection', function (next) {
       var faq = require(__dirname + '/fixtures/pagelets/faq');
       app.define(faq, function (err) {
@@ -219,7 +218,7 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#discover', function () {
+  describe('.discover', function () {
     it('provides default pagelets if no /404 or /500 is found', function () {
       expect(app.statusCodes[404]).to.equal(require('../pagelets/404'));
       expect(app.statusCodes[500]).to.equal(require('../pagelets/500'));
@@ -227,7 +226,7 @@ describe('Pipe', function () {
 
     it('uses user provided 404 and 500 pagelets based on routes', function () {
       app = new Pipe(server, {
-        pages: __dirname + '/fixtures/discover',
+        pagelets: __dirname + '/fixtures/discover',
         dist: '/tmp/dist'
       });
 
@@ -237,10 +236,10 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#resolve', function () {
+  describe('.resolve', function () {
     it('omits any directories from the pagelets directory without an index.js', function () {
       app = new Pipe(server, {
-        pages: __dirname + '/fixtures/pages',
+        pagelets: __dirname + '/fixtures/discover',
         dist: '/tmp/dist'
       });
 
@@ -250,14 +249,14 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#prepare', function () {
+  describe('.prepare', function () {
     it('adds and optimizes the default Bootstrap pagelet');
     it('adds and optimizes user provided Bootstrap pagelet');
     it('adds pagelets source in options to the pipe.pagelets array');
     it('catalogs dependencies and assets from all pagelets');
   });
 
-  describe('#listen', function () {
+  describe('.listen', function () {
     it('proxies event listeners', function (done) {
       //
       // Set a big timeout as we might need to lazy install dependencies
@@ -276,11 +275,11 @@ describe('Pipe', function () {
     });
   });
 
-  describe('#createServer', function () {
-    it('will call #listen as soon as the server is completely initialized');
+  describe('.createServer', function () {
+    it('will call .listen as soon as the server is completely initialized');
   });
 
-  describe('#redirect', function () {
+  describe('.redirect', function () {
     it('redirects to specified location', function (done) {
       var property = Object.getOwnPropertyDescriptor(Pipe.prototype, 'redirect')
         , pagelet = new Pipe.Pagelet({res: {}, pipe: app });

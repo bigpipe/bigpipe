@@ -4,20 +4,17 @@ var debug = require('diagnostics')('bigpipe:server')
   , Formidable = require('formidable').IncomingForm
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
-  , Route = require('routable')
-  , crypto = require('crypto')
   , Primus = require('primus')
   , Temper = require('temper')
   , fuse = require('fusing')
   , async = require('async')
   , path = require('path')
-  , url = require('url')
-  , fs = require('fs');
+  , url = require('url');
 
 //
 // Automatically add trailers support to Node.js.
 //
-var trailers = require('trailers')
+var trailers = require('trailers');
 
 /**
  * Queryable options with merge and fallback functionality.
@@ -49,17 +46,6 @@ function configure(obj) {
   };
 
   return get;
-}
-
-/**
- * Simple helper function to generate some what unique id's for given
- * constructed pagelet.
- *
- * @returns {String}
- * @api private
- */
-function generator() {
-  return Math.random().toString(36).substring(2).toUpperCase();
 }
 
 /**
@@ -177,15 +163,16 @@ Pipe.readable('prepare', function prepare(done) {
     // Optimize a user provided bootstrap if available, by default
     // the bootstrap provided with BigPipe will be optimized.
     //
-    pipe.optimize(Bootstrap, function optimized(error) {
+    Bootstrap.optimize({ temper: pipe.temper }, function optimized(error, Pagelet) {
       if (error) return done(error);
 
+      pipe.emit('transform:pagelet', Pagelet);
       pipe.compiler.catalog(pipe.pagelets, done);
     });
   });
 
   return this;
-})
+});
 
 /**
  * Start listening for incoming requests.
@@ -246,7 +233,6 @@ Pipe.readable('discover', function discover(pagelets, next) {
     , fourofour;
 
   debug('Discovering build-in error pagelets');
-
   pagelets.forEach(function each(pagelet) {
     if (!pagelet.router) return;
     if (pagelet.router.test('/500')) fivehundered = pagelet;
@@ -259,7 +245,12 @@ Pipe.readable('discover', function discover(pagelets, next) {
     debug('No /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
 
     Pagelet = require('./pagelets/'+ Pagelet);
-    pipe.optimize(Pagelet, next);
+    Pagelet.optimize({ temper: pipe.temper }, function optimized(error, Pagelet) {
+      if (error) return next(error);
+
+      pipe.emit('transform:pagelet', Pagelet);
+      next(null, Pagelet);
+    });
   }, function found(err, status) {
     if (err) return next(err);
 
@@ -288,7 +279,7 @@ Pipe.readable('status', function status(req, res, code, data) {
   }
 
   var Pagelet = this.statusCodes[code]
-    , pagelet = new Pagelet({ pipe: pipe, req: req, res: res });
+    , pagelet = new Pagelet({ pipe: this, req: req, res: res });
 
   pagelet.data = data;
   pagelet.configure(req, res);
@@ -310,7 +301,12 @@ Pipe.readable('define', function define(pagelets, done) {
   var pipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
-    pipe.optimize(Pagelet, next);
+    Pagelet.optimize({ temper: pipe.temper }, function optimized(error, Pagelet) {
+      if (error) return next(error);
+
+      pipe.emit('transform:pagelet', Pagelet);
+      next(null, Pagelet);
+    });
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
@@ -974,148 +970,6 @@ Pipe.readable('bootstrap', function bootstrap(parent, Base, options) {
 
   Base = Base || this.Bootstrap;
   return new Base(parent, options);
-});
-
-/**
- * Optimize the prototypes of Pagelets to reduce work when we're actually
- * serving the requests.
- *
- * Options:
- *
- * - temper: A customn temper instance we want to use to compile the templates.
- * - transform: Transformation callback so plugins can hook in the optimizer.
- *
- * @param {Pagelet} Pagelet Instance.
- * @param {Object} options Optimization configuration.
- * @param {Function} next Completion callback for async execution.
- * @returns {Pagelet}
- * @api private
- */
-Pipe.readable('optimize', function optimize(Pagelet, options, done) {
-  var prototype = Pagelet.prototype
-    , method = prototype.method
-    , router = prototype.path
-    , name = prototype.name
-    , pagelets = []
-    , pipe = this
-    , err;
-
-  //
-  // Options are optional, check if options is the actual callback.
-  //
-  if ('function' === typeof options) {
-    done = options;
-    options = {};
-  }
-
-  //
-  // Generate a unique ID used for real time connection lookups.
-  //
-  prototype.id = options.id || [1, 1, 1, 1].map(generator).join('-');
-
-  //
-  // Parse the methods to an array of accepted HTTP methods. We'll only accept
-  // these requests and should deny every other possible method.
-  //
-  debug('Optimizing pagelet %s registered for path %s', name, router);
-  if (!Array.isArray(method)) method = method.split(/[\s\,]+?/);
-
-  method = method.filter(Boolean).map(function transformation(method) {
-    return method.toUpperCase();
-  });
-
-  //
-  // Add the actual HTTP route and available HTTP methods.
-  //
-  if (router) Pagelet.router = new Route(router);
-  Pagelet.method = method;
-
-  options = options || {};
-  options.temper = options.temper || Pagelet.temper || pipe.temper;
-
-  //
-  // Prefetch the template if a view is available. The view property is
-  // mandatory but it's quite silly to enforce this if the pagelet is
-  // just doing a redirect. We can check for this edge case by
-  // checking if the set statusCode is in the 300~ range.
-  //
-  if (prototype.view) {
-    prototype.view = path.resolve(prototype.directory, prototype.view);
-    options.temper.prefetch(prototype.view, prototype.engine);
-  } else if (!(prototype.statusCode >= 300 && prototype.statusCode < 400)) {
-    throw new Error('The pagelet for path '+ router +' should have a .view property.');
-  }
-
-  //
-  // Ensure we have a custom error pagelet when we fail to render this fragment.
-  //
-  if (prototype.error) {
-    options.temper.prefetch(prototype.error, path.extname(prototype.error).slice(1));
-  }
-
-  //
-  // Map all dependencies to an absolute path or URL.
-  //
-  Pagelet.resolve.call(Pagelet, ['css', 'js', 'dependencies']);
-
-  //
-  // Support lowercase variant of RPC
-  //
-  if ('rpc' in prototype) {
-    prototype.RPC = prototype.rpc;
-    delete prototype.rpc;
-  }
-
-  if ('string' === typeof prototype.RPC) {
-    prototype.RPC = prototype.RPC.split(/[\s|\,]+/);
-  }
-
-  //
-  // Validate the existance of the RPC methods, this reduces possible typo's
-  //
-  prototype.RPC.forEach(function validate(method) {
-    if (!(method in prototype)) return err = new Error(
-      name +' is missing RPC function `'+ method +'` on prototype'
-    );
-
-    if ('function' !== typeof prototype[method]) return err = new Error(
-      name +'#'+ method +' is not function which is required for RPC usage'
-    );
-  });
-
-  //
-  // Recursively traverse pagelets to find all children.
-  //
-  Array.prototype.push.apply(pagelets, Pagelet.traverse(name));
-
-  //
-  // Resolve all found pagelets and optimize for use with BigPipe.
-  //
-  async.map(pagelets, function map(Child, next) {
-    if (Array.isArray(Child)) return async.map(Child, map, next);
-    pipe.optimize(Child, next);
-  }, function (err, pagelets) {
-    if (err) return done(err);
-
-    //
-    // Store the optimized children on the prototype, this should already be
-    // a compatible array as the value is generated by an async.map.
-    //
-    prototype.pagelets = pagelets.map(function map(Pagelet) {
-      return Array.isArray(Pagelet) ? Pagelet : [Pagelet];
-    });
-
-    //
-    // Allow plugins to hook in the transformation process, so emit it when
-    // all our transformations are done and before we instantiate the pagelet.
-    //
-    // @TODO Should this actually be async, or is sync good enough.
-    //
-    pipe.emit('transform:pagelet', Pagelet);
-    done(null, Pagelet);
-  });
-
-  return pipe;
 });
 
 /**
