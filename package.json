@@ -21,7 +21,7 @@
     "expirable": "0.1.x",
     "fabricator": "0.4.x",
     "formidable": "1.0.x",
-    "fusing": "0.3.x",
+    "fusing": "0.4.x",
     "mkdirp": "0.5.x",
     "pagelet": "0.8.x",
     "primus": "2.4.x",
@@ -29,17 +29,17 @@
     "substream": "0.1.x",
     "temper": "0.2.x",
     "trailers": "0.0.x",
-    "ws": "0.4.x"
+    "ws": "0.6.x"
   },
   "devDependencies": {
-    "chai": "1.9.x",
-    "coveralls": "2.10.x",
-    "istanbul": "0.2.x",
-    "mocha": "1.18.x",
+    "chai": "1.10.x",
+    "coveralls": "2.11.x",
+    "istanbul": "0.3.x",
+    "mocha": "2.0.x",
     "mocha-lcov-reporter": "0.0.x",
     "pre-commit": "0.0.x",
-    "sinon": "1.9.x",
-    "sinon-chai": "2.5.x"
+    "sinon": "1.12.x",
+    "sinon-chai": "2.6.x"
   },
   "repository": {
     "type": "git",
