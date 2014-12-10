@@ -163,10 +163,16 @@ Pipe.readable('prepare', function prepare(done) {
     // Optimize a user provided bootstrap if available, by default
     // the bootstrap provided with BigPipe will be optimized.
     //
-    Bootstrap.optimize({ temper: pipe.temper }, function optimized(error, Pagelet) {
+    Bootstrap.optimize({
+      pipe: pipe,
+      transform: pipe.emits('transform:pagelet')
+    }, function optimized(error, Pagelet) {
       if (error) return done(error);
 
-      pipe.emit('transform:pagelet', Pagelet);
+      //
+      // @TODO this can probably be ran as transform functionality.
+      // Thereby removing this callback
+      //
       pipe.compiler.catalog(pipe.pagelets, done);
     });
   });
@@ -245,12 +251,10 @@ Pipe.readable('discover', function discover(pagelets, next) {
     debug('No /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
 
     Pagelet = require('./pagelets/'+ Pagelet);
-    Pagelet.optimize({ temper: pipe.temper }, function optimized(error, Pagelet) {
-      if (error) return next(error);
-
-      pipe.emit('transform:pagelet', Pagelet);
-      next(null, Pagelet);
-    });
+    Pagelet.optimize({
+      pipe: pipe,
+      transform: pipe.emits('transform:pagelet')
+    }, next);
   }, function found(err, status) {
     if (err) return next(err);
 
@@ -301,12 +305,10 @@ Pipe.readable('define', function define(pagelets, done) {
   var pipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
-    Pagelet.optimize({ temper: pipe.temper }, function optimized(error, Pagelet) {
-      if (error) return next(error);
-
-      pipe.emit('transform:pagelet', Pagelet);
-      next(null, Pagelet);
-    });
+    Pagelet.optimize({
+      pipe: pipe,
+      transform: pipe.emits('transform:pagelet')
+    }, next);
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
