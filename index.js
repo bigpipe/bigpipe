@@ -165,7 +165,10 @@ Pipe.readable('prepare', function prepare(done) {
     //
     Bootstrap.optimize({
       pipe: pipe,
-      transform: pipe.emits('transform:pagelet')
+      transform: {
+        before: pipe.emits('transform:pagelet:before'),
+        after: pipe.emits('transform:pagelet:after')
+      }
     }, function optimized(error, Pagelet) {
       if (error) return done(error);
 
@@ -253,7 +256,10 @@ Pipe.readable('discover', function discover(pagelets, next) {
     Pagelet = require('./pagelets/'+ Pagelet);
     Pagelet.optimize({
       pipe: pipe,
-      transform: pipe.emits('transform:pagelet')
+      transform: {
+        before: pipe.emits('transform:pagelet:before'),
+        after: pipe.emits('transform:pagelet:after')
+      }
     }, next);
   }, function found(err, status) {
     if (err) return next(err);
@@ -307,7 +313,10 @@ Pipe.readable('define', function define(pagelets, done) {
   async.map(fabricate(pagelets), function map(Pagelet, next) {
     Pagelet.optimize({
       pipe: pipe,
-      transform: pipe.emits('transform:pagelet')
+      transform: {
+        before: pipe.emits('transform:pagelet:before'),
+        after: pipe.emits('transform:pagelet:after')
+      }
     }, next);
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
