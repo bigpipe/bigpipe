@@ -36,7 +36,7 @@ function configure(obj) {
   // Allow new options to be be merged in against the original object.
   //
   get.merge = function merge(properties) {
-    return Pipe.predefine.merge(obj, properties);
+    return BigPipe.predefine.merge(obj, properties);
   };
 
   return get;
@@ -58,8 +58,8 @@ function configure(obj) {
  * @param {Object} options Configuration.
  * @api public
  */
-function Pipe(server, options) {
-  if (!(this instanceof Pipe)) return new Pipe(server, options);
+function BigPipe(server, options) {
+  if (!(this instanceof BigPipe)) return new BigPipe(server, options);
   this.fuse();
 
   options = configure(options || {});
@@ -105,7 +105,7 @@ function Pipe(server, options) {
 //
 // Inherit from EventEmitter3 as we need to emit listen events etc.
 //
-fuse(Pipe, require('eventemitter3'));
+fuse(BigPipe, require('eventemitter3'));
 
 /**
  * The current version of the library.
@@ -113,16 +113,16 @@ fuse(Pipe, require('eventemitter3'));
  * @type {String}
  * @public
  */
-Pipe.readable('version', require(__dirname +'/package.json').version);
+BigPipe.readable('version', require(__dirname +'/package.json').version);
 
 /**
  * Prepare all pagelets and assets.
  *
  * @param {Function} done Completion callback.
- * @return {Pipe} fluent interface
+ * @return {BigPipe} fluent interface
  * @api public
  */
-Pipe.readable('prepare', function prepare(done) {
+BigPipe.readable('prepare', function prepare(done) {
   var pipe = this
     , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'))
     , Bootstrap = require('./pagelets/bootstrap');
@@ -169,10 +169,10 @@ Pipe.readable('prepare', function prepare(done) {
  *
  * @param {Number} port port to listen on
  * @param {Function} done callback
- * @return {Pipe} fluent interface
+ * @return {BigPipe} fluent interface
  * @api public
  */
-Pipe.readable('listen', function listen(port, done) {
+BigPipe.readable('listen', function listen(port, done) {
   var pipe = this;
 
   //
@@ -204,10 +204,10 @@ Pipe.readable('listen', function listen(port, done) {
  * in case we need to handle a 404 or and 500 errors.
  *
  * @param {Array} pagelets All enabled pagelets.
- * @returns {Pipe} fluent interface
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('discover', function discover(pagelets, next) {
+BigPipe.readable('discover', function discover(pagelets, next) {
   var pipe = this
     , fivehundered
     , fourofour;
@@ -251,10 +251,10 @@ Pipe.readable('discover', function discover(pagelets, next) {
  * @param {Response} res HTTP response.
  * @param {Number} code The status we should handle.
  * @param {Mixed} data Nothing or something, usually an Error
- * @returns {Pipe} fluent interface
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('status', function status(req, res, code, data) {
+BigPipe.readable('status', function status(req, res, code, data) {
   if (!(code in this.statusCodes)) {
     throw new Error('Unsupported HTTP code: '+ code +'.');
   }
@@ -278,7 +278,7 @@ Pipe.readable('status', function status(req, res, code, data) {
  * @param {Function} done callback
  * @api public
  */
-Pipe.readable('define', function define(pagelets, done) {
+BigPipe.readable('define', function define(pagelets, done) {
   var pipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
@@ -308,7 +308,7 @@ Pipe.readable('define', function define(pagelets, done) {
  * @returns {Function}
  * @api private
  */
-Pipe.readable('bind', function bind(fn) {
+BigPipe.readable('bind', function bind(fn) {
   var pipe = this;
 
   return function bound(arg1, arg2, arg3) {
@@ -326,7 +326,7 @@ Pipe.readable('bind', function bind(fn) {
  * @param {Function} next Continuation callback
  * @api private
  */
-Pipe.readable('router', function router(req, res, id, next) {
+BigPipe.readable('router', function router(req, res, id, next) {
   if ('function' === typeof id) {
     next = id;
     id = undefined;
@@ -411,10 +411,10 @@ Pipe.readable('router', function router(req, res, id, next) {
  * @param {String} name The name of the middleware.
  * @param {Function} fn The middleware that's called each time.
  * @param {Object} options Middleware configuration.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.readable('before', function before(name, fn, options) {
+BigPipe.readable('before', function before(name, fn, options) {
   if ('function' === typeof name) {
     options = fn;
     fn = name;
@@ -426,7 +426,7 @@ Pipe.readable('before', function before(name, fn, options) {
   //
   // No or only 1 argument means that we need to initialize the middleware, this
   // is a special initialization process where we pass in a reference to the
-  // initialized Pipe instance so a pre-compiling process can be done.
+  // initialized BigPipe instance so a pre-compiling process can be done.
   //
   if (fn.length < 2) fn = fn.call(this, options);
 
@@ -462,10 +462,10 @@ Pipe.readable('before', function before(name, fn, options) {
  * Remove a middleware layer from the stack.
  *
  * @param {String} name The name of the middleware.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.readable('remove', function remove(name) {
+BigPipe.readable('remove', function remove(name) {
   var index = this.indexOfLayer(name);
 
   if (~index) this.layers.splice(index, 1);
@@ -476,10 +476,10 @@ Pipe.readable('remove', function remove(name) {
  * Enable a given middleware layer.
  *
  * @param {String} name The name of the middleware.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.readable('enable', function enable(name) {
+BigPipe.readable('enable', function enable(name) {
   var index = this.indexOfLayer(name);
 
   if (~index) this.layers[index].enabled = true;
@@ -490,10 +490,10 @@ Pipe.readable('enable', function enable(name) {
  * Disable a given middleware layer.
  *
  * @param {String} name The name of the middleware.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.readable('disable', function disable(name) {
+BigPipe.readable('disable', function disable(name) {
   var index = this.indexOfLayer(name);
 
   if (~index) this.layers[index].enabled = false;
@@ -507,7 +507,7 @@ Pipe.readable('disable', function disable(name) {
  * @returns {Number}
  * @api private
  */
-Pipe.readable('indexOfLayer', function indexOfLayer(name) {
+BigPipe.readable('indexOfLayer', function indexOfLayer(name) {
   for (var i = 0, length = this.layers.length; i < length; i++) {
     if (this.layers[i].name === name) return i;
   }
@@ -519,10 +519,10 @@ Pipe.readable('indexOfLayer', function indexOfLayer(name) {
  * Run the plugins.
  *
  * @param {Array} plugins List of plugins.
- * @returns {Pipe} fluent interface
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('pluggable', function pluggable(plugins) {
+BigPipe.readable('pluggable', function pluggable(plugins) {
   var pipe = this;
 
   plugins.forEach(function plug(plugin) {
@@ -537,10 +537,10 @@ Pipe.readable('pluggable', function pluggable(plugins) {
  *
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
- * @returns {Pipe} fluent interface
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('dispatch', function dispatch(req, res) {
+BigPipe.readable('dispatch', function dispatch(req, res) {
   var pipe = this;
 
   return this.forEach(req, res, function next(err) {
@@ -555,14 +555,14 @@ Pipe.readable('dispatch', function dispatch(req, res) {
 });
 
 /**
- * Iterate all the middleware layers that we're set on our Pipe instance.
+ * Iterate all the middleware layers that we're set on our BigPipe instance.
  *
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
  * @param {Function} next Continuation callback.
  * @api private
  */
-Pipe.readable('forEach', function forEach(req, res, next) {
+BigPipe.readable('forEach', function forEach(req, res, next) {
   var layers = this.layers
     , pipe = this;
 
@@ -645,7 +645,7 @@ Pipe.readable('forEach', function forEach(req, res, next) {
  * @param {Object} plugin The plugin that contains client and server extensions.
  * @api public
  */
-Pipe.readable('use', function use(name, plugin) {
+BigPipe.readable('use', function use(name, plugin) {
   if ('object' === typeof name) {
     plugin = name;
     name = plugin.name;
@@ -691,7 +691,7 @@ Pipe.readable('use', function use(name, plugin) {
  * @param {Number} status The status number.
  * @api public
  */
-Pipe.readable('redirect', function redirect(pagelet, location, status, options) {
+BigPipe.readable('redirect', function redirect(pagelet, location, status, options) {
   options = options || {};
 
   pagelet.res.statusCode = +status || 301;
@@ -720,7 +720,7 @@ Pipe.readable('redirect', function redirect(pagelet, location, status, options) 
  * @returns {Form}
  * @api private
  */
-Pipe.readable('read', function read(pagelet) {
+BigPipe.readable('read', function read(pagelet) {
   var form = new Formidable()
     , pipe = this
     , fields = {}
@@ -781,7 +781,7 @@ Pipe.readable('read', function read(pagelet) {
  * @returns {Boolean} Closed the connection.
  * @api private
  */
-Pipe.readable('end', function end(err, pagelet) {
+BigPipe.readable('end', function end(err, pagelet) {
   //
   // The connection was already closed, no need to further process it.
   //
@@ -832,7 +832,7 @@ Pipe.readable('end', function end(err, pagelet) {
  * @param {Function} fn Optional callback to be called when data has been written.
  * @api private
  */
-Pipe.readable('write', function write(pagelet, fragment, fn) {
+BigPipe.readable('write', function write(pagelet, fragment, fn) {
   //
   // If the response was closed, do not attempt to write anything anymore.
   //
@@ -853,7 +853,7 @@ Pipe.readable('write', function write(pagelet, fragment, fn) {
  * @param {Boolean} flushing Should flush the queued data.
  * @api private
  */
-Pipe.readable('flush', function flush(pagelet, flushing) {
+BigPipe.readable('flush', function flush(pagelet, flushing) {
   //
   // Only write the data to the response if we're allowed to flush.
   //
@@ -891,7 +891,7 @@ Pipe.readable('flush', function flush(pagelet, flushing) {
  * @returns {String} updated base template
  * @api private
  */
-Pipe.readable('inject', function inject(base, view, pagelet) {
+BigPipe.readable('inject', function inject(base, view, pagelet) {
   var name = pagelet.name;
 
   [
@@ -933,7 +933,7 @@ Pipe.readable('inject', function inject(base, view, pagelet) {
  * @returns {Bootstrap} Bootstrap Pagelet.
  * @api private
  */
-Pipe.readable('bootstrap', function bootstrap(parent, Base, options) {
+BigPipe.readable('bootstrap', function bootstrap(parent, Base, options) {
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
@@ -950,14 +950,14 @@ Pipe.readable('bootstrap', function bootstrap(parent, Base, options) {
 });
 
 /**
- * Create a new Pagelet/Pipe server.
+ * Create a new Pagelet/BigPipe server.
  *
  * @param {Number} port port to listen on
  * @param {Object} options Configuration.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.createServer = function createServer(port, options) {
+BigPipe.createServer = function createServer(port, options) {
   options = 'object' === typeof port ? port : options || {};
   if ('number' === typeof port) options.port = port;
 
@@ -970,12 +970,12 @@ Pipe.createServer = function createServer(port, options) {
   // This option is forced and should not be override by users configuration.
   //
   options.listen = false;
-  pipe = new Pipe(require('create-server')(options), options);
+  pipe = new BigPipe(require('create-server')(options), options);
 
   //
   // By default the server will listen. Passing options.listen === false
   // is only required if listening needs to be done with a manual call.
-  // Pipe.createServer will pass as argument.
+  // BigPipe.createServer will pass as argument.
   //
   return listen ? pipe : pipe.listen(options.port);
 };
@@ -983,9 +983,9 @@ Pipe.createServer = function createServer(port, options) {
 //
 // Expose our constructors.
 //
-Pipe.Pagelet = require('pagelet');
+BigPipe.Pagelet = require('pagelet');
 
 //
 // Expose the constructor.
 //
-module.exports = Pipe;
+module.exports = BigPipe;
