@@ -10,11 +10,6 @@ var debug = require('diagnostics')('bigpipe:server')
   , path = require('path')
   , url = require('url');
 
-//
-// Automatically add trailers support to Node.js.
-//
-var trailers = require('trailers');
-
 /**
  * Queryable options with merge and fallback functionality.
  *
