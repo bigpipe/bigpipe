@@ -4,7 +4,6 @@ var debug = require('diagnostics')('bigpipe:server')
   , Formidable = require('formidable').IncomingForm
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
-  , Primus = require('primus')
   , Temper = require('temper')
   , fuse = require('fusing')
   , async = require('async')
@@ -57,7 +56,6 @@ function configure(obj) {
  * - dist: The pathname for the compiled assets.
  * - pagelets: String or array of pagelets we serve.
  * - parser: Which parser should be used to send data in real-time.
- * - pathname: The pathname we use for Primus requests.
  * - transformer: The transport engine we should use for real-time.
  *
  * @constructor
@@ -85,18 +83,6 @@ function Pipe(server, options) {
   readable('server', server);                         // HTTP server we work with.
   readable('layers', []);                             // Middleware layer.
   readable('pagelets', []);                           // Stores our pagelets.
-
-  //
-  // Setup our real-time server.
-  //
-  readable('primus', new Primus(this.server, {
-    transformer: options('transformer', 'websockets'),// Real-time framework to use.
-    pathname: options('pathname', '/pagelets'),       // Primus pathname.
-    parser: options('parser', 'json'),                // Message parser.
-    plugin: {
-      substream: require('substream')                 // Volatile name spacing.
-    }
-  }));
 
   //
   // Setup the asset compiler before pagelets are discovered as they will
@@ -204,18 +190,8 @@ Pipe.readable('listen', function listen(port, done) {
       throw error;
     }
 
-    //
-    // Don't allow double calls to .listen this causes the request listener to
-    // be added twice and result in the site being rendered and outputted twice
-    // for the same request.
-    //
-    if (pipe.primus.transformer.listeners('previous::request').length) {
-      throw new Error('BigPipe#listen should only be called once');
-    }
-
-    pipe.primus.transformer.on('previous::request', pipe.bind(pipe.dispatch));
-    pipe.primus.on('connection', pipe.bind(pipe.connection));
     pipe.server.on('listening', pipe.emits('listening'));
+    pipe.server.on('request', pipe.bind(pipe.dispatch));
     pipe.server.on('error', pipe.emits('error'));
 
     //
@@ -465,11 +441,6 @@ Pipe.readable('before', function before(name, fn, options) {
   if ('function' !== typeof fn || fn.length < 2) {
     throw new Error('Middleware should be a function that accepts at least 2 args');
   }
-
-  //
-  // Add the middleware layers to primus as well.
-  //
-  if (options.primus) this.primus.before(name, fn);
 
   var layer = {
     length: fn.length,                // Amount of arguments indicates if it's a sync
@@ -982,55 +953,6 @@ Pipe.readable('bootstrap', function bootstrap(parent, Base, options) {
   Base = Base || this.Bootstrap;
   return new Base(parent, options);
 });
-
-/**
- * Find a bunch of connected real-time connections based on the supplied query
- * parameters.
- *
- * Query:
- *
- * - id: The id of the pagelet
- * - pagelet: The name of the pagelet
- * - child: The id of a child pagelet
- * - enabled: State of pagelet (defaults to true)
- *
- * @param {String} url The URL to find.
- * @param {Object} query Query object.
- * @returns {Array}
- * @api public
- */
-Pipe.readable('find', function find(url, query) {
-  var results = []
-    , enabled = query.enabled === false ? false : true;
-
-  this.primus.forEach(function each(spark) {
-    if (!spark.pagelet || !spark.pagelet.constructor.router.test(url)) return;
-
-    var pagelet = spark.pagelet;
-
-    if (query.id && query.id === pagelet.id) {
-      results.push(pagelet);
-    }
-
-    if (query.pagelet) {
-      Array.prototype.push.apply(results, pagelet.has(query.pagelet, enabled));
-    }
-
-    if (query.child) pagelet.enabled.forEach(function each(child) {
-      if (child.id === query.child) results.push(child);
-    });
-  });
-
-  return results;
-});
-
-/**
- * Handle incoming real-time requests.
- *
- * @param {Spark} spark A real-time "socket".
- * @api private
- */
-Pipe.readable('connection', require('./primus'));
 
 /**
  * Create a new Pagelet/Pipe server.

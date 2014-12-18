@@ -24,12 +24,9 @@
     "fusing": "0.4.x",
     "mkdirp": "0.5.x",
     "pagelet": "0.8.x",
-    "primus": "2.4.x",
     "smithy": "0.5.x",
-    "substream": "0.1.x",
     "temper": "0.2.x",
-    "trailers": "0.0.x",
-    "ws": "0.6.x"
+    "trailers": "0.0.x"
   },
   "devDependencies": {
     "chai": "1.10.x",
