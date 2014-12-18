@@ -59,7 +59,8 @@ function configure(obj) {
  * @api public
  */
 function BigPipe(server, options) {
-  if (!(this instanceof BigPipe)) return new BigPipe(server, options);
+  if (!this) return new BigPipe(server, options);
+
   this.fuse();
 
   options = configure(options || {});
