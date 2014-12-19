@@ -193,11 +193,16 @@ describe('Pipe', function () {
   describe('.define', function () {
     it('adds Pagelet to the pagelets collection', function (next) {
       var faq = require(__dirname + '/fixtures/pagelets/faq');
+
+      app = new Pipe(server, {
+        dist: '/tmp/dist'
+      });
+
       app.define(faq, function (err) {
         if (err) return next(err);
 
-        expect(app.pagelets).to.have.length(5);
-        expect(app.pagelets[2]).to.be.an('function');
+        expect(app.pagelets).to.have.length(1);
+        expect(app.pagelets[0]).to.be.an('function');
         faq.prototype.dependencies = [];
 
         next();
@@ -205,10 +210,14 @@ describe('Pipe', function () {
     });
 
     it('will resolve and add the pagelets if directory', function (next) {
+      app = new Pipe(server, {
+        dist: '/tmp/dist'
+      });
+
       app.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        expect(app.pagelets).to.have.length(8);
+        expect(app.pagelets).to.have.length(4);
         app.pagelets.forEach(function (pagelet) {
           expect(pagelet.prototype).to.have.property('id');
         });
