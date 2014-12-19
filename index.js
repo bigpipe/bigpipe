@@ -126,7 +126,7 @@ BigPipe.readable('version', require(__dirname +'/package.json').version);
 BigPipe.readable('prepare', function prepare(done) {
   var pipe = this
     , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'))
-    , Bootstrap = require('./pagelets/bootstrap');
+    , Bootstrap = require('bootstrap-pagelet');
 
   //
   // Set reference to either a developer provided bootstrap or the default.
