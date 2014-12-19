@@ -156,7 +156,8 @@ BigPipe.readable('prepare', function prepare(done) {
 
       //
       // @TODO this can probably be ran as transform functionality.
-      // Thereby removing this callback
+      // Thereby removing this callback, catalog needs to accept
+      // single pagelets first though.
       //
       pipe.compiler.catalog(pipe.pagelets, done);
     });
