@@ -129,17 +129,19 @@ BigPipe.readable('prepare', function prepare(done) {
     , Bootstrap = require('bootstrap-pagelet');
 
   //
-  // Set reference to either a developer provided bootstrap or the default.
-  //
-  this.Bootstrap = Bootstrap = pagelets.bootstrap || pagelets.Bootstrap || Bootstrap;
-
-  //
   // Discover the pagelets that we need serve from our server. After find
   // all assets and compile them before we start listening to the server as
   // we don't want to serve un-compiled assets.
   //
   this.define(pagelets, function catalog(error, pagelets) {
     if (error) return done(error);
+
+    //
+    // Set reference to either a developer provided bootstrap or the default.
+    //
+    pipe.Bootstrap = Bootstrap = pagelets.filter(function findBootstrap(Pagelet) {
+      return Pagelet.prototype.name === 'bootstrap';
+    })[0] || Bootstrap;
 
     //
     // Optimize a user provided bootstrap if available, by default
@@ -206,10 +208,11 @@ BigPipe.readable('listen', function listen(port, done) {
  * in case we need to handle a 404 or and 500 errors.
  *
  * @param {Array} pagelets All enabled pagelets.
+ * @param {Function} done Completion callback.
  * @returns {BigPipe} fluent interface
  * @api private
  */
-BigPipe.readable('discover', function discover(pagelets, next) {
+BigPipe.readable('discover', function discover(pagelets, done) {
   var pipe = this
     , fivehundered
     , fourofour;
@@ -235,12 +238,12 @@ BigPipe.readable('discover', function discover(pagelets, next) {
       }
     }, next);
   }, function found(err, status) {
-    if (err) return next(err);
+    if (err) return done(err);
 
     pipe.statusCodes[404] = status[0];
     pipe.statusCodes[500] = status[1];
 
-    next();
+    done(null, pagelets);
   });
 
   return this;
