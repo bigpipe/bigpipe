@@ -125,8 +125,7 @@ BigPipe.readable('version', require(__dirname +'/package.json').version);
  */
 BigPipe.readable('prepare', function prepare(done) {
   var pipe = this
-    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'))
-    , Bootstrap = require('bootstrap-pagelet');
+    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'));
 
   //
   // Discover the pagelets that we need serve from our server. After find
@@ -136,33 +135,8 @@ BigPipe.readable('prepare', function prepare(done) {
   this.define(pagelets, function catalog(error, pagelets) {
     if (error) return done(error);
 
-    //
-    // Set reference to either a developer provided bootstrap or the default.
-    //
-    pipe.Bootstrap = Bootstrap = pagelets.filter(function findBootstrap(Pagelet) {
-      return Pagelet.prototype.name === 'bootstrap';
-    })[0] || Bootstrap;
-
-    //
-    // Optimize a user provided bootstrap if available, by default
-    // the bootstrap provided with BigPipe will be optimized.
-    //
-    Bootstrap.optimize({
-      pipe: pipe,
-      transform: {
-        before: pipe.emits('transform:pagelet:before'),
-        after: pipe.emits('transform:pagelet:after')
-      }
-    }, function optimized(error, Pagelet) {
-      if (error) return done(error);
-
-      //
-      // @TODO this can probably be ran as transform functionality.
-      // Thereby removing this callback, catalog needs to accept
-      // single pagelets first though.
-      //
-      pipe.compiler.catalog(pipe.pagelets, done);
-    });
+    pipe.pagelets.push.apply(pipe.pagelets, pagelets);
+    pipe.compiler.catalog(pipe.pagelets, done);
   });
 
   return this;
@@ -207,7 +181,7 @@ BigPipe.readable('listen', function listen(port, done) {
  * Discover if the user supplied us with custom error pagelets so we use that
  * in case we need to handle a 404 or and 500 errors.
  *
- * @param {Array} pagelets All enabled pagelets.
+ * @param {Array} pagelets All pagelets.
  * @param {Function} done Completion callback.
  * @returns {BigPipe} fluent interface
  * @api private
@@ -215,7 +189,8 @@ BigPipe.readable('listen', function listen(port, done) {
 BigPipe.readable('discover', function discover(pagelets, done) {
   var pipe = this
     , fivehundered
-    , fourofour;
+    , fourofour
+    , Bootstrap = require('bootstrap-pagelet');
 
   debug('Discovering build-in error pagelets');
   pagelets.forEach(function each(pagelet) {
@@ -237,13 +212,33 @@ BigPipe.readable('discover', function discover(pagelets, done) {
         after: pipe.emits('transform:pagelet:after')
       }
     }, next);
-  }, function found(err, status) {
-    if (err) return done(err);
+  }, function found(error, status) {
+    if (error) return done(error);
 
     pipe.statusCodes[404] = status[0];
     pipe.statusCodes[500] = status[1];
 
-    done(null, pagelets);
+    //
+    // Set reference to either a developer provided bootstrap or the default.
+    //
+    pipe.Bootstrap = Bootstrap = pagelets.filter(function findBootstrap(Pagelet) {
+      return Pagelet.prototype.name === 'bootstrap';
+    })[0] || Bootstrap;
+
+    //
+    // Optimize a user provided bootstrap if available, by default
+    // the bootstrap provided with BigPipe will be optimized.
+    //
+    pipe.Bootstrap.optimize({
+      pipe: pipe,
+      transform: {
+        before: pipe.emits('transform:pagelet:before'),
+        after: pipe.emits('transform:pagelet:after')
+      }
+    }, function (error) {
+      if (error) return done(error);
+      done(null, pagelets);
+    });
   });
 
   return this;
@@ -296,8 +291,6 @@ BigPipe.readable('define', function define(pagelets, done) {
     }, next);
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
-
-    pipe.pagelets.push.apply(pipe.pagelets, pagelets);
     pipe.discover(pagelets, done);
   });
 
