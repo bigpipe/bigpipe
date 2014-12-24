@@ -188,24 +188,20 @@ BigPipe.readable('listen', function listen(port, done) {
  */
 BigPipe.readable('discover', function discover(pagelets, done) {
   var pipe = this
-    , fivehundered
-    , fourofour
-    , Bootstrap = require('bootstrap-pagelet');
+    , local = ['404', '500', 'bootstrap'];
 
-  debug('Discovering build-in error pagelets');
-  pagelets.forEach(function each(pagelet) {
-    if (!pagelet.router) return;
-    if (pagelet.router.test('/500')) fivehundered = pagelet;
-    if (pagelet.router.test('/404')) fourofour = pagelet;
+  debug('Discovering build-in pagelets');
+  pagelets.forEach(function each(Pagelet) {
+    if (Pagelet.router && Pagelet.router.test('/404')) local[0] = Pagelet;
+    if (Pagelet.router && Pagelet.router.test('/500')) local[1] = Pagelet;
+    if (Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
   });
 
-  async.map([fourofour || '404', fivehundered || '500'], function (Pagelet, next) {
+  async.map(local, function (Pagelet, next) {
     if ('string' !== typeof Pagelet) return next(undefined, Pagelet);
 
-    debug('No /'+ Pagelet +' error pagelet detected, using default bigpipe error pagelet');
-
-    Pagelet = require('./pagelets/'+ Pagelet);
-    Pagelet.optimize({
+    debug('No %s pagelet detected, using default bigpipe %s pagelet', Pagelet, Pagelet);
+    require(Pagelet + '-pagelet').optimize({
       pipe: pipe,
       transform: {
         before: pipe.emits('transform:pagelet:before'),
@@ -217,28 +213,9 @@ BigPipe.readable('discover', function discover(pagelets, done) {
 
     pipe.statusCodes[404] = status[0];
     pipe.statusCodes[500] = status[1];
+    pipe.Bootstrap = status[2];
 
-    //
-    // Set reference to either a developer provided bootstrap or the default.
-    //
-    pipe.Bootstrap = Bootstrap = pagelets.filter(function findBootstrap(Pagelet) {
-      return Pagelet.prototype.name === 'bootstrap';
-    })[0] || Bootstrap;
-
-    //
-    // Optimize a user provided bootstrap if available, by default
-    // the bootstrap provided with BigPipe will be optimized.
-    //
-    pipe.Bootstrap.optimize({
-      pipe: pipe,
-      transform: {
-        before: pipe.emits('transform:pagelet:before'),
-        after: pipe.emits('transform:pagelet:after')
-      }
-    }, function (error) {
-      if (error) return done(error);
-      done(null, pagelets);
-    });
+    done(null, pagelets);
   });
 
   return this;
