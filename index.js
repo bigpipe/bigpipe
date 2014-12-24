@@ -117,32 +117,6 @@ fuse(BigPipe, require('eventemitter3'));
 BigPipe.readable('version', require(__dirname +'/package.json').version);
 
 /**
- * Prepare all pagelets and assets.
- *
- * @param {Function} done Completion callback.
- * @return {BigPipe} fluent interface
- * @api public
- */
-BigPipe.readable('prepare', function prepare(done) {
-  var pipe = this
-    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'));
-
-  //
-  // Discover the pagelets that we need serve from our server. After find
-  // all assets and compile them before we start listening to the server as
-  // we don't want to serve un-compiled assets.
-  //
-  this.define(pagelets, function catalog(error, pagelets) {
-    if (error) return done(error);
-
-    pipe.pagelets.push.apply(pipe.pagelets, pagelets);
-    pipe.compiler.catalog(pipe.pagelets, done);
-  });
-
-  return this;
-});
-
-/**
  * Start listening for incoming requests.
  *
  * @param {Number} port port to listen on
@@ -151,13 +125,14 @@ BigPipe.readable('prepare', function prepare(done) {
  * @api public
  */
 BigPipe.readable('listen', function listen(port, done) {
-  var pipe = this;
+  var pipe = this
+    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'));
 
   //
   // Make sure we should only start listening on the server once
   // we're actually ready to respond to requests.
   //
-  this.prepare(function prepared(error) {
+  this.define(pagelets, function defined(error) {
     if (error) {
       if (done) return done(error);
       throw error;
@@ -170,7 +145,7 @@ BigPipe.readable('listen', function listen(port, done) {
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
-    debug('Succesfully prepared the assets, starting HTTP server on port %d', port);
+    debug('Succesfully defined pagelets and assets, starting HTTP server on port %d', port);
     pipe.server.listen(port, done);
   });
 
@@ -181,17 +156,16 @@ BigPipe.readable('listen', function listen(port, done) {
  * Discover if the user supplied us with custom error pagelets so we use that
  * in case we need to handle a 404 or and 500 errors.
  *
- * @param {Array} pagelets All pagelets.
  * @param {Function} done Completion callback.
  * @returns {BigPipe} fluent interface
  * @api private
  */
-BigPipe.readable('discover', function discover(pagelets, done) {
+BigPipe.readable('discover', function discover(done) {
   var pipe = this
     , local = ['404', '500', 'bootstrap'];
 
   debug('Discovering build-in pagelets');
-  pagelets.forEach(function each(Pagelet) {
+  pipe.pagelets.forEach(function each(Pagelet) {
     if (Pagelet.router && Pagelet.router.test('/404')) local[0] = Pagelet;
     if (Pagelet.router && Pagelet.router.test('/500')) local[1] = Pagelet;
     if (Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
@@ -215,7 +189,7 @@ BigPipe.readable('discover', function discover(pagelets, done) {
     pipe.statusCodes[500] = status[1];
     pipe.Bootstrap = status[2];
 
-    done(null, pagelets);
+    pipe.compiler.catalog(pipe.pagelets, done);
   });
 
   return this;
@@ -268,7 +242,9 @@ BigPipe.readable('define', function define(pagelets, done) {
     }, next);
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
-    pipe.discover(pagelets, done);
+
+    pipe.pagelets.push.apply(pipe.pagelets, pagelets);
+    pipe.discover(done);
   });
 
   return this;

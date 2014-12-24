@@ -18,17 +18,7 @@ describe('Pipe', function () {
     app = new Pipe(server, {
       pagelets: __dirname +'/fixtures/pagelets',
       dist: '/tmp/dist'
-    });
-
-    app.prepare(done);
-  });
-
-  beforeEach(function (done) {
-    server.listen(done);
-  });
-
-  afterEach(function (done) {
-    server.close(done);
+    }).listen(common.port, done);
   });
 
   it('exposes the Pagelet constructor', function () {
@@ -164,12 +154,11 @@ describe('Pipe', function () {
       var pattern = [];
 
       var local = new Pipe(server, {
-        pagelets: __dirname +'/fixtures/pagelets',
         dist: '/tmp/dist',
         cache: cache
       });
 
-      local.prepare(function prepared() {
+      local.define(__dirname +'/fixtures/pagelets', function define() {
         local.router(new Request('/'), {}, function (err, pagelet) {
           if (err) return done(err);
 
@@ -229,8 +218,8 @@ describe('Pipe', function () {
 
   describe('.discover', function () {
     it('provides default pagelets if no /404 or /500 is found', function () {
-      expect(app.statusCodes[404]).to.equal(require('../pagelets/404'));
-      expect(app.statusCodes[500]).to.equal(require('../pagelets/500'));
+      expect(app.statusCodes[404]).to.equal(require('404-pagelet'));
+      expect(app.statusCodes[500]).to.equal(require('500-pagelet'));
     });
 
     it('uses user provided 404 and 500 pagelets based on routes', function () {
@@ -240,8 +229,8 @@ describe('Pipe', function () {
       });
 
       expect(app.pagelets).to.have.length(0);
-      expect(app.statusCodes[404]).to.not.equal(require('../pagelets/404'));
-      expect(app.statusCodes[500]).to.not.equal(require('../pagelets/500'));
+      expect(app.statusCodes[404]).to.not.equal(require('404-pagelet'));
+      expect(app.statusCodes[500]).to.not.equal(require('500-pagelet'));
     });
   });
 
@@ -256,13 +245,6 @@ describe('Pipe', function () {
         expect(pagelets.id).to.not.match(/^dummy/);
       });
     });
-  });
-
-  describe('.prepare', function () {
-    it('adds and optimizes the default Bootstrap pagelet');
-    it('adds and optimizes user provided Bootstrap pagelet');
-    it('adds pagelets source in options to the pipe.pagelets array');
-    it('catalogs dependencies and assets from all pagelets');
   });
 
   describe('.listen', function () {
