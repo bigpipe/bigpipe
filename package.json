@@ -13,6 +13,8 @@
     "test"
   ],
   "dependencies": {
+    "404-pagelet": "1.0.x",
+    "500-pagelet": "1.0.x",
     "async": "0.9.x",
     "bigpipe.js": "0.8.x",
     "bootstrap-pagelet": "1.0.x",
