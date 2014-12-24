@@ -5,10 +5,10 @@ var debug = require('diagnostics')('bigpipe:server')
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
   , Temper = require('temper')
+  , Supply = require('supply')
   , fuse = require('fusing')
   , async = require('async')
-  , path = require('path')
-  , url = require('url');
+  , path = require('path');
 
 /**
  * Queryable options with merge and fallback functionality.
@@ -60,53 +60,58 @@ function configure(obj) {
  */
 function BigPipe(server, options) {
   if (!this) return new BigPipe(server, options);
-
   this.fuse();
 
   options = configure(options || {});
 
-  var readable = this.readable
-    , writable = this.writable;
+  var readonly = this.readable;
 
-  //
-  // Constants and properties that should never be overridden.
-  //
-  readable('statusCodes', Object.create(null));       // Stores error pagelets.
-  readable('cache', options('cache', false));         // Enable URL lookup caching.
-  readable('plugins', Object.create(null));           // Plugin storage.
-  readable('options', options);                       // Configure options.
-  readable('temper', new Temper);                     // Template parser.
-  readable('server', server);                         // HTTP server we work with.
-  readable('layers', []);                             // Middleware layer.
-  readable('pagelets', []);                           // Stores our pagelets.
+  readonly('statusCodes', Object.create(null));       // Stores error pagelets.
+  readonly('cache', options('cache', false));         // Enable URL lookup caching.
+  readonly('plugins', Object.create(null));           // Plugin storage.
+  readonly('middleware', new Supply(this));           // Middleware system.
+  readonly('temper', new Temper);                     // Template parser.
+  readonly('options', options);                       // Configure options.
+  readonly('server', server);                         // HTTP server we work with.
+  readonly('pagelets', []);                           // Stores our pagelets.
 
   //
   // Setup the asset compiler before pagelets are discovered as they will
   // need to hook in to the compiler to register all assets that are loaded.
   //
-  readable('compiler', new Compiler(
+  readonly('compiler', new Compiler(
     options('dist', path.join(process.cwd(), 'dist')), this, {
       pathname: options('static', '/')
   }));
 
-  //
-  // Add our default middleware layers, this needs to be done before we
-  // initialize or add plugins as we want to make sure that OUR middleware is
-  // loaded first as it's the most important (at least, in our opinion).
-  //
-  this.before('compiler', this.compiler.serve);
-
-  //
-  // Apply the plugins before resolving and transforming the pagelets so the
-  // plugins can hook in to our optimization and transformation process.
-  //
-  this.pluggable(options('plugins', []));
+  this.initialize(options);
 }
 
 //
 // Inherit from EventEmitter3 as we need to emit listen events etc.
 //
 fuse(BigPipe, require('eventemitter3'));
+
+/**
+ * Initialize various of things of BigPipe.
+ *
+ * @api private
+ */
+BigPipe.readable('initialize', function initialize(options) {
+  //
+  // Add our default middleware layers, this needs to be done before we
+  // initialize or add plugins as we want to make sure that OUR middleware is
+  // loaded first as it's the most important (at least, in our opinion).
+  //
+  this.middleware.use('defaults', require('./middleware/defaults'));
+  this.middleware.use('compiler', this.compiler.serve);
+
+  //
+  // Apply the plugins before resolving and transforming the pagelets so the
+  // plugins can hook in to our optimization and transformation process.
+  //
+  this.pluggable(options('plugins', []));
+});
 
 /**
  * The current version of the library.
@@ -355,118 +360,6 @@ BigPipe.readable('router', function router(req, res, id, next) {
 });
 
 /**
- * Add a new middleware layer. If no middleware name has been provided we will
- * attempt to take the name of the supplied function. If that fails, well fuck,
- * just random id it.
- *
- * @param {String} name The name of the middleware.
- * @param {Function} fn The middleware that's called each time.
- * @param {Object} options Middleware configuration.
- * @returns {BigPipe}
- * @api public
- */
-BigPipe.readable('before', function before(name, fn, options) {
-  if ('function' === typeof name) {
-    options = fn;
-    fn = name;
-    name = fn.name || 'pid_'+ Date.now();
-  }
-
-  options = options || {};
-
-  //
-  // No or only 1 argument means that we need to initialize the middleware, this
-  // is a special initialization process where we pass in a reference to the
-  // initialized BigPipe instance so a pre-compiling process can be done.
-  //
-  if (fn.length < 2) fn = fn.call(this, options);
-
-  //
-  // Make sure that the given or returned function can
-  //
-  if ('function' !== typeof fn || fn.length < 2) {
-    throw new Error('Middleware should be a function that accepts at least 2 args');
-  }
-
-  var layer = {
-    length: fn.length,                // Amount of arguments indicates if it's a sync
-    enabled: true,                    // Middleware is enabled by default.
-    name: name,                       // Used for lookups.
-    fn: fn                            // The actual middleware.
-  }, index = this.indexOfLayer(name);
-
-  //
-  // Override middleware layers if we already have a middleware layer with
-  // exactly the same name.
-  //
-  if (!~index) {
-    this.layers.push(layer);
-  } else {
-    debug('Duplicate middleware layer found, overwriting %s', name);
-    this.layers[index] = layer;
-  }
-
-  return this;
-});
-
-/**
- * Remove a middleware layer from the stack.
- *
- * @param {String} name The name of the middleware.
- * @returns {BigPipe}
- * @api public
- */
-BigPipe.readable('remove', function remove(name) {
-  var index = this.indexOfLayer(name);
-
-  if (~index) this.layers.splice(index, 1);
-  return this;
-});
-
-/**
- * Enable a given middleware layer.
- *
- * @param {String} name The name of the middleware.
- * @returns {BigPipe}
- * @api public
- */
-BigPipe.readable('enable', function enable(name) {
-  var index = this.indexOfLayer(name);
-
-  if (~index) this.layers[index].enabled = true;
-  return this;
-});
-
-/**
- * Disable a given middleware layer.
- *
- * @param {String} name The name of the middleware.
- * @returns {BigPipe}
- * @api public
- */
-BigPipe.readable('disable', function disable(name) {
-  var index = this.indexOfLayer(name);
-
-  if (~index) this.layers[index].enabled = false;
-  return this;
-});
-
-/**
- * Find the index of a given middleware layer by name.
- *
- * @param {String} name The name of the layer.
- * @returns {Number}
- * @api private
- */
-BigPipe.readable('indexOfLayer', function indexOfLayer(name) {
-  for (var i = 0, length = this.layers.length; i < length; i++) {
-    if (this.layers[i].name === name) return i;
-  }
-
-  return -1;
-});
-
-/**
  * Run the plugins.
  *
  * @param {Array} plugins List of plugins.
@@ -494,8 +387,9 @@ BigPipe.readable('pluggable', function pluggable(plugins) {
 BigPipe.readable('dispatch', function dispatch(req, res) {
   var pipe = this;
 
-  return this.forEach(req, res, function next(err) {
+  return this.middleware.each(req, res, function next(err, early) {
     if (err) return pipe.status(req, res, 500, err);
+    if (early) return debug('request was handled by a middleware layer');
 
     pipe.router(req, res, function completed(err, pagelet) {
       if (err) return pipe.status(req, res, 500, err);
@@ -503,62 +397,6 @@ BigPipe.readable('dispatch', function dispatch(req, res) {
       pagelet.configure(req, res);
     });
   });
-});
-
-/**
- * Iterate all the middleware layers that we're set on our BigPipe instance.
- *
- * @param {Request} req HTTP request.
- * @param {Response} res HTTP response.
- * @param {Function} next Continuation callback.
- * @api private
- */
-BigPipe.readable('forEach', function forEach(req, res, next) {
-  var layers = this.layers
-    , pipe = this;
-
-  req.uri = req.uri || url.parse(req.url, true);
-  req.query = req.query || req.uri.query || {};
-
-  //
-  // Add some silly HTTP properties for connect.js compatibility.
-  //
-  req.originalUrl = req.url;
-
-  if (!layers.length) {
-    next();
-    return this;
-  }
-
-  //
-  // Async or sync call the middleware layer.
-  //
-  (function iterate(index) {
-    var layer = layers[index++];
-
-    if (!layer) return next();
-    if (!layer.enabled) return iterate(index);
-
-    debug('Applying middleware %s on %s', layer.name, req.url);
-
-    if (layer.length === 2) {
-      //
-      // When true is returned we don't want to continue with the iteration of
-      // the middle and we certainly don't want to call the callback as the
-      // request will be handled by the specified middleware.
-      //
-      if (layer.fn.call(pipe, req, res) === true) return;
-      return iterate(index);
-    }
-
-    layer.fn.call(pipe, req, res, function done(err) {
-      if (err) return next(err);
-
-      iterate(index);
-    });
-  }(0));
-
-  return this;
 });
 
 /**

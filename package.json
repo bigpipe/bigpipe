@@ -28,6 +28,7 @@
     "mkdirp": "0.5.x",
     "pagelet": "0.8.x",
     "smithy": "0.5.x",
+    "supply": "0.0.x",
     "temper": "0.2.x"
   },
   "devDependencies": {
