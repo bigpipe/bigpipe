@@ -23,7 +23,6 @@
     "create-server": "0.0.x",
     "diagnostics": "0.0.x",
     "eventemitter3": "0.1.x",
-    "expirable": "0.1.x",
     "fabricator": "0.4.x",
     "formidable": "1.0.x",
     "fusing": "0.4.x",
