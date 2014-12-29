@@ -3,7 +3,11 @@ node_js:
   - "0.10"
   - "0.11"
 before_install:
-  - npm install -g npm
+  - "npm install -g npm"
+script:
+  - "npm run test-travis"
+after_script:
+  - "npm install coveralls@2.11.x && cat coverage/lcov.info | coveralls"
 notifications:
   irc:
     channels: "irc.freenode.org#bigpipe"

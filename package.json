@@ -5,8 +5,10 @@
   "main": "index.js",
   "engine": "node >= 0.10.0",
   "scripts": {
-    "test": "NODE_ENV=test ./node_modules/.bin/mocha $(find test -name '*.test.js')",
-    "coverage": "NODE_ENV=test ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha $(find test -name '*.test.js') --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js || true && rm -rf ./coverage"
+    "test": "mocha --reporter spec --ui bdd $(find test -name '*.test.js')",
+    "watch": "mocha --watch --reporter spec --ui $(find test -name '*.test.js')",
+    "coverage": "istanbul cover ./node_modules/.bin/_mocha -- --reporter spec --ui bdd $(find test -name '*.test.js')",
+    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- --reporter spec --ui bdd $(find test -name '*.test.js')"
   },
   "pre-commit": [
     "compile",
@@ -35,8 +37,7 @@
     "chai": "1.10.x",
     "coveralls": "2.11.x",
     "istanbul": "0.3.x",
-    "mocha": "2.0.x",
-    "mocha-lcov-reporter": "0.0.x",
+    "mocha": "2.1.x",
     "pre-commit": "0.0.x",
     "sinon": "1.12.x",
     "sinon-chai": "2.6.x"
