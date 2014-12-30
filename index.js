@@ -717,12 +717,11 @@ BigPipe.readable('inject', function inject(base, view, pagelet) {
  * flushed asap to the client.
  *
  * @param {Pagelet} parent Main pagelet that was found by the Router.
- * @param {Object} Base Optional custom bootstrapper, set as child pagelet of parent.
  * @param {Object} options Optional options
  * @returns {Bootstrap} Bootstrap Pagelet.
  * @api private
  */
-BigPipe.readable('bootstrap', function bootstrap(parent, Base, options) {
+BigPipe.readable('bootstrap', function bootstrap(parent, options) {
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
@@ -734,8 +733,7 @@ BigPipe.readable('bootstrap', function bootstrap(parent, Base, options) {
   options.pipe = this.pipe;
   options.temper = this.temper;
 
-  Base = Base || this.Bootstrap;
-  return new Base(parent, options);
+  return new this.Bootstrap(parent, options);
 });
 
 /**

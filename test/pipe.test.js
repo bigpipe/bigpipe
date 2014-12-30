@@ -192,7 +192,6 @@ describe('Pipe', function () {
 
         expect(app.pagelets).to.have.length(1);
         expect(app.pagelets[0]).to.be.an('function');
-        faq.prototype.dependencies = [];
 
         next();
       });
