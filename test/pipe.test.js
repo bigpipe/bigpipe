@@ -280,13 +280,13 @@ describe('Pipe', function () {
       expect(property.enumerable).to.equal(false);
       expect(property.configurable).to.equal(false);
 
-      pagelet.res.setHeader = function setHeader(header, value) {
+      pagelet._res.setHeader = function setHeader(header, value) {
         expect(header).to.equal('Location');
         expect(value).to.equal('/redirected');
       };
 
-      pagelet.res.end = function end() {
-        expect(pagelet.res.statusCode).to.equal(301);
+      pagelet._res.end = function end() {
+        expect(pagelet._res.statusCode).to.equal(301);
         done();
       };
 
@@ -296,13 +296,13 @@ describe('Pipe', function () {
     it('allows to set custom statusCode', function (done) {
       var pagelet = new Pipe.Pagelet({res: {}, pipe: app });
 
-      pagelet.res.setHeader = function setHeader(header, value) {
+      pagelet._res.setHeader = function setHeader(header, value) {
         expect(header).to.equal('Location');
         expect(value).to.equal('/redirected');
       };
 
-      pagelet.res.end = function end() {
-        expect(pagelet.res.statusCode).to.equal(400);
+      pagelet._res.end = function end() {
+        expect(pagelet._res.statusCode).to.equal(400);
         done();
       };
 

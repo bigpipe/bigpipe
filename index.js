@@ -64,25 +64,28 @@ function BigPipe(server, options) {
 
   options = configure(options || {});
 
-  var readonly = this.readable;
-
-  readonly('statusCodes', Object.create(null));       // Stores error pagelets.
-  readonly('cache', options('cache', false));         // Enable URL lookup caching.
-  readonly('plugins', Object.create(null));           // Plugin storage.
-  readonly('middleware', new Supply(this));           // Middleware system.
-  readonly('temper', new Temper);                     // Template parser.
-  readonly('options', options);                       // Configure options.
-  readonly('server', server);                         // HTTP server we work with.
-  readonly('pagelets', []);                           // Stores our pagelets.
+  this._pagelets = [];                           // Stores our pagelets.
+  this._server = server;                         // HTTP server we work with.
+  this._options = options;                       // Configure options.
+  this._temper = new Temper;                     // Template parser.
+  this._plugins = Object.create(null);           // Plugin storage.
+  this._cache = options('cache', false);         // Enable URL lookup caching.
+  this._statusCodes = Object.create(null);       // Stores error pagelets.
 
   //
   // Setup the asset compiler before pagelets are discovered as they will
   // need to hook in to the compiler to register all assets that are loaded.
   //
-  readonly('compiler', new Compiler(
+  this._compiler = new Compiler(
     options('dist', path.join(process.cwd(), 'dist')), this, {
       pathname: options('static', '/')
-  }));
+  });
+
+  //
+  // Middleware system, exposed as public so it can
+  // easily be called externally.
+  //
+  this.middleware = new Supply(this);
 
   this.initialize(options);
 }
@@ -93,8 +96,10 @@ function BigPipe(server, options) {
 fuse(BigPipe, require('eventemitter3'));
 
 /**
- * Initialize various of things of BigPipe.
+ * Initialize various things of BigPipe.
  *
+ * @param {Object} options Optional options.
+ * @returns {BigPipe} Fluent interface.
  * @api private
  */
 BigPipe.readable('initialize', function initialize(options) {
@@ -104,13 +109,13 @@ BigPipe.readable('initialize', function initialize(options) {
   // loaded first as it's the most important (at least, in our opinion).
   //
   this.middleware.use('defaults', require('./middleware/defaults'));
-  this.middleware.use('compiler', this.compiler.serve);
+  this.middleware.use('compiler', this._compiler.serve);
 
   //
   // Apply the plugins before resolving and transforming the pagelets so the
   // plugins can hook in to our optimization and transformation process.
   //
-  this.pluggable(options('plugins', []));
+  return this.pluggable(options('plugins', []));
 });
 
 /**
@@ -131,7 +136,7 @@ BigPipe.readable('version', require(__dirname +'/package.json').version);
  */
 BigPipe.readable('listen', function listen(port, done) {
   var pipe = this
-    , pagelets = this.options('pagelets', path.join(process.cwd(), 'pagelets'));
+    , pagelets = this._options('pagelets', path.join(process.cwd(), 'pagelets'));
 
   //
   // Make sure we should only start listening on the server once
@@ -143,15 +148,15 @@ BigPipe.readable('listen', function listen(port, done) {
       throw error;
     }
 
-    pipe.server.on('listening', pipe.emits('listening'));
-    pipe.server.on('request', pipe.bind(pipe.dispatch));
-    pipe.server.on('error', pipe.emits('error'));
+    pipe._server.on('listening', pipe.emits('listening'));
+    pipe._server.on('request', pipe.bind(pipe.dispatch));
+    pipe._server.on('error', pipe.emits('error'));
 
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
     debug('Succesfully defined pagelets and assets, starting HTTP server on port %d', port);
-    pipe.server.listen(port, done);
+    pipe._server.listen(port, done);
   });
 
   return pipe;
@@ -170,7 +175,7 @@ BigPipe.readable('discover', function discover(done) {
     , local = ['404', '500', 'bootstrap'];
 
   debug('Discovering build-in pagelets');
-  pipe.pagelets.forEach(function each(Pagelet) {
+  pipe._pagelets.forEach(function each(Pagelet) {
     if (Pagelet.router && Pagelet.router.test('/404')) local[0] = Pagelet;
     if (Pagelet.router && Pagelet.router.test('/500')) local[1] = Pagelet;
     if (Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
@@ -190,12 +195,92 @@ BigPipe.readable('discover', function discover(done) {
   }, function found(error, status) {
     if (error) return done(error);
 
-    pipe.statusCodes[404] = status[0];
-    pipe.statusCodes[500] = status[1];
-    pipe.Bootstrap = status[2];
+    pipe._statusCodes[404] = status[0];
+    pipe._statusCodes[500] = status[1];
+    pipe._bootstrap = status[2];
 
-    pipe.compiler.catalog(pipe.pagelets, done);
+    pipe._compiler.catalog(pipe._pagelets, done);
   });
+
+  return this;
+});
+
+/**
+ * Reset the Pagelet to it's original state and initialize it.
+ *
+ * @param {Pagelet} parent Main pagelet that was found by the Router.
+ * @param {ServerRequest} req HTTP server request.
+ * @param {ServerResponse} res HTTP server response.
+ * @api private
+ */
+BigPipe.readable('configure', function configure(parent, req, res) {
+  parent._req = req;
+  parent._res = res;
+
+  //
+  // Add all required assets and dependencies to the HEAD of the page.
+  //
+  var dependencies = [];
+  this._compiler.page(parent, dependencies);
+
+  //
+  // TODO: document why each property is provided.
+  // TODO: do not simply add one to the length?
+  //
+  this.bootstrap(parent, { dependencies: dependencies, res: res, req: req });
+
+  //
+  // Ensure this parent pagelet has a flag to let the client side library know it
+  // should append the content of this pagelet to the target container. This is
+  // required as the body will also have our code and script fragments for other
+  // pagelets. Simply overwriting that content would result in removal of the
+  // fragments of other pagelets.
+  //
+  parent._append = true;
+
+  // @TODO rel prefetch for resources that are used on the next page?
+  // @TODO cache manifest.
+
+  res.statusCode = parent.statusCode;
+  res.setHeader('Content-Type', parent.contentType);
+
+  //
+  // Emit a pagelet configuration event so plugins can hook in to this.
+  //
+  parent.emit('configure', parent);
+  res.once('close', this.emits('close'));
+
+  //
+  // If we have a `no_pagelet_js` flag, we should force a different
+  // rendering mode. This parameter is automatically added when we've
+  // detected that someone is browsing the site without JavaScript enabled.
+  //
+  // In addition to that, the other render modes only work if your browser
+  // supports trailing headers which where introduced in HTTP 1.1 so we need
+  // to make sure that this is something that the browser understands.
+  // Instead of checking just for `1.1` we want to make sure that it just
+  // tests for every http version above 1.0 as http 2.0 is just around the
+  // corner.
+  //
+  if (
+       'no_pagelet_js' in req.query && +req.query.no_pagelet_js === 1
+    || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
+  ) {
+    parent.debug('Forcing `sync` instead of %s due lack of HTTP 1.1 or JS', parent.mode);
+    parent.mode = 'sync';
+  }
+
+  if (parent.initialize) {
+    if (parent.initialize.length) {
+      parent.debug('Waiting for `initialize` method before rendering');
+      parent.initialize(parent.init.bind(parent));
+    } else {
+      parent.initialize();
+      parent.init();
+    }
+  } else {
+    parent.init();
+  }
 
   return this;
 });
@@ -211,17 +296,15 @@ BigPipe.readable('discover', function discover(done) {
  * @api private
  */
 BigPipe.readable('status', function status(req, res, code, data) {
-  if (!(code in this.statusCodes)) {
+  if (!(code in this._statusCodes)) {
     throw new Error('Unsupported HTTP code: '+ code +'.');
   }
 
-  var Pagelet = this.statusCodes[code]
+  var Pagelet = this._statusCodes[code]
     , pagelet = new Pagelet({ pipe: this, req: req, res: res });
 
   pagelet.data = data;
-  pagelet.configure(req, res);
-
-  return this;
+  return this.configure(pagelet, req, res);
 });
 
 /**
@@ -248,7 +331,7 @@ BigPipe.readable('define', function define(pagelets, done) {
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
-    pipe.pagelets.push.apply(pipe.pagelets, pagelets);
+    pipe._pagelets.push.apply(pipe._pagelets, pagelets);
     pipe.discover(done);
   });
 
@@ -289,8 +372,8 @@ BigPipe.readable('router', function router(req, res, id, next) {
   }
 
   var key = id ? id : req.method +'@'+ req.uri.pathname
-    , cache = this.cache ? this.cache.get(key) || [] : []
-    , pagelets = this.pagelets
+    , cache = this._cache ? this._cache.get(key) || [] : []
+    , pagelets = this._pagelets
     , length = pagelets.length
     , pipe = this
     , i = 0
@@ -317,8 +400,8 @@ BigPipe.readable('router', function router(req, res, id, next) {
       cache.push(pagelet);
     }
 
-    if (this.cache && cache.length) {
-      this.cache.set(key, cache);
+    if (this._cache && cache.length) {
+      this._cache.set(key, cache);
       debug('Added key %s and its found pagelets to our internal lookup cache', key);
     }
   }
@@ -326,7 +409,7 @@ BigPipe.readable('router', function router(req, res, id, next) {
   //
   // Add an extra 404 pagelet so we always have a pagelet to display.
   //
-  cache.push(this.statusCodes[404]);
+  cache.push(this._statusCodes[404]);
 
   //
   // It could be that we have selected a couple of authorized pagelets. Filter
@@ -394,7 +477,7 @@ BigPipe.readable('dispatch', function dispatch(req, res) {
     pipe.router(req, res, function completed(err, pagelet) {
       if (err) return pipe.status(req, res, 500, err);
 
-      pagelet.configure(req, res);
+      pipe.configure(pagelet, req, res);
     });
   });
 });
@@ -458,17 +541,17 @@ BigPipe.readable('use', function use(name, plugin) {
     throw new Error('The plugin in missing a client or server function.');
   }
 
-  if (name in this.plugins) {
+  if (name in this._plugins) {
     throw new Error('The plugin name was already defined. Please select an unique name for each plugin');
   }
 
   debug('Added plugin `%s`', name);
 
-  this.plugins[name] = plugin;
+  this._plugins[name] = plugin;
   if (!plugin.server) return this;
 
-  this.options.merge(plugin.options || {});
-  plugin.server.call(this, this, this.options);
+  this._options.merge(plugin.options || {});
+  plugin.server.call(this, this, this._options);
 
   return this;
 });
@@ -483,21 +566,21 @@ BigPipe.readable('use', function use(name, plugin) {
 BigPipe.readable('redirect', function redirect(pagelet, location, status, options) {
   options = options || {};
 
-  pagelet.res.statusCode = +status || 301;
-  pagelet.res.setHeader('Location', location);
+  pagelet._res.statusCode = +status || 301;
+  pagelet._res.setHeader('Location', location);
 
   //
   // Instruct browsers to not cache the redirect.
   //
   if (options.cache === false) {
-    pagelet.res.setHeader('Pragma', 'no-cache');
-    pagelet.res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
-    pagelet.res.setHeader('Cache-Control', [
+    pagelet._res.setHeader('Pragma', 'no-cache');
+    pagelet._res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
+    pagelet._res.setHeader('Cache-Control', [
       'no-store', 'no-cache', 'must-revalidate', 'post-check=0', 'pre-check=0'
     ].join(', '));
   }
 
-  pagelet.res.end();
+  pagelet._res.end();
 
   if (pagelet.listeners('end').length) pagelet.emit('end');
   return pagelet.debug('Redirecting to %s', location);
@@ -560,7 +643,7 @@ BigPipe.readable('read', function read(pagelet) {
     return form;
   };
 
-  return form.parse(pagelet.req);
+  return form.parse(pagelet._req);
 });
 
 /**
@@ -574,7 +657,7 @@ BigPipe.readable('end', function end(err, pagelet) {
   //
   // The connection was already closed, no need to further process it.
   //
-  if (pagelet.res.finished || pagelet.bootstrap.ended) {
+  if (pagelet._res.finished || pagelet._bootstrap.ended) {
     pagelet.debug('Pagelet has finished, ignoring extra .end call');
     return true;
   }
@@ -589,16 +672,16 @@ BigPipe.readable('end', function end(err, pagelet) {
   if (err) {
     pagelet.emit('end', err);
     pagelet.debug('Captured an error: %s, displaying error pagelet instead', err);
-    this.status(pagelet.req, pagelet.res, 500, err);
-    return pagelet.bootstrap.ended = true;
+    this.status(pagelet._req, pagelet.res, 500, err);
+    return pagelet._bootstrap.ended = true;
   }
 
   //
   // Do not close the connection before the pagelet has sent headers.
   //
-  if (pagelet.bootstrap.n < pagelet.enabled.length) {
+  if (pagelet._bootstrap.n < pagelet._enabled.length) {
     pagelet.debug('Not all pagelets have been written, (%s out of %s)',
-      pagelet.bootstrap.n, pagelet.enabled.length
+      pagelet._bootstrap.n, pagelet._enabled.length
     );
     return false;
   }
@@ -607,11 +690,11 @@ BigPipe.readable('end', function end(err, pagelet) {
   // Everything is processed, close the connection and clean up references.
   //
   this.flush(pagelet, true);
-  pagelet.res.end();
+  pagelet._res.end();
   pagelet.emit('end');
 
   pagelet.debug('Ended the connection');
-  return pagelet.bootstrap.ended = true;
+  return pagelet._bootstrap.ended = true;
 });
 
 /**
@@ -625,14 +708,14 @@ BigPipe.readable('write', function write(pagelet, fragment, fn) {
   //
   // If the response was closed, do not attempt to write anything anymore.
   //
-  if (pagelet.res.finished) {
+  if (pagelet._res.finished) {
     return fn(new Error('Response was closed, unable to write Pagelet'));
   }
 
   pagelet.debug('Writing pagelet\'s response');
-  pagelet.bootstrap.queue.push(fragment);
+  pagelet._bootstrap.queue.push(fragment);
 
-  if (fn) pagelet.res.once('flush', fn);
+  if (fn) pagelet._res.once('flush', fn);
   return this.flush(pagelet);
 });
 
@@ -646,15 +729,15 @@ BigPipe.readable('flush', function flush(pagelet, flushing) {
   //
   // Only write the data to the response if we're allowed to flush.
   //
-  if ('boolean' === typeof flushing) pagelet.bootstrap.flushed = flushing;
-  if (!pagelet.bootstrap.flushed || !pagelet.bootstrap.queue.length) return this;
+  if ('boolean' === typeof flushing) pagelet._bootstrap.flushed = flushing;
+  if (!pagelet._bootstrap.flushed || !pagelet._bootstrap.queue.length) return this;
 
-  var res = pagelet.bootstrap.queue.join('');
-  pagelet.bootstrap.queue.length = 0;
+  var res = pagelet._bootstrap.queue.join('');
+  pagelet._bootstrap.queue.length = 0;
 
   if (res.length) {
-    pagelet.res.write(res, 'utf-8', function () {
-      pagelet.res.emit('flush');
+    pagelet._res.write(res, 'utf-8', function () {
+      pagelet._res.emit('flush');
     });
   }
 
@@ -663,8 +746,8 @@ BigPipe.readable('flush', function flush(pagelet, flushing) {
   // node, so if it's not supported we're just going to call the callback
   // our selfs.
   //
-  if (pagelet.res.write.length !== 3 || !res.length) {
-    pagelet.res.emit('flush');
+  if (pagelet._res.write.length !== 3 || !res.length) {
+    pagelet._res.emit('flush');
   }
 
   return this;
@@ -727,13 +810,13 @@ BigPipe.readable('bootstrap', function bootstrap(parent, options) {
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
   // the request once that happens.
   //
-  if (parent.res.finished) return this;
+  if (parent._res.finished) return this;
 
   options = options || {};
-  options.pipe = this.pipe;
-  options.temper = this.temper;
+  options.pipe = this._pipe;
+  options.temper = this._temper;
 
-  return new this.Bootstrap(parent, options);
+  return parent._bootstrap = new this._bootstrap(parent, options);
 });
 
 /**
