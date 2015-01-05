@@ -727,11 +727,10 @@ BigPipe.readable('inject', function inject(base, view, pagelet) {
  * @param {Pagelet} parent Main pagelet that was found by the Router.
  * @param {ServerRequest} req HTTP server request.
  * @param {ServerResponse} res HTTP server response.
- * @param {Object} options Optional options
  * @returns {Bootstrap} Bootstrap Pagelet.
  * @api private
  */
-BigPipe.readable('bootstrap', function bootstrap(parent, req, res, options) {
+BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
