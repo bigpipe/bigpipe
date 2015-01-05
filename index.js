@@ -206,86 +206,6 @@ BigPipe.readable('discover', function discover(done) {
 });
 
 /**
- * Reset the Pagelet to it's original state and initialize it.
- *
- * @param {Pagelet} parent Main pagelet that was found by the Router.
- * @param {ServerRequest} req HTTP server request.
- * @param {ServerResponse} res HTTP server response.
- * @api private
- */
-BigPipe.readable('configure', function configure(parent, req, res) {
-  parent._req = req;
-  parent._res = res;
-
-  //
-  // Add all required assets and dependencies to the HEAD of the page.
-  //
-  var dependencies = [];
-  this._compiler.page(parent, dependencies);
-
-  //
-  // TODO: document why each property is provided.
-  // TODO: do not simply add one to the length?
-  //
-  this.bootstrap(parent, { dependencies: dependencies, res: res, req: req });
-
-  //
-  // Ensure this parent pagelet has a flag to let the client side library know it
-  // should append the content of this pagelet to the target container. This is
-  // required as the body will also have our code and script fragments for other
-  // pagelets. Simply overwriting that content would result in removal of the
-  // fragments of other pagelets.
-  //
-  parent._append = true;
-
-  // @TODO rel prefetch for resources that are used on the next page?
-  // @TODO cache manifest.
-
-  res.statusCode = parent.statusCode;
-  res.setHeader('Content-Type', parent.contentType);
-
-  //
-  // Emit a pagelet configuration event so plugins can hook in to this.
-  //
-  parent.emit('configure', parent);
-  res.once('close', this.emits('close'));
-
-  //
-  // If we have a `no_pagelet_js` flag, we should force a different
-  // rendering mode. This parameter is automatically added when we've
-  // detected that someone is browsing the site without JavaScript enabled.
-  //
-  // In addition to that, the other render modes only work if your browser
-  // supports trailing headers which where introduced in HTTP 1.1 so we need
-  // to make sure that this is something that the browser understands.
-  // Instead of checking just for `1.1` we want to make sure that it just
-  // tests for every http version above 1.0 as http 2.0 is just around the
-  // corner.
-  //
-  if (
-       'no_pagelet_js' in req.query && +req.query.no_pagelet_js === 1
-    || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
-  ) {
-    parent.debug('Forcing `sync` instead of %s due lack of HTTP 1.1 or JS', parent.mode);
-    parent.mode = 'sync';
-  }
-
-  if (parent.initialize) {
-    if (parent.initialize.length) {
-      parent.debug('Waiting for `initialize` method before rendering');
-      parent.initialize(parent.init.bind(parent));
-    } else {
-      parent.initialize();
-      parent.init();
-    }
-  } else {
-    parent.init();
-  }
-
-  return this;
-});
-
-/**
  * Render a pagelet from our `statusCodes` collection.
  *
  * @param {Request} req HTTP request.
@@ -304,7 +224,7 @@ BigPipe.readable('status', function status(req, res, code, data) {
     , pagelet = new Pagelet({ pipe: this, req: req, res: res });
 
   pagelet.data = data;
-  return this.configure(pagelet, req, res);
+  return this.bootstrap(pagelet, req, res);
 });
 
 /**
@@ -417,7 +337,12 @@ BigPipe.readable('router', function router(req, res, id, next) {
   //
   (function each(pagelets) {
     var Pagelet = pagelets.shift()
-      , pagelet = new Pagelet({ pipe: pipe });
+      , pagelet = new Pagelet({
+          append: true,
+          pipe: pipe,
+          req: req,
+          res: res
+        });
 
     debug('Iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
 
@@ -425,7 +350,7 @@ BigPipe.readable('router', function router(req, res, id, next) {
     // Make sure we parse out all the parameters from the URL as they might be
     // required for authorization purposes.
     //
-    if (Pagelet.router) pagelet.params = Pagelet.router.exec(req.uri.pathname) || {};
+    if (Pagelet.router) pagelet._params = Pagelet.router.exec(req.uri.pathname) || {};
     if ('function' === typeof pagelet.if) {
       return pagelet.conditional(req, function authorize(allowed) {
         debug('Authorization required for %s: %s', pagelet.path, allowed ? 'allowed' : 'disallowed');
@@ -477,7 +402,7 @@ BigPipe.readable('dispatch', function dispatch(req, res) {
     pipe.router(req, res, function completed(err, pagelet) {
       if (err) return pipe.status(req, res, 500, err);
 
-      pipe.configure(pagelet, req, res);
+      pipe.bootstrap(pagelet, req, res);
     });
   });
 });
@@ -800,23 +725,78 @@ BigPipe.readable('inject', function inject(base, view, pagelet) {
  * flushed asap to the client.
  *
  * @param {Pagelet} parent Main pagelet that was found by the Router.
+ * @param {ServerRequest} req HTTP server request.
+ * @param {ServerResponse} res HTTP server response.
  * @param {Object} options Optional options
  * @returns {Bootstrap} Bootstrap Pagelet.
  * @api private
  */
-BigPipe.readable('bootstrap', function bootstrap(parent, options) {
+BigPipe.readable('bootstrap', function bootstrap(parent, req, res, options) {
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
   // the request once that happens.
   //
-  if (parent._res.finished) return this;
+  if (res.finished) return this;
 
-  options = options || {};
-  options.pipe = this._pipe;
-  options.temper = this._temper;
+  //
+  // @TODO rel prefetch for resources that are used on the next page?
+  // @TODO cache manifest.
+  //
+  res.statusCode = parent.statusCode;
+  res.setHeader('Content-Type', parent.contentType);
 
-  return parent._bootstrap = new this._bootstrap(parent, options);
+  //
+  // Emit a pagelet configuration event so plugins can hook in to this.
+  //
+  res.once('close', this.emits('close'));
+
+  //
+  // If we have a `no_pagelet_js` flag, we should force a different
+  // rendering mode. This parameter is automatically added when we've
+  // detected that someone is browsing the site without JavaScript enabled.
+  //
+  // In addition to that, the other render modes only work if your browser
+  // supports trailing headers which where introduced in HTTP 1.1 so we need
+  // to make sure that this is something that the browser understands.
+  // Instead of checking just for `1.1` we want to make sure that it just
+  // tests for every http version above 1.0 as http 2.0 is just around the
+  // corner.
+  //
+  if (
+       'no_pagelet_js' in req.query && +req.query.no_pagelet_js === 1
+    || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
+  ) {
+    parent.debug('Forcing `sync` instead of %s due lack of HTTP 1.1 or JS', parent.mode);
+    parent.mode = 'sync';
+  }
+
+  //
+  // Create a bootstrap Pagelet, this is a special Pagelet that is flushed
+  // as soon as possible to instantiate the client side rendering.
+  //
+  parent._bootstrap = new this._bootstrap({
+    dependencies: this._compiler.page(parent),
+    children: parent._children.length,
+    params: parent._params,
+    parent: parent.name,
+    mode: parent.mode,
+    pipe: this,
+    res: res,
+    req: req
+  });
+
+  if (parent.initialize) {
+    if (parent.initialize.length) {
+      parent.debug('Waiting for `initialize` method before rendering');
+      parent.initialize(parent.init.bind(parent));
+    } else {
+      parent.initialize();
+      parent.init();
+    }
+  } else {
+    parent.init();
+  }
 });
 
 /**
