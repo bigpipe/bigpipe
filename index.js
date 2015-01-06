@@ -112,6 +112,7 @@ BigPipe.readable('initialize', function initialize(options) {
   // loaded first as it's the most important (at least, in our opinion).
   //
   this.middleware.use('defaults', require('./middleware/defaults'));
+  this.middleware.use('zipline', this._zipline.middleware());
   this.middleware.use('compiler', this._compiler.serve);
 
   //
