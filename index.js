@@ -4,6 +4,8 @@ var debug = require('diagnostics')('bigpipe:server')
   , Formidable = require('formidable').IncomingForm
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
+  , destroy = require('demolish')
+  , Zipline = require('zipline')
   , Temper = require('temper')
   , Supply = require('supply')
   , fuse = require('fusing')
@@ -71,6 +73,7 @@ function BigPipe(server, options) {
   this._plugins = Object.create(null);           // Plugin storage.
   this._cache = options('cache', false);         // Enable URL lookup caching.
   this._statusCodes = Object.create(null);       // Stores error pagelets.
+  this._zipline = new Zipline(options);          // Improved gzip compression.
 
   //
   // Setup the asset compiler before pagelets are discovered as they will
@@ -690,6 +693,23 @@ BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
     parent.init();
   }
 });
+
+/**
+ * Completely destroy the instance and remove/release all its references.
+ *
+ * @type {Function}
+ * @api public
+ */
+BigPipe.readable('destroy', destroy([
+  '_pagelets', '_server', '_options', '_temper', '_plugins', '_cache',
+  '_statusCodes', '_zipline', '_compiler', 'middleware'
+], {
+  before: function before() {
+    try { this._server.close(); }
+    catch (e) {}
+  },
+  after: 'removeAllListeners'
+}));
 
 /**
  * Create a new Pagelet/BigPipe server.

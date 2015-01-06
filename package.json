@@ -21,6 +21,7 @@
     "bigpipe.js": "0.8.x",
     "bootstrap-pagelet": "1.0.x",
     "create-server": "0.0.x",
+    "demolish": "1.0.x",
     "diagnostics": "0.0.x",
     "eventemitter3": "0.1.x",
     "fabricator": "0.4.x",
@@ -30,7 +31,8 @@
     "pagelet": "0.8.x",
     "smithy": "0.5.x",
     "supply": "0.0.x",
-    "temper": "0.2.x"
+    "temper": "0.2.x",
+    "zipline": "1.0.x"
   },
   "devDependencies": {
     "chai": "1.10.x",
