@@ -225,9 +225,8 @@ BigPipe.readable('status', function status(req, res, code, data) {
   }
 
   var Pagelet = this._statusCodes[code]
-    , pagelet = new Pagelet({ pipe: this, req: req, res: res });
+    , pagelet = new Pagelet({ pipe: this, req: req, res: res }, data);
 
-  pagelet.data = data;
   return this.bootstrap(pagelet, req, res);
 });
 
