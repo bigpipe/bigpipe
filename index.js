@@ -733,6 +733,7 @@ BigPipe.createServer = function createServer(port, options) {
   // This option is forced and should not be override by users configuration.
   //
   options.listen = false;
+  options.port = options.port || 8080;
   pipe = new BigPipe(require('create-server')(options), options);
 
   //

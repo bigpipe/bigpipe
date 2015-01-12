@@ -288,7 +288,27 @@ describe('Pipe', function () {
   });
 
   describe('.createServer', function () {
-    it('will call .listen as soon as the server is completely initialized');
+    it('is a function', function () {
+      expect(Pipe.createServer).to.be.a('function');
+      expect(Pipe.createServer.length).to.equal(2);
+    });
+
+    it('has optional port argument that defaults to 8080', function (done) {
+      var pipe = Pipe.createServer({
+        dist: '/tmp/dist'
+      });
+
+      expect(pipe._options('port')).to.equal(8080);
+      pipe.once('listening', done);
+    });
+
+    it('will call .listen as soon as the server is completely initialized', function (done) {
+      var pipe = Pipe.createServer(common.port, {
+        dist: '/tmp/dist'
+      });
+
+      pipe.once('listening', done);
+    });
   });
 
   describe('.redirect', function () {
