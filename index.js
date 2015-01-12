@@ -178,11 +178,12 @@ BigPipe.readable('discover', function discover(done) {
   var pipe = this
     , local = ['404', '500', 'bootstrap'];
 
-  debug('Discovering build-in pagelets');
-  pipe._pagelets.forEach(function each(Pagelet) {
+  debug('Discovering build-in pagelets, filtering out defaults (404, 500, bootstrap)');
+  pipe._pagelets = pipe._pagelets.filter(function filter(Pagelet) {
     if (Pagelet.router && Pagelet.router.test('/404')) local[0] = Pagelet;
-    if (Pagelet.router && Pagelet.router.test('/500')) local[1] = Pagelet;
-    if (Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
+    else if (Pagelet.router && Pagelet.router.test('/500')) local[1] = Pagelet;
+    else if (Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
+    else return Pagelet;
   });
 
   async.map(local, function (Pagelet, next) {

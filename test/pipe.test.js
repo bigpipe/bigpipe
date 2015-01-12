@@ -31,32 +31,27 @@ describe('Pipe', function () {
   });
 
   it('correctly resolves `pagelets` as a string to an array', function () {
-    expect(app.pagelets).to.be.a('array');
-    expect(app.pagelets).to.have.length(4);
+    expect(app._pagelets).to.be.a('array');
+    expect(app._pagelets).to.have.length(4);
   });
 
   it('transforms pagelets', function () {
-    var Pagelet = app.pagelets[0];
+    var Pagelet = app._pagelets[0];
 
     expect(Pagelet.method).to.be.a('array');
   });
 
   it('has compiler for asset management', function () {
-    var property = Object.getOwnPropertyDescriptor(app, 'compiler');
-
-    expect(app).to.have.property('compiler');
-    expect(app.compiler).to.be.an('object');
-    expect(app.compiler).to.be.instanceof(Compiler);
-    expect(property.writable).to.equal(false);
-    expect(property.enumerable).to.equal(false);
-    expect(property.configurable).to.equal(false);
+    expect(app).to.have.property('_compiler');
+    expect(app._compiler).to.be.an('object');
+    expect(app._compiler).to.be.instanceof(Compiler);
   });
 
-  describe('.options', function () {
+  describe('private options', function () {
     it('has queryable options with defaults', function () {
-      expect(app.options).to.be.a('function');
-      expect(app.options('host')).to.equal(undefined);
-      expect(app.options('host', 'localhost')).to.equal('localhost');
+      expect(app._options).to.be.a('function');
+      expect(app._options('host')).to.equal(undefined);
+      expect(app._options('host', 'localhost')).to.equal('localhost');
 
       var pipe = new Pipe(http.createServer(), {
           pagelets: __dirname +'/fixtures/pagelets'
@@ -64,21 +59,22 @@ describe('Pipe', function () {
         , host: '127.0.0.1'
       });
 
-      expect(pipe.options('host')).to.equal('127.0.0.1');
+      expect(pipe._options('host')).to.equal('127.0.0.1');
     });
 
     it('additional options can be merged, per example from a plugin', function () {
-      expect(app.options.merge).to.be.a('function');
-      expect(app.options('test')).to.equal(undefined);
+      expect(app._options.merge).to.be.a('function');
+      expect(app._options('test')).to.equal(undefined);
 
       var pipe = new Pipe(http.createServer(), {
           pagelets: __dirname +'/fixtures/pagelets'
         , dist: '/tmp/dist'
         , host: '127.0.0.1'
       });
-      expect(pipe.options('host')).to.equal('127.0.0.1');
-      pipe.options.merge({ test: 'additional' });
-      expect(pipe.options('test')).to.equal('additional');
+
+      expect(pipe._options('host')).to.equal('127.0.0.1');
+      pipe._options.merge({ test: 'additional' });
+      expect(pipe._options('test')).to.equal('additional');
     });
   });
 
@@ -190,8 +186,8 @@ describe('Pipe', function () {
       app.define(faq, function (err) {
         if (err) return next(err);
 
-        expect(app.pagelets).to.have.length(1);
-        expect(app.pagelets[0]).to.be.an('function');
+        expect(app._pagelets).to.have.length(1);
+        expect(app._pagelets[0]).to.be.an('function');
 
         next();
       });
@@ -205,8 +201,8 @@ describe('Pipe', function () {
       app.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        expect(app.pagelets).to.have.length(4);
-        app.pagelets.forEach(function (pagelet) {
+        expect(app._pagelets).to.have.length(4);
+        app._pagelets.forEach(function (pagelet) {
           expect(pagelet.prototype).to.have.property('id');
         });
 
@@ -217,19 +213,45 @@ describe('Pipe', function () {
 
   describe('.discover', function () {
     it('provides default pagelets if no /404 or /500 is found', function () {
-      expect(app.statusCodes[404]).to.equal(require('404-pagelet'));
-      expect(app.statusCodes[500]).to.equal(require('500-pagelet'));
+      expect(app._statusCodes[404]).to.equal(require('404-pagelet'));
+      expect(app._statusCodes[500]).to.equal(require('500-pagelet'));
     });
 
-    it('uses user provided 404 and 500 pagelets based on routes', function () {
-      app = new Pipe(server, {
-        pagelets: __dirname + '/fixtures/discover',
-        dist: '/tmp/dist'
-      });
+    it('uses default bootstrap Pagelet if none is provided', function () {
+      expect(app._bootstrap).to.equal(require('bootstrap-pagelet'));
+    });
 
-      expect(app.pagelets).to.have.length(0);
-      expect(app.statusCodes[404]).to.not.equal(require('404-pagelet'));
-      expect(app.statusCodes[500]).to.not.equal(require('500-pagelet'));
+    it('uses provided 404 and 500 pagelets based on routes', function (done) {
+      var custom = new Pipe(server, {
+        dist: '/tmp/dist'
+      }).define(__dirname + '/fixtures/discover', function () {
+        var Fourofour = require('404-pagelet')
+          , Fivehundred = require('500-pagelet');
+
+        expect(custom._pagelets).to.have.length(0);
+        expect(custom._statusCodes[404].prototype.view).to.not.equal(Fourofour.prototype.view);
+        expect(custom._statusCodes[404].prototype.pagelets).to.not.equal(Fourofour.prototype.pagelets);
+
+        expect(custom._statusCodes[500].prototype.view).to.not.equal(Fivehundred.prototype.view);
+        expect(custom._statusCodes[500].prototype.pagelets).to.not.equal(Fivehundred.prototype.pagelets);
+        done();
+      });
+    });
+
+    it('uses provided bootstrap pagelet based on name', function (done) {
+      var custom = new Pipe(server, {
+        dist: '/tmp/dist'
+      }).define(__dirname + '/fixtures/bootstrapper', function () {
+        var Bootstrap = require('bootstrap-pagelet');
+
+        expect(custom._pagelets).to.have.length(0);
+        expect(custom._bootstrap.prototype.view).to.not.equal(Bootstrap.prototype.view);
+        expect(custom._bootstrap.prototype.title).to.not.equal(Bootstrap.prototype.title);
+        done();
+      });;
+
+      expect(custom._pagelets).to.have.length(0);
+      expect(custom._bootstrap).to.not.equal(require('bootstrap-pagelet'));
     });
   });
 
@@ -240,7 +262,7 @@ describe('Pipe', function () {
         dist: '/tmp/dist'
       });
 
-      app.pagelets.forEach(function (pagelets) {
+      app._pagelets.forEach(function (pagelets) {
         expect(pagelets.id).to.not.match(/^dummy/);
       });
     });
@@ -254,11 +276,11 @@ describe('Pipe', function () {
       this.timeout(50E4);
 
       var pipe = new Pipe(http.createServer(), {
-          dist: '/tmp/dist'
+        dist: '/tmp/dist'
       });
 
       pipe.once('listening', function () {
-        pipe.server.close(done);
+        pipe._server.close(done);
       });
 
       pipe.listen(common.port);
