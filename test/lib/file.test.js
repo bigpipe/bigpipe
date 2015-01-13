@@ -19,7 +19,7 @@ describe('File', function () {
   });
 
   it('exposes the File constructor', function () {
-    expect(file).to.be.an.instanceof(File);
+    expect(file).to.be.instanceof(File);
   });
 
   it('has references to default mime types per extension', function () {
@@ -29,7 +29,6 @@ describe('File', function () {
   });
 
   it('stores references to provided data', function () {
-    expect(file).to.have.property('location', '/' + sha + ext);
     expect(file).to.have.property('type', file.mime[ext]);
     expect(file).to.have.property('extname', ext);
     expect(file).to.have.property('hash', sha);
@@ -45,21 +44,21 @@ describe('File', function () {
       var result = file.set('anything');
 
       expect(file.set).to.be.a('function');
-      expect(result).to.be.an.instanceof(File);
+      expect(result).to.be.instanceof(File);
     });
 
     it('will be called on construction if content is provided', function () {
       var result = new File(location, ext, false, 'custom');
 
       expect(result.code).to.equal('custom');
-      expect(result.buffer).to.be.an.instanceof(Buffer);
+      expect(result.buffer).to.be.instanceof(Buffer);
     });
 
     it('will update the length, code and buffer of the file', function () {
       file.set(code);
 
       expect(file.code).to.equal(code);
-      expect(file.buffer).to.be.an.instanceof(Buffer);
+      expect(file.buffer).to.be.instanceof(Buffer);
       expect(JSON.stringify(file.buffer)).to.include('116,105,110,121');
       expect(file.length).to.equal(18);
     });
@@ -98,12 +97,12 @@ describe('File', function () {
   describe('#get', function () {
     it('is a function that returns a string', function () {
       expect(file.get).to.be.a('function');
-      expect(file.get()).to.be.an('object');
+      expect(file.get()).to.be.an('buffer');
     });
 
     it('returns buffer by default', function () {
       expect(JSON.stringify(file.get())).to.include('116,105,110,121');
-      expect(file.get()).to.be.an.instanceof(Buffer);
+      expect(file.get()).to.be.instanceof(Buffer);
     });
 
     it('returns code if readable flag is supplied', function () {

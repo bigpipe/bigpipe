@@ -35,13 +35,10 @@
     "zipline": "1.0.x"
   },
   "devDependencies": {
-    "chai": "1.10.x",
-    "coveralls": "2.11.x",
+    "assume": "1.0.x",
     "istanbul": "0.3.x",
     "mocha": "2.1.x",
-    "pre-commit": "0.0.x",
-    "sinon": "1.12.x",
-    "sinon-chai": "2.6.x"
+    "pre-commit": "0.0.x"
   },
   "repository": {
     "type": "git",

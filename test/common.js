@@ -1,11 +1,6 @@
 'use strict';
 
-var chai = require('chai')
-  , sinon = require('sinon')
-  , sinonChai = require('sinon-chai');
-
-chai.Assertion.includeStack = true;
-chai.use(sinonChai);
+var assume = require('assume');
 
 //
 // Expose Pagelets's Pipe
@@ -17,8 +12,7 @@ exports.File = require('../lib/file');
 //
 // Expose our assertations.
 //
-exports.expect = chai.expect;
-exports.sinon = sinon;
+exports.expect = assume;
 
 //
 // Expose a port number generator.
