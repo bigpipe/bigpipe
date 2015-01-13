@@ -59,6 +59,12 @@ describe('Pipe', function () {
     expect(app._compiler).to.be.instanceof(Compiler);
   });
 
+  it('has temper instance for template rendering', function () {
+    expect(app).to.have.property('_temper');
+    expect(app._temper).to.be.an('object');
+    expect(app._temper).to.be.instanceof(require('temper'));
+  });
+
   it('does not cache by default', function () {
     expect(app).to.have.property('_cache');
     expect(app._cache).to.equal(false);
