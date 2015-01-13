@@ -47,6 +47,12 @@ describe('Pipe', function () {
     expect(app.middleware).to.be.instanceof(require('supply'));
   });
 
+  it('has zipline to handle gzip compression', function () {
+    expect(app).to.have.property('_zipline');
+    expect(app._zipline).to.be.an('object');
+    expect(app._zipline).to.be.instanceof(require('zipline'));
+  });
+
   it('has compiler for asset management', function () {
     expect(app).to.have.property('_compiler');
     expect(app._compiler).to.be.an('object');
