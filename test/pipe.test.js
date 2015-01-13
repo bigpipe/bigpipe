@@ -59,7 +59,12 @@ describe('Pipe', function () {
     expect(app._compiler).to.be.instanceof(Compiler);
   });
 
-  describe('private options', function () {
+  it('does not cache by default', function () {
+    expect(app).to.have.property('_cache');
+    expect(app._cache).to.equal(false);
+  });
+
+  describe('_options', function () {
     it('has queryable options with defaults', function () {
       expect(app._options).to.be.a('function');
       expect(app._options('host')).to.equal(undefined);
