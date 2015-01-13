@@ -41,6 +41,12 @@ describe('Pipe', function () {
     expect(Pagelet.method).to.be.a('array');
   });
 
+  it('has supply middleware manager', function () {
+    expect(app).to.have.property('middleware');
+    expect(app.middleware).to.be.an('object');
+    expect(app.middleware).to.be.instanceof(require('supply'));
+  });
+
   it('has compiler for asset management', function () {
     expect(app).to.have.property('_compiler');
     expect(app._compiler).to.be.an('object');
