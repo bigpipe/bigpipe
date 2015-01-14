@@ -277,6 +277,27 @@ describe('Pipe', function () {
   });
 
   describe('.discover', function () {
+    it('is a function', function () {
+      assume(app.discover).to.be.a('function');
+      assume(app.discover.length).to.equal(1);
+    });
+
+    it('returns an error if the pagelets or middleware are invalid', function (done) {
+      var pipe = new Pipe(http.createServer(), {
+        dist: '/tmp/dist'
+      });
+
+      pipe.once('transform:pagelet:after', function (Pagelet, next) {
+        return next(new Error('middleware failed'));
+      });
+
+      pipe.discover(function (error) {
+        assume(error).to.be.instanceof(Error);
+        assume(error.message).to.include('middleware failed');
+        done();
+      });
+    });
+
     it('provides default pagelets if no /404 or /500 is found', function () {
       assume(app._statusCodes[404]).to.equal(require('404-pagelet'));
       assume(app._statusCodes[500]).to.equal(require('500-pagelet'));
