@@ -26,6 +26,17 @@ describe('Pipe', function () {
     assume(Pipe.Pagelet.extend).to.be.a('function');
   });
 
+  it('has fallback if called as function without new', function () {
+    assume(Pipe()).to.be.instanceof(Pipe);
+  });
+
+  it('has defaults for options', function () {
+    var pipe = new Pipe(http.createServer());
+
+    assume(pipe).to.have.property('_options');
+    assume(pipe._options).to.have.property('merge');
+  });
+
   it('is an EvenEmitter3', function () {
     assume(app).to.be.instanceOf(require('eventemitter3'));
   });
@@ -357,7 +368,8 @@ describe('Pipe', function () {
 
     it('will define and process the provided pagelets', function (done) {
       var pipe = new Pipe(http.createServer(), {
-        pagelets: __dirname +'/fixtures/pagelets'
+        pagelets: __dirname +'/fixtures/pagelets',
+        dist: '/tmp/dist'
       });
 
       pipe.once('listening', function () {
