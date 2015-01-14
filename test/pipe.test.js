@@ -30,6 +30,10 @@ describe('Pipe', function () {
     assume(app).to.be.instanceOf(require('eventemitter3'));
   });
 
+  it('exposes the current version', function () {
+    assume(app.version).to.equal(require(process.cwd() +'/package.json').version);
+  });
+
   it('correctly resolves `pagelets` as a string to an array', function () {
     assume(app._pagelets).to.be.a('array');
     assume(app._pagelets).to.have.length(4);
@@ -102,6 +106,11 @@ describe('Pipe', function () {
   });
 
   describe('.initialize', function () {
+    it('is a function', function () {
+      assume(app.initialize).is.a('function');
+      assume(app.initialize.length).to.equal(1);
+    });
+
     it('loads default middleware', function () {
       assume(app.middleware.layers[0]).to.have.property('name', 'defaults');
       assume(app.middleware.layers[1]).to.have.property('name', 'zipline');
@@ -314,11 +323,16 @@ describe('Pipe', function () {
   });
 
   describe('.listen', function () {
+    it('is a function', function () {
+      assume(app.listen).to.be.a('function');
+      assume(app.listen.length).to.equal(2);
+    });
+
     it('proxies event listeners', function (done) {
       //
       // Set a big timeout as we might need to lazy install dependencies
       //
-      this.timeout(50E4);
+      this.timeout(500E3);
 
       var pipe = new Pipe(http.createServer(), {
         dist: '/tmp/dist'
@@ -328,6 +342,30 @@ describe('Pipe', function () {
         pipe._server.close(done);
       });
 
+      pipe.listen(common.port, function () {
+        assume(pipe._server._events).to.have.property('listening');
+        assume(pipe._server._events.listening[0]).to.be.a('function');
+        assume(pipe._server._events.listening[0].toString()).to.equal(pipe.emits('listening').toString());
+        assume(pipe._server._events).to.have.property('request');
+        assume(pipe._server._events.request).to.be.a('function');
+        assume(pipe._server._events.request.toString()).to.equal(pipe.bind(pipe.dispatch).toString());
+        assume(pipe._server._events).to.have.property('error');
+        assume(pipe._server._events.error).to.be.a('function');
+        assume(pipe._server._events.error.toString()).to.equal(pipe.emits('error').toString());
+      });
+    });
+
+    it('will define and process the provided pagelets', function (done) {
+      var pipe = new Pipe(http.createServer(), {
+        pagelets: __dirname +'/fixtures/pagelets'
+      });
+
+      pipe.once('listening', function () {
+        assume(pipe._pagelets.length).to.equal(4);
+        pipe._server.close(done);
+      });
+
+      assume(pipe._pagelets.length).to.equal(0);
       pipe.listen(common.port);
     });
   });
