@@ -149,7 +149,7 @@ BigPipe.readable('listen', function listen(port, done) {
   this.define(pagelets, function defined(error) {
     if (error) {
       if (done) return done(error);
-      throw error;
+      pipe.emit('error', error);
     }
 
     pipe._server.on('listening', pipe.emits('listening'));

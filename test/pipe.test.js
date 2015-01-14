@@ -339,6 +339,40 @@ describe('Pipe', function () {
       assume(app.listen.length).to.equal(2);
     });
 
+    it('returns an error if define fails', function (done) {
+      var pipe = new Pipe(http.createServer(), {
+        pagelets: {
+          failure: require('pagelet').extend({
+            view: undefined
+          })
+        }
+      });
+
+      pipe.listen(common.port, function (error) {
+        assume(error).to.be.instanceof(Error);
+        assume(error.message).to.include('should have a .view property');
+        done();
+      });
+    });
+
+    it('emits the error if no callback is provided', function (done) {
+        var pipe = new Pipe(http.createServer(), {
+          pagelets: {
+            failure: require('pagelet').extend({
+              view: undefined
+            })
+          }
+        });
+
+        pipe.once('error', function (error) {
+          assume(error).to.be.instanceof(Error);
+          assume(error.message).to.include('should have a .view property');
+          done();
+        });
+
+        pipe.listen(common.port);
+    });
+
     it('proxies event listeners', function (done) {
       //
       // Set a big timeout as we might need to lazy install dependencies
