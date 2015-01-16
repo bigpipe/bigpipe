@@ -222,13 +222,14 @@ BigPipe.readable('discover', function discover(done) {
  */
 BigPipe.readable('status', function status(req, res, code, data) {
   if (!(code in this._statusCodes)) {
-    throw new Error('Unsupported HTTP code: '+ code +'.');
+    return this.emit('error', new Error('Unsupported HTTP code: '+ code +'.'));
   }
 
   var Pagelet = this._statusCodes[code]
     , pagelet = new Pagelet({ pipe: this, req: req, res: res }, data);
 
-  return this.bootstrap(pagelet, req, res);
+  this.bootstrap(pagelet, req, res);
+  return pagelet;
 });
 
 /**
@@ -355,7 +356,7 @@ BigPipe.readable('router', function router(req, res, id, next) {
     // required for authorization purposes.
     //
     if (Pagelet.router) pagelet._params = Pagelet.router.exec(req.uri.pathname) || {};
-    if ('function' === typeof pagelet.if) {
+    if (pagelet.if) {
       return pagelet.conditional(req, function authorize(allowed) {
         debug('Authorization required for %s: %s', pagelet.path, allowed ? 'allowed' : 'disallowed');
 
@@ -743,11 +744,6 @@ BigPipe.createServer = function createServer(port, options) {
   //
   return listen ? pipe : pipe.listen(options.port);
 };
-
-//
-// Expose our constructors.
-//
-BigPipe.Pagelet = require('pagelet');
 
 //
 // Expose the constructor.
