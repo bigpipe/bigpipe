@@ -577,47 +577,6 @@ BigPipe.readable('read', function read(pagelet) {
 });
 
 /**
- * Inject the output of a template directly in to view's pagelet placeholder
- * element.
- *
- * @param {String} base The template that is injected in to.
- * @param {String} view The generated pagelet view.
- * @param {Pagelet} pagelet The pagelet instance we're rendering
- * @returns {String} updated base template
- * @api private
- */
-BigPipe.readable('inject', function inject(base, view, pagelet) {
-  var name = pagelet.name;
-
-  [
-    "data-pagelet='"+ name +"'",
-    'data-pagelet="'+ name +'"',
-    'data-pagelet='+ name,
-  ].forEach(function locate(attribute) {
-    var index = base.indexOf(attribute)
-      , end;
-
-    //
-    // As multiple versions of the pagelet can be included in to one single
-    // parent pagelet we need to search for multiple occurrences of the
-    // `data-pagelet` attribute.
-    //
-    while (~index) {
-      end = base.indexOf('>', index);
-
-      if (~end) {
-        base = base.slice(0, end + 1) + view + base.slice(end + 1);
-        index = end + 1 + view.length;
-      }
-
-      index = base.indexOf(attribute, index + 1);
-    }
-  });
-
-  return base;
-});
-
-/**
  * Initialize a new Bootstrap Pagelet and return it so the routed Pagelet and
  * its childs can use it as state keeper. The HTML of the bootstrap pagelet is
  * flushed asap to the client.

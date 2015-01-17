@@ -157,6 +157,7 @@ describe('Pipe', function () {
 
   describe('.router', function () {
     var pipeById = new Pipe(http.createServer(), {
+      dist: '/tmp/dist',
       pagelets: {
         tester: Pagelet.extend({
           name: 'tester',
@@ -252,12 +253,13 @@ describe('Pipe', function () {
     it('returns authorized conditional pagelet', function (done) {
       var notAllowedCalled = false
         , pipeIf = new Pipe(http.createServer(), {
+            dist: '/tmp/dist',
             pagelets: {
               notallowed: Pagelet.extend({
                 path: '/',
                 view: __dirname +'/fixtures/view/all.html',
                 if: function (req, fn) {
-                  assume(req).to.equal
+                  assume(req.url).to.equal('/');
                   notAllowedCalled = true;
                   fn(false);
                 }
@@ -633,6 +635,55 @@ describe('Pipe', function () {
       }
 
       app.bind(test)('1st arg', '2nd arg', '3rd arg');
+    });
+  });
+
+  describe('.dispatch', function () {
+    it('is a function', function () {
+      assume(app.dispatch).is.a('function');
+      assume(app.dispatch.length).to.equal(2);
+    });
+
+    it('returns early if middleware handles the repsonse', function (done) {
+      var pipe = new Pipe(http.createServer(), {
+        dist: '/tmp/dist'
+      });
+
+      pipe.middleware.use('test', function (req, res, next) {
+        assume(req.url).to.equal('/');
+        next(null, true)
+
+        pipe._server.close(done);
+      });
+
+      pipe.listen(common.port, function () {
+        pipe.dispatch(new Request('/'), new Response);
+      })
+    });
+
+
+    it('returns 500 Pagelet if middleware errors', function (done) {
+      var pipe = new Pipe(http.createServer(), {
+        dist: '/tmp/dist'
+      });
+
+      pipe.middleware.use('test', function (req, res, next) {
+        assume(req.url).to.equal('/');
+        next(new Error('Testing message, fail!'), false)
+      });
+
+      pipe.listen(common.port, function () {
+        var response = new Response;
+        response.write = function write(data, encoding, cb) {
+          data = data.toString('utf-8');
+          assume(data).to.include('<title>BigPipe</title>')
+          assume(data).to.include('500, Internal server error')
+          assume(data).to.include('Error: Testing message, fail!')
+          pipe._server.close(done);
+        }
+
+        pipe.dispatch(new Request('/'), response);
+      })
     });
   });
 });
