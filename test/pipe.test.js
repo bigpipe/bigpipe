@@ -423,7 +423,7 @@ describe('Pipe', function () {
         assume(custom._bootstrap.prototype.view).to.not.equal(Bootstrap.prototype.view);
         assume(custom._bootstrap.prototype.title).to.not.equal(Bootstrap.prototype.title);
         done();
-      });;
+      });
 
       assume(custom._pagelets).to.have.length(0);
       assume(custom._bootstrap).to.not.equal(require('bootstrap-pagelet'));
@@ -552,11 +552,11 @@ describe('Pipe', function () {
     it('defaults options to empty object', function (done) {
       var pipe = Pipe.createServer(common.port);
       pipe.once('listening', done);
-    })
+    });
 
     it('returns pipe instance if listen is false', function () {
       assume(Pipe.createServer(common.port, { listen: false })).to.be.instanceof(Pipe);
-    })
+    });
   });
 
   describe('.redirect', function () {
@@ -631,7 +631,7 @@ describe('Pipe', function () {
       });
 
       app.redirect(pagelet, '/redirect', 302);
-    })
+    });
   });
 
 
@@ -928,7 +928,7 @@ describe('Pipe', function () {
         , res = new Response
         , pagelet = new Pagelet({ req: req, res: res });
 
-      req.query['no_pagelet_js'] = '1';
+      req.query.no_pagelet_js = '1';
       pagelet.mode = 'async';
 
       app.bootstrap(pagelet, req, res);
