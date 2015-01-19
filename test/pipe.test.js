@@ -1,31 +1,16 @@
 describe('Pipe', function () {
   'use strict';
 
-  var common = require('./common')
-    , Compiler = require('../lib/compiler')
+  var Compiler = require('../lib/compiler')
+    , common = require('./common')
     , Pagelet = require('pagelet')
-    , http = require('http')
     , assume = require('assume')
+    , http = require('http')
+    , Response = common.Response
+    , Request = common.Request
     , Pipe = common.Pipe
     , server
     , app;
-
-  //
-  // Request stub
-  //
-  function Request(url, method) {
-    this.url = url || '';
-    this.uri = require('url').parse(this.url, true);
-    this.query = this.uri.query || {};
-    this.method = method || 'GET';
-  }
-
-  //
-  // Response stub
-  //
-  function Response() {
-    this.setHeader = this.write = this.end = this.once = function noop() {};
-  }
 
   before(function (done) {
     server = http.createServer(function () {
@@ -156,8 +141,6 @@ describe('Pipe', function () {
   });
 
   describe('.router', function () {
-    return; /* disable until get a clean way to test this. */
-
     var pipeById = new Pipe(http.createServer(), {
       dist: '/tmp/dist',
       pagelets: {
@@ -174,23 +157,21 @@ describe('Pipe', function () {
     });
 
     it('finds the / pagelet', function (done) {
-      app.router(new Request('/'), {}, function (err, pagelet) {
-        if (err) return done(err);
-
+      app.once('bootstrap', function (pagelet, req, res) {
         assume(pagelet).to.be.instanceOf(Pagelet);
         assume(pagelet.statusCode).to.equal(200);
 
         done();
       });
+
+      app.router(new Request('/'), new Response());
     });
 
     it('can route to specific pagelets by id', function (done) {
       pipeById.listen(common.port, function () {
         var id = pipeById._pagelets[0].prototype.id;
 
-        pipeById.router(new Request('/'), {}, id, function (err, pagelet) {
-          if (err) return done(err);
-
+        pipeById.once('bootstrap', function (pagelet) {
           assume(pagelet).to.be.instanceOf(Pagelet);
           assume(pagelet.view).to.equal(__dirname +'/fixtures/view/all.html');
           assume(pagelet.name).to.equal('tester');
@@ -198,6 +179,8 @@ describe('Pipe', function () {
 
           pipeById._server.close(done);
         });
+
+        pipeById.router(new Request('/'), new Response(), id);
       });
     });
 
@@ -205,51 +188,50 @@ describe('Pipe', function () {
       pipeById.listen(common.port, function () {
         var id = pipeById._pagelets[0].prototype.id;
 
-        pipeById.router(new Request('/'), {}, 'some random id', function (err, pagelet) {
-          if (err) return done(err);
-
+        pipeById.once('bootstrap', function (pagelet) {
           assume(pagelet).to.be.instanceOf(require('404-pagelet'));
           assume(pagelet.name).to.equal('404');
           assume(pagelet.path).to.equal('/404');
 
           pipeById._server.close(done);
         });
+
+        pipeById.router(new Request('/'), new Response(), 'some random id');
       });
     });
 
     it('doesnt find / for POST requests', function (done) {
-      app.router(new Request('/', 'POST'), {}, function (err, pagelet) {
-        if (err) return done(err);
-
+      app.once('bootstrap', function (pagelet) {
         assume(pagelet).to.be.instanceOf(Pagelet);
         assume(pagelet.statusCode).to.equal(404);
-
         done();
       });
+
+      app.router(new Request('/', 'POST'), new Response());
     });
 
     ['GET', 'POST', 'MOO'].forEach(function (method) {
       it('finds /all for '+ method, function (done) {
-        app.router(new Request('/all', method), {}, function (err, pagelet) {
-          if (err) return done(err);
-
+        app.once('bootstrap', function (pagelet) {
           assume(pagelet).to.be.instanceOf(Pagelet);
           assume(pagelet.statusCode).to.equal(200);
 
           done();
         });
+
+        app.router(new Request('/all', method), new Response());
       });
     });
 
     it('always returns a 404 page for unknown urls', function (done) {
-      app.router(new Request('/'+ Math.random(), 'POST'), {}, function (err, pagelet) {
-        if (err) return done(err);
-
+      app.once('bootstrap', function (pagelet) {
         assume(pagelet).to.be.instanceOf(Pagelet);
         assume(pagelet.statusCode).to.equal(404);
 
         done();
       });
+
+      app.router(new Request('/'+ Math.random(), 'POST'), new Response());
     });
 
     it('returns authorized conditional pagelet', function (done) {
@@ -276,9 +258,7 @@ describe('Pipe', function () {
           });
 
       pipeIf.listen(common.port, function () {
-        pipeIf.router(new Request('/'), {}, function (err, pagelet) {
-          if (err) return done(err);
-
+        pipeIf.once('bootstrap', function (pagelet) {
           assume(notAllowedCalled).to.equal(true);
           assume(pagelet).to.be.instanceOf(Pagelet);
           assume(pagelet.name).to.equal('allowed');
@@ -286,6 +266,8 @@ describe('Pipe', function () {
 
           pipeIf._server.close(done);
         });
+
+        pipeIf.router(new Request('/'), new Response());
       });
     });
 
@@ -312,22 +294,22 @@ describe('Pipe', function () {
       });
 
       local.define(__dirname +'/fixtures/pagelets', function define() {
-        local.router(new Request('/'), {}, function (err, pagelet) {
-          if (err) return done(err);
-
+        local.once('bootstrap', function (pagelet) {
           assume(pagelet).to.be.instanceOf(Pagelet);
           assume(pagelet.statusCode).to.equal(200);
 
-          local.router(new Request('/'), {}, function (err, pagelet) {
-            if (err) return done(err);
-
+          local.once('bootstrap', function (pagelet) {
             assume(pagelet).to.be.instanceOf(Pagelet);
             assume(pagelet.statusCode).to.equal(200);
             assume(pattern.join()).to.equal('get,set,get');
 
             done();
           });
+
+          local.router(new Request('/'), new Response());
         });
+
+        local.router(new Request('/'), new Response());
       });
     });
   });
