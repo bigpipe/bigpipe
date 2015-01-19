@@ -341,18 +341,19 @@ BigPipe.readable('router', function router(req, res, id, next) {
   //
   (function each(pagelets) {
     var Pagelet = pagelets.shift()
-      , pagelet = new Pagelet({ pipe: pipe, req: req, res: res });
+      , pagelet = new Pagelet({
+          params: Pagelet.router ? Pagelet.router.exec(req.uri.pathname) : {},
+          pipe: pipe,
+          req: req,
+          res: res
+        });
 
     debug('Iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
 
     //
-    // Make sure we parse out all the parameters from the URL as they might be
-    // required for authorization purposes.
+    // Check if the parent Pagelet is authorized or not. If the Pagelet is
+    // not allowed, continue crawling the other routable pagelets.
     //
-    if (Pagelet.router) {
-      pagelet._params = Pagelet.router.exec(req.uri.pathname) || {};
-    }
-
     if (pagelet.if) {
       return pagelet.conditional(req, function authorize(allowed) {
         debug(
