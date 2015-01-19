@@ -332,32 +332,31 @@ describe('Pipe', function () {
 
   describe('.define', function () {
     it('adds Pagelet to the pagelets collection', function (next) {
-      var faq = require(__dirname + '/fixtures/pagelets/faq');
+      var faq = require(__dirname + '/fixtures/pagelets/faq')
+       ,  pipe = new Pipe(server, {
+            dist: '/tmp/dist'
+          });
 
-      app = new Pipe(server, {
-        dist: '/tmp/dist'
-      });
-
-      app.define(faq, function (err) {
+      pipe.define(faq, function (err) {
         if (err) return next(err);
 
-        assume(app._pagelets).to.have.length(1);
-        assume(app._pagelets[0]).to.be.an('function');
+        assume(pipe._pagelets).to.have.length(1);
+        assume(pipe._pagelets[0]).to.be.an('function');
 
         next();
       });
     });
 
     it('will resolve and add the pagelets if directory', function (next) {
-      app = new Pipe(server, {
+      var pipe = new Pipe(server, {
         dist: '/tmp/dist'
       });
 
-      app.define(__dirname + '/fixtures/pagelets', function (err) {
+      pipe.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        assume(app._pagelets).to.have.length(4);
-        app._pagelets.forEach(function (pagelet) {
+        assume(pipe._pagelets).to.have.length(4);
+        pipe._pagelets.forEach(function (pagelet) {
           assume(pagelet.prototype).to.have.property('id');
         });
 
@@ -433,12 +432,12 @@ describe('Pipe', function () {
 
   describe('.resolve', function () {
     it('omits any directories from the pagelets directory without an index.js', function () {
-      app = new Pipe(server, {
+      var pipe = new Pipe(server, {
         pagelets: __dirname + '/fixtures/discover',
         dist: '/tmp/dist'
       });
 
-      app._pagelets.forEach(function (pagelets) {
+      pipe._pagelets.forEach(function (pagelets) {
         assume(pagelets.id).to.not.match(/^dummy/);
       });
     });
@@ -590,7 +589,42 @@ describe('Pipe', function () {
 
       app.redirect(pagelet, '/redirected', 400);
     });
+
+    it('can add cache headers to prevent caching the redirect', function () {
+      var resp = new Response
+        , keys = ['Pragma', 'Expires', 'Cache-Control', 'Location']
+        , props = [
+            '/redirect',
+            'no-cache',
+            'Sat, 26 Jul 1997 05:00:00 GMT',
+            'no-store, no-cache, must-revalidate, post-check=0, pre-check=0'
+          ];
+
+      resp.setHeader = function (key, prop) {
+        assume(keys).to.include(key);
+        assume(props).to.include(prop);
+      };
+
+      app.redirect(
+        new Pagelet({res: resp, pipe: app }),
+        '/redirect',
+        302,
+        { cache: false }
+      );
+    });
+
+    it('emits end if the pagelet has a listener', function (done) {
+      var pagelet = new Pagelet({res: new Response, pipe: app });
+
+      pagelet.once('end', function () {
+        assume(arguments.length).to.equal(0);
+        done();
+      });
+
+      app.redirect(pagelet, '/redirect', 302);
+    })
   });
+
 
   describe('.status', function () {
     it('is a function', function () {
@@ -651,16 +685,15 @@ describe('Pipe', function () {
 
       pipe.middleware.use('test', function (req, res, next) {
         assume(req.url).to.equal('/');
-        next(null, true)
+        next(null, true);
 
         pipe._server.close(done);
       });
 
       pipe.listen(common.port, function () {
         pipe.dispatch(new Request('/'), new Response);
-      })
+      });
     });
-
 
     it('returns 500 Pagelet if middleware errors', function (done) {
       var pipe = new Pipe(http.createServer(), {
@@ -669,21 +702,145 @@ describe('Pipe', function () {
 
       pipe.middleware.use('test', function (req, res, next) {
         assume(req.url).to.equal('/');
-        next(new Error('Testing message, fail!'), false)
+        next(new Error('Testing message, fail!'), false);
       });
 
       pipe.listen(common.port, function () {
         var response = new Response;
         response.write = function write(data, encoding, cb) {
           data = data.toString('utf-8');
-          assume(data).to.include('<title>BigPipe</title>')
-          assume(data).to.include('500, Internal server error')
-          assume(data).to.include('Error: Testing message, fail!')
+          assume(data).to.include('<title>BigPipe</title>');
+          assume(data).to.include('500, Internal server error');
+          assume(data).to.include('Error: Testing message, fail!');
           pipe._server.close(done);
-        }
+        };
 
         pipe.dispatch(new Request('/'), response);
+      });
+    });
+
+    it('delegates to router and bootstrap', function (done) {
+      var response = new Response;
+      response.write = function write(data, encoding, cb) {
+        data = data.toString('utf-8');
+        assume(data).to.include('<body data-pagelet="faq">\n  </body>\n</html>');
+        done();
+      };
+
+      app.dispatch(new Request('/faq'), response);
+    });
+  });
+
+  describe('.pluggable', function () {
+    it('is a function', function () {
+      assume(app.pluggable).is.a('function');
+      assume(app.pluggable.length).to.equal(1);
+    });
+
+    it('uses the provided plugins', function () {
+      var plugins = [{
+        name: 'car',
+        server: function noop() {}
+      }, {
+        name: 'bike',
+        client: function noop() {}
+      }];
+
+      app.pluggable(plugins);
+
+      assume(app._plugins).to.be.an('object');
+      assume(app._plugins).to.have.property('car');
+      assume(app._plugins).to.have.property('bike');
+      assume(app._plugins.car).to.equal(plugins[0]);
+      assume(app._plugins.bike).to.equal(plugins[1]);
+    });
+  });
+
+  describe('.use', function () {
+    it('is a function', function () {
+      assume(app.use).is.a('function');
+      assume(app.use.length).to.equal(2);
+    });
+
+    it('has optional name parameter', function () {
+      app.use('nameless', {
+        server: function noop() {}
       })
+
+      assume(app._plugins).to.have.property('nameless');
+    });
+
+    it('throws an error if the plugin has no name', function () {
+      function throws() {
+        app.use(void 0, {
+          server: function noop() {}
+        });
+      }
+
+      assume(throws).to.throw(Error);
+      assume(throws).to.throw('Plugin should be specified with a name.');
+    });
+
+    it('throws an error if the plugin name is not a string', function () {
+      function throws() {
+        app.use(12, {
+          server: function noop() {}
+        });
+      }
+
+      assume(throws).to.throw(Error);
+      assume(throws).to.throw('Plugin names should be a string.');
+    });
+
+    it('throws an error if the plugin is no object or string', function () {
+      function throws() {
+        app.use('test', 12);
+      }
+
+      assume(throws).to.throw(Error);
+      assume(throws).to.throw('Plugin should be an object or function.');
+    });
+
+    it('throws an error if the plugin is redefined with the same name', function () {
+      function throws() {
+        app.use({ name: 'test', server: function noop() {}});
+        app.use({ name: 'test', server: function noop() {}});
+      }
+
+      assume(throws).to.throw(Error);
+      assume(throws).to.throw('The plugin name was already defined.');
+    });
+
+    it('throws an error if the plugin has no server or client functions', function () {
+      function throws() {
+        app.use({ name: 'test'});
+      }
+
+      assume(throws).to.throw(Error);
+      assume(throws).to.throw('The plugin in missing a client or server function.');
+    });
+
+    it('reads plugins from file', function () {
+      app.use('fromfile', __dirname +'/fixtures/plugin');
+
+      assume(app._plugins).to.have.property('fromfile');
+      assume(app._plugins.fromfile).to.have.property('client');
+      assume(app._plugins.fromfile).to.have.property('server');
+    });
+
+    it('merges BigPipe and plugin options and calls the server function', function (done) {
+      app.use('merge', {
+        options: {
+          test: 'value'
+        },
+
+        server: function (pipe, options) {
+          assume(pipe).to.be.instanceof(Pipe);
+          assume(options).to.be.an('function');
+          assume(options('test')).to.equal('value');
+          done();
+        }
+      });
     });
   });
 });

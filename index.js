@@ -342,12 +342,7 @@ BigPipe.readable('router', function router(req, res, id, next) {
   //
   (function each(pagelets) {
     var Pagelet = pagelets.shift()
-      , pagelet = new Pagelet({
-          append: true,
-          pipe: pipe,
-          req: req,
-          res: res
-        });
+      , pagelet = new Pagelet({ pipe: pipe, req: req, res: res });
 
     debug('Iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
 
@@ -355,10 +350,17 @@ BigPipe.readable('router', function router(req, res, id, next) {
     // Make sure we parse out all the parameters from the URL as they might be
     // required for authorization purposes.
     //
-    if (Pagelet.router) pagelet._params = Pagelet.router.exec(req.uri.pathname) || {};
+    if (Pagelet.router) {
+      pagelet._params = Pagelet.router.exec(req.uri.pathname) || {};
+    }
+
     if (pagelet.if) {
       return pagelet.conditional(req, function authorize(allowed) {
-        debug('Authorization required for %s: %s', pagelet.path, allowed ? 'allowed' : 'disallowed');
+        debug(
+          'Authorization %s for %s',
+          allowed ? 'allowed' : 'disallowed',
+          pagelet.path
+        );
 
         if (allowed) return next(undefined, pagelet);
         each(pagelets);
