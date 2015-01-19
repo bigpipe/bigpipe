@@ -1,11 +1,9 @@
 'use strict';
 
-var Pagelet = require('../../../../').Pagelet;
-
-Pagelet.extend({
+require('pagelet').extend({
   js: 'hero.js',
   css: 'hero.css',
-  view: 'hero.ejs',
+  view: 'hero.html',
   render: function render(data, done) {
     setTimeout(function () {
       done(null, {

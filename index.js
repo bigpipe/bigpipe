@@ -3,18 +3,13 @@
 var debug = require('diagnostics')('bigpipe:server')
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
-  , Primus = require('primus')
+  , destroy = require('demolish')
+  , Zipline = require('zipline')
   , Temper = require('temper')
+  , Supply = require('supply')
   , fuse = require('fusing')
   , async = require('async')
-  , path = require('path')
-  , url = require('url')
-  , fs = require('fs');
-
-//
-// Automatically add trailers support to Node.js.
-//
-var trailers = require('trailers');
+  , path = require('path');
 
 /**
  * Queryable options with merge and fallback functionality.
@@ -33,7 +28,7 @@ function configure(obj) {
    */
   function get(key, backup) {
     if (key in obj) return obj[key];
-    if (backup) obj[key] = backup;
+    if (backup !== void 0) obj[key] = backup;
 
     return obj[key];
   }
@@ -42,7 +37,7 @@ function configure(obj) {
   // Allow new options to be be merged in against the original object.
   //
   get.merge = function merge(properties) {
-    return Pipe.predefine.merge(obj, properties);
+    return BigPipe.predefine.merge(obj, properties);
   };
 
   return get;
@@ -53,11 +48,10 @@ function configure(obj) {
  *
  * The following options are available:
  *
- * - cache: A object were we store our URL->page mapping.
+ * - cache: A object were we store our URL->pagelet mapping.
  * - dist: The pathname for the compiled assets.
- * - pages: String or array of pages we serve.
+ * - pagelets: String or array of pagelets we serve.
  * - parser: Which parser should be used to send data in real-time.
- * - pathname: The pathname we use for Primus requests.
  * - transformer: The transport engine we should use for real-time.
  *
  * @constructor
@@ -65,78 +59,67 @@ function configure(obj) {
  * @param {Object} options Configuration.
  * @api public
  */
-function Pipe(server, options) {
-  if (!(this instanceof Pipe)) return new Pipe(server, options);
+function BigPipe(server, options) {
+  if (!this) return new BigPipe(server, options);
   this.fuse();
 
   options = configure(options || {});
 
-  var readable = this.readable
-    , writable = this.writable
-    , bigpipe = this;
+  this._pagelets = [];                           // Stores our pagelets.
+  this._server = server;                         // HTTP server we work with.
+  this._options = options;                       // Configure options.
+  this._temper = new Temper;                     // Template parser.
+  this._plugins = Object.create(null);           // Plugin storage.
+  this._cache = options('cache', false);         // Enable URL lookup caching.
+  this._statusCodes = Object.create(null);       // Stores error pagelets.
+  this._zipline = new Zipline(options);          // Improved gzip compression.
 
   //
-  // Constants and properties that should never be overridden.
+  // Setup the asset compiler before pagelets are discovered as they will
+  // need to hook in to the compiler to register all assets that are loaded.
   //
-  readable('statusCodes', Object.create(null));       // Stores error pages.
-  readable('cache', options('cache', false));         // Enable URL lookup caching.
-  readable('plugins', Object.create(null));           // Plugin storage.
-  readable('options', options);                       // Configure options.
-  readable('temper', new Temper());                   // Template parser.
-  readable('server', server);                         // HTTP server we work with.
-  readable('layers', []);                             // Middleware layer.
-  readable('pages', []);                              // Stores our pages.
-
-  //
-  // Setup our real-time server.
-  //
-  readable('primus', new Primus(this.server, {
-    transformer: options('transformer', 'websockets'),// Real-time framework to use.
-    pathname: options('pathname', '/pagelets'),       // Primus pathname.
-    parser: options('parser', 'json'),                // Message parser.
-    plugin: {
-      substream: require('substream')                 // Volatile name spacing.
-    }
-  }));
-
-  //
-  // Setup the asset compiler before the pages are discovered as they will need
-  // to hook in to the compiler to register all assets that are loaded from
-  // pagelets.
-  //
-  readable('compiler', new Compiler(
+  this._compiler = new Compiler(
     options('dist', path.join(process.cwd(), 'dist')), this, {
       pathname: options('static', '/')
-  }));
+  });
 
   //
-  // Add our default middleware layers, this needs to be done before we
-  // initialize or add plugins as we want to make sure that OUR middleware is
-  // loaded first as it's the most important (at least, in our opinion).
+  // Middleware system, exposed as public so it can
+  // easily be called externally.
   //
-  this.before('compiler', this.compiler.serve);
+  this.middleware = new Supply(this);
 
-  //
-  // Apply the plugins before resolving and transforming the pages so the
-  // plugins can hook in to our optimization and transformation process.
-  //
-  this.pluggable(options('plugins', []));
-  this.use(require('./plugins/pagelet'));
-
-  //
-  // Finally, now that everything has been setup we can discover the pagelets
-  // that we need serve from our server.
-  //
-  this.define(
-    options('pages', path.join(process.cwd(), 'pages')),
-    this.emits('initialized')
-  );
+  this.initialize(options);
 }
 
 //
 // Inherit from EventEmitter3 as we need to emit listen events etc.
 //
-fuse(Pipe, require('eventemitter3'));
+fuse(BigPipe, require('eventemitter3'));
+
+/**
+ * Initialize various things of BigPipe.
+ *
+ * @param {Object} options Optional options.
+ * @returns {BigPipe} Fluent interface.
+ * @api private
+ */
+BigPipe.readable('initialize', function initialize(options) {
+  //
+  // Add our default middleware layers, this needs to be done before we
+  // initialize or add plugins as we want to make sure that OUR middleware is
+  // loaded first as it's the most important (at least, in our opinion).
+  //
+  this.middleware.use('defaults', require('./middleware/defaults'));
+  this.middleware.use('zipline', this._zipline.middleware());
+  this.middleware.use('compiler', this._compiler.serve);
+
+  //
+  // Apply the plugins before resolving and transforming the pagelets so the
+  // plugins can hook in to our optimization and transformation process.
+  //
+  return this.pluggable(options('plugins', []));
+});
 
 /**
  * The current version of the library.
@@ -144,140 +127,136 @@ fuse(Pipe, require('eventemitter3'));
  * @type {String}
  * @public
  */
-Pipe.readable('version', require(__dirname +'/package.json').version);
+BigPipe.readable('version', require(__dirname +'/package.json').version);
 
 /**
  * Start listening for incoming requests.
  *
  * @param {Number} port port to listen on
  * @param {Function} done callback
- * @return {Pipe} fluent interface
+ * @return {BigPipe} fluent interface
  * @api public
  */
-Pipe.readable('listen', function listen(port, done) {
-  var pipe = this;
+BigPipe.readable('listen', function listen(port, done) {
+  var pipe = this
+    , pagelets = this._options('pagelets', path.join(process.cwd(), 'pagelets'));
 
   //
-  // Find all assets and compile them before we start listening to the server as
-  // we don't want to serve un-compiled assets. And we should only start
-  // listening on the server once we're actually ready to respond to requests.
+  // Make sure we should only start listening on the server once
+  // we're actually ready to respond to requests.
   //
-  pipe.compiler.catalog(this.pages, function init(error) {
+  this.define(pagelets, function defined(error) {
     if (error) {
       if (done) return done(error);
-      throw error;
+      pipe.emit('error', error);
     }
 
-    //
-    // Don't allow double calls to .listen this causes the request listener to
-    // be added twice and result in the site being rendered and outputted twice
-    // for the same request.
-    //
-    if (pipe.primus.transformer.listeners('previous::request').length) {
-      throw new Error('BigPipe#listen should only be called once');
-    }
-
-    pipe.primus.transformer.on('previous::request', pipe.bind(pipe.dispatch));
-    pipe.primus.on('connection', pipe.bind(pipe.connection));
-    pipe.server.on('listening', pipe.emits('listening'));
-    pipe.server.on('error', pipe.emits('error'));
+    pipe._server.on('listening', pipe.emits('listening'));
+    pipe._server.on('request', pipe.bind(pipe.dispatch));
+    pipe._server.on('error', pipe.emits('error'));
 
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
-    debug('succesfully prepared the assets, starting HTTP server on port %d', port);
-    pipe.server.listen(port, done);
+    debug('Succesfully defined pagelets and assets, starting HTTP server on port %d', port);
+    pipe._server.listen(port, done);
   });
 
   return pipe;
 });
 
 /**
- * Discover if the user supplied us with custom error pages so we use that
- * in case we need to handle a 404 or and 500 error page.
+ * Discover if the user supplied us with custom error pagelets so we use that
+ * in case we need to handle a 404 or and 500 errors.
  *
- * @param {Array} pages All enabled pages.
- * @returns {Pipe} fluent interface
+ * @param {Function} done Completion callback.
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('discover', function discover(pages, next) {
-  var bigpipe = this
-    , fivehundered
-    , fourofour;
+BigPipe.readable('discover', function discover(done) {
+  var pipe = this
+    , local = ['404', '500', 'bootstrap'];
 
-  debug('discovering build-in error pages');
-
-  pages.forEach(function each(page) {
-    if (page.router.test('/500')) fivehundered = page;
-    if (page.router.test('/404')) fourofour = page;
+  debug('Discovering build-in pagelets, filtering out defaults (404, 500, bootstrap)');
+  pipe._pagelets = pipe._pagelets.filter(function filter(Pagelet) {
+    if (Pagelet.router && Pagelet.router.test('/404')) local[0] = Pagelet;
+    else if (Pagelet.router && Pagelet.router.test('/500')) local[1] = Pagelet;
+    else if (Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
+    else return Pagelet;
   });
 
-  async.map([fourofour || '404', fivehundered || '500'], function (Page, next) {
-    if ('string' !== typeof Page) return next(undefined, Page);
+  async.map(local, function (Pagelet, next) {
+    if ('string' !== typeof Pagelet) return next(undefined, Pagelet);
 
-    debug('no /'+ Page +' error page detected, using default bigpipe error page');
+    debug('No %s pagelet detected, using default bigpipe %s pagelet', Pagelet, Pagelet);
+    require(Pagelet + '-pagelet').optimize({
+      pipe: pipe,
+      transform: {
+        before: pipe.emits('transform:pagelet:before'),
+        after: pipe.emits('transform:pagelet:after')
+      }
+    }, next);
+  }, function found(error, status) {
+    if (error) return done(error);
 
-    Page = require('./pages/'+ Page);
-    Page.optimize(bigpipe, function optimized(err) {
-      next(err, Page);
-    });
-  }, function found(err, status) {
-    if (err) return next(err);
+    pipe._statusCodes[404] = status[0];
+    pipe._statusCodes[500] = status[1];
+    pipe._bootstrap = status[2];
 
-    bigpipe.statusCodes[404] = status[0];
-    bigpipe.statusCodes[500] = status[1];
-
-    next();
+    pipe._compiler.catalog(pipe._pagelets, done);
   });
 
   return this;
 });
 
 /**
- * Render a page from our `statusCodes` collection.
+ * Render a pagelet from our `statusCodes` collection.
  *
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
  * @param {Number} code The status we should handle.
- * @param {Mixed} data Nothing or something :D
+ * @param {Mixed} data Nothing or something, usually an Error
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('status', function status(req, res, code, data) {
-  if (!(code in this.statusCodes)) {
-    throw new Error('Unsupported HTTP code: '+ code +'.');
+BigPipe.readable('status', function status(req, res, code, data) {
+  if (!(code in this._statusCodes)) {
+    return this.emit('error', new Error('Unsupported HTTP code: '+ code +'.'));
   }
 
-  var Page = this.statusCodes[code]
-    , page = new Page(this);
+  var Pagelet = this._statusCodes[code]
+    , pagelet = new Pagelet({ pipe: this, req: req, res: res }, data);
 
-  page.data = data || {};
-  page.data.env = process.env.NODE_ENV;
-  page.configure(req, res);
-
-  return this;
+  this.bootstrap(pagelet, req, res);
+  return pagelet;
 });
 
 /**
- * Insert page into collection of pages. If page is a manually instantiated
- * Page push it in, otherwise resolve the path, always transform the page. After
- * dependencies are catalogued the callback will be called.
+ * Insert pagelet into collection of pagelets. If pagelet is a manually
+ * instantiated Pagelet push it in, otherwise resolve the path, always
+ * transform the pagelet. After dependencies are catalogued the callback
+ * will be called.
  *
- * @param {Mixed} pages array of composed Page objects or file path.
+ * @param {Mixed} pagelets array of composed Pagelet objects or file path.
  * @param {Function} done callback
  * @api public
  */
-Pipe.readable('define', function define(pages, done) {
-  var bigpipe = this;
+BigPipe.readable('define', function define(pagelets, done) {
+  var pipe = this;
 
-  async.map(fabricate(pages), function map(Page, next) {
-    Page.optimize(bigpipe, function optimized(err) {
-      next(err, Page);
-    });
-  }, function fabricated(err, pages) {
+  async.map(fabricate(pagelets), function map(Pagelet, next) {
+    Pagelet.optimize({
+      pipe: pipe,
+      transform: {
+        before: pipe.emits('transform:pagelet:before'),
+        after: pipe.emits('transform:pagelet:after')
+      }
+    }, next);
+  }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
-    bigpipe.pages.push.apply(bigpipe.pages, pages);
-    bigpipe.discover(pages, done);
+    pipe._pagelets.push.apply(pipe._pagelets, pagelets);
+    pipe.discover(done);
   });
 
   return this;
@@ -292,7 +271,7 @@ Pipe.readable('define', function define(pages, done) {
  * @returns {Function}
  * @api private
  */
-Pipe.readable('bind', function bind(fn) {
+BigPipe.readable('bind', function bind(fn) {
   var pipe = this;
 
   return function bound(arg1, arg2, arg3) {
@@ -301,216 +280,102 @@ Pipe.readable('bind', function bind(fn) {
 });
 
 /**
- * Find and initialize pages based on a given id or on the pathname of the
+ * Find and initialize pagelets based on a given id or on the pathname of the
  * request.
  *
  * @param {HTTP.Request} req The incoming HTTP request.
  * @param {HTTP.Response} res The outgoing HTTP request.
- * @param {String} id Optional id of page we specifically need.
- * @param {Function} next Continuation callback
+ * @param {String} id Optional id of pagelet we specifically need.
  * @api private
  */
-Pipe.readable('router', function router(req, res, id, next) {
-  if ('function' === typeof id) {
-    next = id;
-    id = undefined;
-  }
-
+BigPipe.readable('router', function router(req, res, id) {
   var key = id ? id : req.method +'@'+ req.uri.pathname
-    , pages = this.cache ? this.cache.get(key) || [] : []
-    , length = this.pages.length
+    , cache = this._cache ? this._cache.get(key) || [] : []
+    , pagelets = this._pagelets
+    , length = pagelets.length
     , pipe = this
     , i = 0
-    , page;
+    , pagelet;
 
-  if (!pages.length) {
+  //
+  // Cache is empty.
+  //
+  if (!cache.length) {
     if (id) for (; i < length; i++) {
-      page = this.pages[i];
+      pagelet = pagelets[i];
 
-      if (id === page.prototype.id) {
-        pages.push(page);
+      if (id === pagelet.prototype.id) {
+        cache.push(pagelet);
         break;
       }
     } else for (; i < length; i++) {
-      page = this.pages[i];
+      pagelet = pagelets[i];
 
-      if (!page.router.test(req.uri.pathname)) continue;
-      if (page.method.length && !~page.method.indexOf(req.method)) continue;
+      if (!pagelet.router) continue;
+      if (!pagelet.router.test(req.uri.pathname)) continue;
+      if (pagelet.method.length && !~pagelet.method.indexOf(req.method)) continue;
 
-      pages.push(page);
+      cache.push(pagelet);
     }
 
-    if (this.cache && pages.length) {
-      this.cache.set(key, pages);
-      debug('added key %s and its found pages to our internal lookup cache', key);
+    if (this._cache && cache.length) {
+      this._cache.set(key, cache);
+      debug('Added key %s and its found pagelets to our internal lookup cache', key);
     }
   }
 
   //
-  // Add an extra 404 page so we always have an page to display.
+  // Add an extra 404 pagelet so we always have a pagelet to display.
   //
-  pages.push(this.statusCodes[404]);
+  cache.push(this._statusCodes[404]);
 
   //
-  // It could be that we have selected a couple of authorized pages. Filter
-  // those out before sending the and initialized page to the callback.
+  // It could be that we have selected a couple of authorized pagelets. Filter
+  // those out before sending the initialized pagelet to the callback.
   //
-  (function each(pages) {
-    var Page = pages.shift()
-      , page = new Page(pipe);
+  (function each(pagelets) {
+    var Pagelet = pagelets.shift()
+      , pagelet = new Pagelet({
+          params: Pagelet.router ? Pagelet.router.exec(req.uri.pathname) : {},
+          pipe: pipe,
+          req: req,
+          res: res
+        });
 
-    debug('iterating over pages for %s testing %s atm', req.url, page.path);
+    debug('Iterating over pagelets for %s testing %s atm', req.url, pagelet.path);
 
     //
-    // Make sure we parse out all the parameters from the URL as they might be
-    // required for authorization purposes.
+    // Check if the parent Pagelet is authorized or not. If the Pagelet is
+    // not allowed, continue crawling the other routable pagelets.
     //
-    page.params = Page.router.exec(req.uri.pathname) || {};
+    if (pagelet.if) {
+      return pagelet.conditional(req, function authorize(allowed) {
+        debug(
+          'Authorization %s for %s',
+          allowed ? 'allowed' : 'disallowed',
+          pagelet.path
+        );
 
-    if ('function' === typeof page.authorize) {
-      page.req = req;   // Might be needed to retrieve sessions.
-      page.res = res;   // Might be needed for redirects.
-
-      return page.authorize(req, function authorize(allowed) {
-        debug('%s required authorization we are %s', page.path, allowed ? 'allowed' : 'disallowed');
-
-        if (allowed) return next(undefined, page);
-        each(pages);
+        if (allowed) return pipe.bootstrap(pagelet, req, res);
+        each(pagelets);
       });
     }
 
-    debug('Using %s for %s', page.path, req.url);
-    next(undefined, page);
-  }(pages.slice(0)));
+    debug('Using %s for %s', pagelet.path, req.url);
+    pipe.bootstrap(pagelet, req, res);
+  }(cache.slice(0)));
 
   return this;
-});
-
-/**
- * Add a new middleware layer. If no middleware name has been provided we will
- * attempt to take the name of the supplied function. If that fails, well fuck,
- * just random id it.
- *
- * @param {String} name The name of the middleware.
- * @param {Function} fn The middleware that's called each time.
- * @param {Object} options Middleware configuration.
- * @returns {Pipe}
- * @api public
- */
-Pipe.readable('before', function before(name, fn, options) {
-  if ('function' === typeof name) {
-    options = fn;
-    fn = name;
-    name = fn.name || 'pid_'+ Date.now();
-  }
-
-  options = options || {};
-
-  //
-  // No or only 1 argument means that we need to initialize the middleware, this
-  // is a special initialization process where we pass in a reference to the
-  // initialized Pipe instance so a pre-compiling process can be done.
-  //
-  if (fn.length < 2) fn = fn.call(this, options);
-
-  //
-  // Make sure that the given or returned function can
-  //
-  if ('function' !== typeof fn || fn.length < 2) {
-    throw new Error('Middleware should be a function that accepts at least 2 args');
-  }
-
-  //
-  // Add the middleware layers to primus as well.
-  //
-  if (options.primus) this.primus.before(name, fn);
-
-  var layer = {
-    length: fn.length,                // Amount of arguments indicates if it's a sync
-    enabled: true,                    // Middleware is enabled by default.
-    name: name,                       // Used for lookups.
-    fn: fn                            // The actual middleware.
-  }, index = this.indexOfLayer(name);
-
-  //
-  // Override middleware layers if we already have a middleware layer with
-  // exactly the same name.
-  //
-  if (!~index) {
-    this.layers.push(layer);
-  } else {
-    debug('Duplicate middleware layer found, overwriting %s', name);
-    this.layers[index] = layer;
-  }
-
-  return this;
-});
-
-/**
- * Remove a middleware layer from the stack.
- *
- * @param {String} name The name of the middleware.
- * @returns {Pipe}
- * @api public
- */
-Pipe.readable('remove', function remove(name) {
-  var index = this.indexOfLayer(name);
-
-  if (~index) this.layers.splice(index, 1);
-  return this;
-});
-
-/**
- * Enable a given middleware layer.
- *
- * @param {String} name The name of the middleware.
- * @returns {Pipe}
- * @api public
- */
-Pipe.readable('enable', function enable(name) {
-  var index = this.indexOfLayer(name);
-
-  if (~index) this.layers[index].enabled = true;
-  return this;
-});
-
-/**
- * Disable a given middleware layer.
- *
- * @param {String} name The name of the middleware.
- * @returns {Pipe}
- * @api public
- */
-Pipe.readable('disable', function disable(name) {
-  var index = this.indexOfLayer(name);
-
-  if (~index) this.layers[index].enabled = false;
-  return this;
-});
-
-/**
- * Find the index of a given middleware layer by name.
- *
- * @param {String} name The name of the layer.
- * @returns {Number}
- * @api private
- */
-Pipe.readable('indexOfLayer', function indexOfLayer(name) {
-  for (var i = 0, length = this.layers.length; i < length; i++) {
-    if (this.layers[i].name === name) return i;
-  }
-
-  return -1;
 });
 
 /**
  * Run the plugins.
  *
  * @param {Array} plugins List of plugins.
- * @returns {Pipe} fluent interface
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('pluggable', function pluggable(plugins) {
+BigPipe.readable('pluggable', function pluggable(plugins) {
   var pipe = this;
 
   plugins.forEach(function plug(plugin) {
@@ -525,93 +390,18 @@ Pipe.readable('pluggable', function pluggable(plugins) {
  *
  * @param {Request} req HTTP request.
  * @param {Response} res HTTP response.
- * @returns {Pipe} fluent interface
+ * @returns {BigPipe} fluent interface
  * @api private
  */
-Pipe.readable('dispatch', function dispatch(req, res) {
+BigPipe.readable('dispatch', function dispatch(req, res) {
   var pipe = this;
 
-  /**
-   * Something failed while processing things. Display an error page.
-   *
-   * @param {String}
-   * @api private
-   */
-  function fivehundered(err) {
-    var page = new pipe.statusCodes[500](pipe);
+  return this.middleware.each(req, res, function next(err, early) {
+    if (err) return pipe.status(req, res, 500, err);
+    if (early) return debug('request was handled by a middleware layer');
 
-    //
-    // Set an error as data so it can be used as data in the template.
-    //
-    page.data = err;
-    page.configure(req, res);
-  }
-
-  return this.forEach(req, res, function next(err) {
-    if (err) return fivehundered(err);
-
-    pipe.router(req, res, function completed(err, page) {
-      if (err) return fivehundered(err);
-
-      page.configure(req, res);
-    });
+    pipe.router(req, res);
   });
-});
-
-/**
- * Iterate all the middleware layers that we're set on our Pipe instance.
- *
- * @param {Request} req HTTP request.
- * @param {Response} res HTTP response.
- * @param {Function} next Continuation callback.
- * @api private
- */
-Pipe.readable('forEach', function forEach(req, res, next) {
-  var layers = this.layers
-    , pipe = this;
-
-  req.uri = req.uri || url.parse(req.url, true);
-  req.query = req.query || req.uri.query || {};
-
-  //
-  // Add some silly HTTP properties for connect.js compatibility.
-  //
-  req.originalUrl = req.url;
-
-  if (!layers.length) {
-    next();
-    return this;
-  }
-
-  //
-  // Async or sync call the middleware layer.
-  //
-  (function iterate(index) {
-    var layer = layers[index++];
-
-    if (!layer) return next();
-    if (!layer.enabled) return iterate(index);
-
-    debug('applying middleware %s on %s', layer.name, req.url);
-
-    if (layer.length === 2) {
-      //
-      // When true is returned we don't want to continue with the iteration of
-      // the middle and we certainly don't want to call the callback as the
-      // request will be handled by the specified middleware.
-      //
-      if (layer.fn.call(pipe, req, res) === true) return;
-      return iterate(index);
-    }
-
-    layer.fn.call(pipe, req, res, function done(err) {
-      if (err) return next(err);
-
-      iterate(index);
-    });
-  }(0));
-
-  return this;
 });
 
 /**
@@ -649,7 +439,7 @@ Pipe.readable('forEach', function forEach(req, res, next) {
  * @param {Object} plugin The plugin that contains client and server extensions.
  * @api public
  */
-Pipe.readable('use', function use(name, plugin) {
+BigPipe.readable('use', function use(name, plugin) {
   if ('object' === typeof name) {
     plugin = name;
     name = plugin.name;
@@ -673,83 +463,161 @@ Pipe.readable('use', function use(name, plugin) {
     throw new Error('The plugin in missing a client or server function.');
   }
 
-  if (name in this.plugins) {
+  if (name in this._plugins) {
     throw new Error('The plugin name was already defined. Please select an unique name for each plugin');
   }
 
-  debug('added plugin `%s`', name);
+  debug('Added plugin `%s`', name);
 
-  this.plugins[name] = plugin;
+  this._plugins[name] = plugin;
   if (!plugin.server) return this;
 
-  this.options.merge(plugin.options || {});
-  plugin.server.call(this, this, this.options);
+  this._options.merge(plugin.options || {});
+  plugin.server.call(this, this, this._options);
 
   return this;
 });
 
 /**
- * Find a bunch of connected real-time connections based on the supplied query
- * parameters.
+ * Redirect the user.
  *
- * Query:
- *
- * - page: The id of the page
- * - pagelet: The name of the pagelet
- * - id: The id of a pagelet
- * - enabled: State of pagelet (defaults to true)
- *
- * @param {String} url The URL to find.
- * @param {Object} query Query object.
- * @returns {Array}
+ * @param {String} location Where should we redirect to.
+ * @param {Number} status The status number.
  * @api public
  */
-Pipe.readable('find', function find(url, query) {
-  var results = []
-    , enabled = query.enabled === false ? false : true;
+BigPipe.readable('redirect', function redirect(pagelet, location, status, options) {
+  options = options || {};
 
-  this.primus.forEach(function each(spark) {
-    if (!spark.page || !spark.page.constructor.router.test(url)) return;
+  pagelet._res.statusCode = +status || 301;
+  pagelet._res.setHeader('Location', location);
 
-    var page = spark.page;
+  //
+  // Instruct browsers to not cache the redirect.
+  //
+  if (options.cache === false) {
+    pagelet._res.setHeader('Pragma', 'no-cache');
+    pagelet._res.setHeader('Expires', 'Sat, 26 Jul 1997 05:00:00 GMT');
+    pagelet._res.setHeader('Cache-Control', [
+      'no-store', 'no-cache', 'must-revalidate', 'post-check=0', 'pre-check=0'
+    ].join(', '));
+  }
 
-    if (query.page && query.page === page.id) {
-      results.push(page);
-    }
+  pagelet._res.end();
 
-    if (query.pagelet) {
-      Array.prototype.push.apply(results, page.has(query.pagelet, enabled));
-    }
-
-    if (query.id) page.enabled.forEach(function each(pagelet) {
-      if (pagelet.id === query.id) results.push(pagelet);
-    });
-  });
-
-  return results;
+  if (pagelet.listeners('end').length) pagelet.emit('end');
+  return pagelet.debug('Redirecting to %s', location);
 });
 
 /**
- * Handle incoming real-time requests.
+ * Initialize a new Bootstrap Pagelet and return it so the routed Pagelet and
+ * its childs can use it as state keeper. The HTML of the bootstrap pagelet is
+ * flushed asap to the client.
  *
- * @param {Spark} spark A real-time "socket".
+ * @param {Pagelet} parent Main pagelet that was found by the Router.
+ * @param {ServerRequest} req HTTP server request.
+ * @param {ServerResponse} res HTTP server response.
+ * @returns {Bootstrap} Bootstrap Pagelet.
  * @api private
  */
-Pipe.readable('connection', require('./primus'));
+BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
+  //
+  // It could be that the initialization handled the page rendering through
+  // a `page.redirect()` or a `page.notFound()` call so we should terminate
+  // the request once that happens.
+  //
+  if (res.finished) return this;
+
+  //
+  // @TODO rel prefetch for resources that are used on the next page?
+  // @TODO cache manifest.
+  //
+  res.statusCode = parent.statusCode;
+  res.setHeader('Content-Type', parent.contentType);
+
+  //
+  // Emit a pagelet configuration event so plugins can hook in to this.
+  //
+  res.once('close', this.emits('close'));
+
+  //
+  // If we have a `no_pagelet_js` flag, we should force a different
+  // rendering mode. This parameter is automatically added when we've
+  // detected that someone is browsing the site without JavaScript enabled.
+  //
+  // In addition to that, the other render modes only work if your browser
+  // supports trailing headers which where introduced in HTTP 1.1 so we need
+  // to make sure that this is something that the browser understands.
+  // Instead of checking just for `1.1` we want to make sure that it just
+  // tests for every http version above 1.0 as http 2.0 is just around the
+  // corner.
+  //
+  if (
+       'no_pagelet_js' in req.query && +req.query.no_pagelet_js === 1
+    || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
+  ) {
+    parent.debug('Forcing `sync` instead of %s due lack of HTTP 1.1 or JS', parent.mode);
+    parent.mode = 'sync';
+  }
+
+  //
+  // Create a bootstrap Pagelet, this is a special Pagelet that is flushed
+  // as soon as possible to instantiate the client side rendering.
+  //
+  parent._bootstrap = new this._bootstrap({
+    dependencies: this._compiler.page(parent),
+    params: parent._params,
+    queue: parent.length,
+    parent: parent.name,
+    mode: parent.mode,
+    pipe: this,
+    res: res,
+    req: req
+  });
+
+  if (parent.initialize) {
+    if (parent.initialize.length) {
+      parent.debug('Waiting for `initialize` method before rendering');
+      parent.initialize(parent.init.bind(parent));
+    } else {
+      parent.initialize();
+      parent.init();
+    }
+  } else {
+    parent.init();
+  }
+});
 
 /**
- * Create a new Pagelet/Pipe server.
+ * Completely destroy the instance and remove/release all its references.
+ *
+ * @type {Function}
+ * @api public
+ */
+BigPipe.readable('destroy', destroy([
+  '_pagelets', '_server', '_options', '_temper', '_plugins', '_cache',
+  '_statusCodes', '_zipline', '_compiler', 'middleware'
+], {
+  before: function before() {
+    try { this._server.close(); }
+    catch (e) {}
+  },
+  after: 'removeAllListeners'
+}));
+
+/**
+ * Create a new Pagelet/BigPipe server.
  *
  * @param {Number} port port to listen on
  * @param {Object} options Configuration.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.createServer = function createServer(port, options) {
+BigPipe.createServer = function createServer(port, options) {
   options = 'object' === typeof port ? port : options || {};
   if ('number' === typeof port) options.port = port;
 
-  var listen = options.listen === false;
+  var listen = options.listen === false
+    , pipe;
 
   //
   // Listening is done by our own .listen method, so we need to tell the
@@ -757,23 +625,18 @@ Pipe.createServer = function createServer(port, options) {
   // This option is forced and should not be override by users configuration.
   //
   options.listen = false;
+  options.port = options.port || 8080;
+  pipe = new BigPipe(require('create-server')(options), options);
 
-  var pipe = new Pipe(require('create-server')(options), options);
-
-  if (!listen) return pipe.on('initialized', function listen() {
-    pipe.listen(options.port)
-  });
-
-  return pipe;
+  //
+  // By default the server will listen. Passing options.listen === false
+  // is only required if listening needs to be done with a manual call.
+  // BigPipe.createServer will pass as argument.
+  //
+  return listen ? pipe : pipe.listen(options.port);
 };
-
-//
-// Expose our constructors.
-//
-Pipe.Pagelet = require('pagelet');
-Pipe.Page = require('./page');
 
 //
 // Expose the constructor.
 //
-module.exports = Pipe;
+module.exports = BigPipe;

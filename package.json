@@ -1,47 +1,43 @@
 {
   "name": "bigpipe",
-  "version": "0.8.5",
+  "version": "0.9.0",
   "description": "Bigpipe a radical new web framework for Node.js that's inspired by Facebook's bigpipe concept.",
   "main": "index.js",
   "engine": "node >= 0.10.0",
   "scripts": {
-    "test": "NODE_ENV=test ./node_modules/.bin/mocha $(find test -name '*.test.js')",
-    "coverage": "NODE_ENV=test ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha $(find test -name '*.test.js') --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js || true && rm -rf ./coverage"
+    "test": "mocha --reporter spec --ui bdd $(find test -name '*.test.js')",
+    "watch": "mocha --watch --reporter spec --ui $(find test -name '*.test.js')",
+    "coverage": "istanbul cover ./node_modules/.bin/_mocha -- --reporter spec --ui bdd $(find test -name '*.test.js')",
+    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- --reporter spec --ui bdd $(find test -name '*.test.js')"
   },
   "pre-commit": [
     "compile",
     "test"
   ],
   "dependencies": {
+    "404-pagelet": "1.0.x",
+    "500-pagelet": "1.0.x",
     "async": "0.9.x",
     "bigpipe.js": "0.8.x",
+    "bootstrap-pagelet": "1.0.x",
     "create-server": "0.0.x",
+    "demolish": "1.0.x",
     "diagnostics": "0.0.x",
-    "ejs": "1.0.x",
     "eventemitter3": "0.1.x",
-    "expirable": "0.1.x",
     "fabricator": "0.4.x",
-    "formidable": "1.0.x",
-    "fusing": "0.3.x",
+    "fusing": "0.4.x",
     "mkdirp": "0.5.x",
-    "pagelet": "0.8.x",
-    "primus": "2.4.x",
-    "routable": "0.0.x",
     "smithy": "0.5.x",
-    "substream": "0.1.x",
+    "supply": "0.0.x",
     "temper": "0.2.x",
-    "trailers": "0.0.x",
-    "ws": "0.4.x"
+    "zipline": "1.0.x"
   },
   "devDependencies": {
-    "chai": "1.9.x",
-    "coveralls": "2.10.x",
-    "istanbul": "0.2.x",
-    "mocha": "1.18.x",
-    "mocha-lcov-reporter": "0.0.x",
-    "pre-commit": "0.0.x",
-    "sinon": "1.9.x",
-    "sinon-chai": "2.5.x"
+    "assume": "1.1.x",
+    "istanbul": "0.3.x",
+    "mocha": "2.1.x",
+    "pagelet": "0.8.x",
+    "pre-commit": "0.0.x"
   },
   "repository": {
     "type": "git",

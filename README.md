@@ -1,8 +1,11 @@
-# BigPipe [![Build Status][status]](https://travis-ci.org/bigpipe/bigpipe) [![NPM version][npmimgurl]](http://badge.fury.io/js/bigpipe) [![Coverage Status][coverage]](http://coveralls.io/r/bigpipe/bigpipe?branch=master)
+# BigPipe
 
-[status]: https://travis-ci.org/bigpipe/bigpipe.png
-[npmimgurl]: https://badge.fury.io/js/bigpipe.png
-[coverage]: http://coveralls.io/repos/bigpipe/bigpipe/badge.png?branch=master
+[![Version npm][version]](http://browsenpm.org/package/bigpipe)[![Build Status][build]](https://travis-ci.org/bigpipe/bigpipe)[![Dependencies][david]](https://david-dm.org/bigpipe/bigpipe)[![Coverage Status][cover]](https://coveralls.io/r/bigpipe/bigpipe?branch=master)
+
+[version]: http://img.shields.io/npm/v/bigpipe.svg?style=flat-square
+[build]: http://img.shields.io/travis/bigpipe/bigpipe/master.svg?style=flat-square
+[david]: https://img.shields.io/david/bigpipe/bigpipe.svg?style=flat-square
+[cover]: http://img.shields.io/coveralls/bigpipe/bigpipe/master.svg?style=flat-square
 
 BigPipe is a radical new web framework that is inspired by the concept behind
 Facebook's BigPipe. The general idea is to decompose web pages into small
