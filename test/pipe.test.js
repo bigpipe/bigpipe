@@ -548,6 +548,15 @@ describe('Pipe', function () {
 
       pipe.once('listening', done);
     });
+
+    it('defaults options to empty object', function (done) {
+      var pipe = Pipe.createServer(common.port);
+      pipe.once('listening', done);
+    })
+
+    it('returns pipe instance if listen is false', function () {
+      assume(Pipe.createServer(common.port, { listen: false })).to.be.instanceof(Pipe);
+    })
   });
 
   describe('.redirect', function () {
@@ -765,7 +774,7 @@ describe('Pipe', function () {
     it('has optional name parameter', function () {
       app.use('nameless', {
         server: function noop() {}
-      })
+      });
 
       assume(app._plugins).to.have.property('nameless');
     });
@@ -841,6 +850,160 @@ describe('Pipe', function () {
           done();
         }
       });
+    });
+  });
+
+  describe('.destroy', function () {
+    it('is a function', function () {
+      assume(app.destroy).is.a('function');
+      assume(app.destroy.length).to.equal(0);
+    });
+
+    it('closes the server if required', function (done) {
+      var pipe = new Pipe(http.createServer(), {
+        dist: '/tmp/dist'
+      });
+
+      pipe.listen(common.port, function () {
+        pipe._server.close = done;
+        pipe.destroy();
+      });
+    });
+
+    it('removes listeners and cleans references', function (done) {
+      var pipe = new Pipe(http.createServer(), {
+        pagelets: __dirname +'/fixtures/pagelets',
+        dist: '/tmp/dist'
+      });
+
+      pipe.listen(common.port, function () {
+        pipe.destroy();
+
+        assume(pipe).to.not.have.property('_events');
+        assume(pipe).to.have.property('_pagelets', null);
+        assume(pipe).to.have.property('_temper', null);
+        assume(pipe).to.have.property('_plugins', null);
+        assume(pipe).to.have.property('middleware', null);
+
+        done();
+      });
+    });
+  });
+
+  describe('.bootstrap', function () {
+    it('is a function', function () {
+      assume(app.bootstrap).is.a('function');
+      assume(app.bootstrap.length).to.equal(3);
+    });
+
+    it('returns early if the response is finished', function () {
+      var req = new Request
+        , res = new Response
+        , pagelet = new Pagelet
+        , result;
+
+      res.finished = true;
+      result = app.bootstrap(pagelet, req, res);
+
+      assume(Object.keys(pagelet._bootstrap).length).to.equal(0);
+      assume(result).to.be.instanceof(Pipe);
+    });
+
+    it('proxies close listener on the response', function (done) {
+      var req = new Request
+        , res = new Response
+        , pagelet = new Pagelet({ req: req, res: res });
+
+      res.once = function (key, fn) {
+        assume(key).to.equal('close');
+        assume(fn.toString()).to.equal(app.emits('close').toString());
+        done();
+      };
+
+      app.bootstrap(pagelet, req, res);
+    });
+
+    it('forces sync mode if the JS is disabled or HTTP versions are missing', function () {
+      var req = new Request
+        , res = new Response
+        , pagelet = new Pagelet({ req: req, res: res });
+
+      req.query['no_pagelet_js'] = '1';
+      pagelet.mode = 'async';
+
+      app.bootstrap(pagelet, req, res);
+      assume(pagelet).to.have.property('mode', 'sync');
+
+      req.httpVersionMajor = '2';
+      pagelet.mode = 'async';
+
+      app.bootstrap(pagelet, req, res);
+      assume(pagelet).to.have.property('mode', 'sync');
+    });
+
+    it('bootstraps the parent in async mode by default', function () {
+      var req = new Request
+        , res = new Response
+        , pagelet = new Pagelet({ req: req, res: res });
+
+      req.httpVersionMajor = '2';
+      req.httpVersionMinor = '2';
+
+      app.bootstrap(pagelet, req, res);
+      assume(pagelet.mode).to.equal('async');
+    });
+
+    it('adds the bootstrap pagelet to the parent', function () {
+      var req = new Request
+        , res = new Response
+        , pagelet = new Pagelet({ req: req, res: res });
+
+      app.bootstrap(pagelet, req, res);
+      assume(pagelet._bootstrap).to.be.an('object');
+      assume(pagelet._bootstrap).to.be.instanceof(require('bootstrap-pagelet'));
+    });
+
+    it('calls .init on the parent pagelet', function (done) {
+      var req = new Request
+        , res = new Response
+        , pagelet = new (Pagelet.extend({
+            init: function () {
+              assume(arguments).to.have.length(0);
+              done();
+            }
+          }))({ req: req, res: res });
+
+      app.bootstrap(pagelet, req, res);
+    });
+
+    it('calls .initialize on the parent pagelet', function (done) {
+      var req = new Request
+        , res = new Response
+        , pagelet = new (Pagelet.extend({
+            initialize: function () {
+              assume(arguments).to.have.length(0);
+              done();
+            }
+          }))({ req: req, res: res });
+
+      app.bootstrap(pagelet, req, res);
+    });
+
+    it('calls .initialize (async) on the parent pagelet', function (done) {
+      var req = new Request
+        , res = new Response
+        , pagelet = new (Pagelet.extend({
+            init: function () {
+              done();
+            },
+            initialize: function (next) {
+              assume(arguments).to.have.length(1);
+              assume(next).to.be.a('function');
+              next();
+            }
+          }))({ req: req, res: res });
+
+      app.bootstrap(pagelet, req, res);
     });
   });
 });

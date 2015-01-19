@@ -1,7 +1,6 @@
 'use strict';
 
 var debug = require('diagnostics')('bigpipe:server')
-  , Formidable = require('formidable').IncomingForm
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
   , destroy = require('demolish')
@@ -516,66 +515,6 @@ BigPipe.readable('redirect', function redirect(pagelet, location, status, option
 
   if (pagelet.listeners('end').length) pagelet.emit('end');
   return pagelet.debug('Redirecting to %s', location);
-});
-
-/**
- * Start buffering and reading the incoming request.
- *
- * @returns {Form}
- * @api private
- */
-BigPipe.readable('read', function read(pagelet) {
-  var form = new Formidable()
-    , pipe = this
-    , fields = {}
-    , files = {}
-    , context
-    , before;
-
-  form.on('progress', function progress(received, expected) {
-    //
-    // @TODO if we're not sure yet if we should handle this form, we should only
-    // buffer it to a predefined amount of bytes. Once that limit is reached we
-    // need to `form.pause()` so the client stops uploading data. Once we're
-    // given the heads up, we can safely resume the form and it's uploading.
-    //
-  }).on('field', function field(key, value) {
-    fields[key] = value;
-  }).on('file', function file(key, value) {
-    files[key] = value;
-  }).on('error', function error(err) {
-    pagelet[pagelet.mode](err);
-    fields = files = {};
-  }).on('end', function end() {
-    form.removeAllListeners();
-
-    if (before) {
-      before.call(context, fields, files, pagelet[pagelet.mode].bind(pagelet));
-    }
-  });
-
-  /**
-   * Add a hook for adding a completion callback.
-   *
-   * @param {Function} callback
-   * @returns {Form}
-   * @api public
-   */
-  form.before = function befores(callback, contexts) {
-    if (form.listeners('end').length)  {
-      form.resume();      // Resume a possible buffered post.
-
-      before = callback;
-      context = contexts;
-
-      return form;
-    }
-
-    callback.call(contexts || context, fields, files, pagelet[pagelet.mode].bind(pagelet));
-    return form;
-  };
-
-  return form.parse(pagelet._req);
 });
 
 /**
