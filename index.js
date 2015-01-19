@@ -286,15 +286,9 @@ BigPipe.readable('bind', function bind(fn) {
  * @param {HTTP.Request} req The incoming HTTP request.
  * @param {HTTP.Response} res The outgoing HTTP request.
  * @param {String} id Optional id of pagelet we specifically need.
- * @param {Function} next Continuation callback
  * @api private
  */
-BigPipe.readable('router', function router(req, res, id, next) {
-  if ('function' === typeof id) {
-    next = id;
-    id = undefined;
-  }
-
+BigPipe.readable('router', function router(req, res, id) {
   var key = id ? id : req.method +'@'+ req.uri.pathname
     , cache = this._cache ? this._cache.get(key) || [] : []
     , pagelets = this._pagelets
@@ -362,13 +356,13 @@ BigPipe.readable('router', function router(req, res, id, next) {
           pagelet.path
         );
 
-        if (allowed) return next(undefined, pagelet);
+        if (allowed) return pipe.bootstrap(pagelet, req, res);
         each(pagelets);
       });
     }
 
     debug('Using %s for %s', pagelet.path, req.url);
-    next(undefined, pagelet);
+    pipe.bootstrap(pagelet, req, res);
   }(cache.slice(0)));
 
   return this;
@@ -406,11 +400,7 @@ BigPipe.readable('dispatch', function dispatch(req, res) {
     if (err) return pipe.status(req, res, 500, err);
     if (early) return debug('request was handled by a middleware layer');
 
-    pipe.router(req, res, function completed(err, pagelet) {
-      if (err) return pipe.status(req, res, 500, err);
-
-      pipe.bootstrap(pagelet, req, res);
-    });
+    pipe.router(req, res);
   });
 });
 
