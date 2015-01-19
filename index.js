@@ -574,6 +574,8 @@ BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
     req: req
   });
 
+  this.emit('bootstrap', parent, req, res);
+
   if (parent.initialize) {
     if (parent.initialize.length) {
       parent.debug('Waiting for `initialize` method before rendering');
