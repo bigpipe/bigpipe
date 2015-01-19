@@ -33,7 +33,7 @@
     "zipline": "1.0.x"
   },
   "devDependencies": {
-    "assume": "1.0.x",
+    "assume": "1.1.x",
     "istanbul": "0.3.x",
     "mocha": "2.1.x",
     "pagelet": "0.8.x",
