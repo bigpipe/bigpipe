@@ -11,6 +11,6 @@ var url = require('url');
  */
 module.exports = function defaults(req, res) {
   req.uri = req.uri || url.parse(req.url, true);
-  req.query = req.query || req.uri.query || {};
+  req.query = req.query || req.uri.query;
   req.originalUrl = req.url;
 };

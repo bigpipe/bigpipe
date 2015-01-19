@@ -25,7 +25,7 @@ describe('Pipe', function () {
   //
   function Response() {
     this.setHeader = this.write = this.end = this.once = function noop() {};
-  };
+  }
 
   before(function (done) {
     server = http.createServer(function () {
