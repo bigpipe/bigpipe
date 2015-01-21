@@ -889,7 +889,7 @@ describe('Pipe', function () {
       res.finished = true;
       result = app.bootstrap(pagelet, req, res);
 
-      assume(Object.keys(pagelet._bootstrap).length).to.equal(0);
+      assume(Object.keys(pagelet.bootstrap).length).to.equal(0);
       assume(result).to.be.instanceof(Pipe);
     });
 
