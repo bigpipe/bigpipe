@@ -203,7 +203,11 @@ BigPipe.readable('discover', function discover(done) {
     pipe._statusCodes[500] = status[1];
     pipe._bootstrap = status[2];
 
-    pipe._compiler.catalog(pipe._pagelets, done);
+    //
+    // Also catalog dependencies on status Pagelets and bootstrap.
+    // As the developer could have provided custom Pagelets.
+    //
+    pipe._compiler.catalog(pipe._pagelets.concat(status), done);
   });
 
   return this;
