@@ -532,7 +532,6 @@ BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
   // @TODO cache manifest.
   //
   res.statusCode = parent.statusCode;
-  res.setHeader('Content-Type', parent.contentType);
 
   //
   // Emit a pagelet configuration event so plugins can hook in to this.

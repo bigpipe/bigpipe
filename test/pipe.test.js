@@ -716,7 +716,7 @@ describe('Pipe', function () {
       var response = new Response;
       response.write = function write(data, encoding, cb) {
         data = data.toString('utf-8');
-        assume(data).to.include('<body data-pagelet="faq">\n  </body>\n</html>');
+        assume(data).to.include('<body data-pagelet="faq">faq\n  </body>\n</html>');
         done();
       };
 
