@@ -471,6 +471,15 @@ BigPipe.readable('use', function use(name, plugin) {
     throw new Error('The plugin name was already defined. Please select an unique name for each plugin');
   }
 
+  //
+  // Resolve the path of the plugin as it might be required
+  // to resolve dependencies.
+  //
+  Object.keys(require.cache).forEach(function (key) {
+    if (require.cache[key].exports !== plugin) return;
+    plugin.path = key;
+  });
+
   debug('Added plugin `%s`', name);
 
   this._plugins[name] = plugin;

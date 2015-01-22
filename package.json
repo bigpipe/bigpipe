@@ -20,6 +20,7 @@
     "async": "0.9.x",
     "bigpipe.js": "0.8.x",
     "bootstrap-pagelet": "1.0.x",
+    "browserify": "8.1.x",
     "create-server": "0.0.x",
     "demolish": "1.0.x",
     "diagnostics": "0.0.x",
