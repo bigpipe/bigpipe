@@ -6,5 +6,8 @@
 require('pagelet').extend({
   method: 'GET',
   path: '/',
-  view: '../../view/all.html'
+  view: '../../view/all.html',
+  pagelets: {
+    all: require('../all')
+  }
 }).on(module);

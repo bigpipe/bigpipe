@@ -44,7 +44,7 @@ describe('Pipe', function () {
 
   it('correctly resolves `pagelets` as a string to an array', function () {
     assume(app._pagelets).to.be.a('array');
-    assume(app._pagelets).to.have.length(4);
+    assume(app._pagelets).to.have.length(5);
   });
 
   it('transforms pagelets', function () {
@@ -169,13 +169,17 @@ describe('Pipe', function () {
 
     it('can route to specific pagelets by id', function (done) {
       pipeById.listen(common.port, function () {
-        var id = pipeById._pagelets[0].prototype.id;
+        var local = pipeById._pagelets[0].prototype
+          , id = local.id
+          , name = local.name
+          , view = local.view
+          , path = local.path;
 
         pipeById.once('bootstrap', function (pagelet) {
           assume(pagelet).to.be.instanceOf(Pagelet);
-          assume(pagelet.view).to.equal(__dirname +'/fixtures/view/all.html');
-          assume(pagelet.name).to.equal('tester');
-          assume(pagelet.path).to.equal(null);
+          assume(pagelet.view).to.equal(view);
+          assume(pagelet.name).to.equal(name);
+          assume(pagelet.path).to.equal(path);
 
           pipeById._server.close(done);
         });
@@ -339,7 +343,7 @@ describe('Pipe', function () {
       pipe.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        assume(pipe._pagelets).to.have.length(4);
+        assume(pipe._pagelets).to.have.length(5);
         pipe._pagelets.forEach(function (pagelet) {
           assume(pagelet.prototype).to.have.property('id');
         });
@@ -501,7 +505,7 @@ describe('Pipe', function () {
       });
 
       pipe.once('listening', function () {
-        assume(pipe._pagelets.length).to.equal(4);
+        assume(pipe._pagelets.length).to.equal(5);
         pipe._server.close(done);
       });
 

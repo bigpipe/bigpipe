@@ -331,7 +331,6 @@ BigPipe.readable('router', function router(req, res, id) {
     } else for (; i < length; i++) {
       pagelet = pagelets[i];
 
-      if (!pagelet.router) continue;
       if (!pagelet.router.test(req.uri.pathname)) continue;
       if (pagelet.method.length && !~pagelet.method.indexOf(req.method)) continue;
 
@@ -356,7 +355,7 @@ BigPipe.readable('router', function router(req, res, id) {
   (function each(pagelets) {
     var Pagelet = pagelets.shift()
       , pagelet = new Pagelet({
-          params: Pagelet.router ? Pagelet.router.exec(req.uri.pathname) : {},
+          params: Pagelet.router.exec(req.uri.pathname),
           pipe: pipe,
           req: req,
           res: res
