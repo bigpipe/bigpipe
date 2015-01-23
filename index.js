@@ -175,15 +175,31 @@ BigPipe.readable('listen', function listen(port, done) {
  */
 BigPipe.readable('discover', function discover(done) {
   var pipe = this
-    , local = ['404', '500', 'bootstrap'];
+    , local = ['404', '500', 'bootstrap']
+    , childs = [];
 
   debug('Discovering build-in pagelets, filtering out defaults (404, 500, bootstrap)');
   pipe._pagelets = pipe._pagelets.filter(function filter(Pagelet) {
-    if (Pagelet.router && Pagelet.router.test('/404')) local[0] = Pagelet;
-    else if (Pagelet.router && Pagelet.router.test('/500')) local[1] = Pagelet;
-    else if (Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
-    else return Pagelet;
-  });
+    var router = Pagelet.router
+      , parent = !Pagelet.prototype._parent
+      , pagelet;
+
+    //
+    // Crawl all the children for potential routes.
+    //
+    for (pagelet in Pagelet.prototype.pagelets) {
+      pagelet = filter(Pagelet.prototype.pagelets[pagelet]);
+      if (pagelet) childs.push(pagelet);
+    }
+
+    //
+    // Extract 404, 500 and bootstrap pagelets.
+    //
+    if (parent && router && router.test('/404')) local[0] = Pagelet;
+    else if (parent && router && router.test('/500')) local[1] = Pagelet;
+    else if (parent && Pagelet.prototype.name === 'bootstrap') local[2] = Pagelet;
+    else if (router) return Pagelet;
+  }).concat(childs);
 
   async.map(local, function (Pagelet, next) {
     if ('string' !== typeof Pagelet) return next(undefined, Pagelet);
