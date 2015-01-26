@@ -88,7 +88,6 @@ function BigPipe(server, options) {
   // easily be called externally.
   //
   this.middleware = new Supply(this);
-
   this.initialize(options);
 }
 
@@ -113,6 +112,19 @@ BigPipe.readable('initialize', function initialize(options) {
   this.middleware.use('defaults', require('./middleware/defaults'));
   this.middleware.use('zipline', this._zipline.middleware());
   this.middleware.use('compiler', this._compiler.serve);
+
+  //
+  // Provide a evented metrics API, this way users can hook in their metrics
+  // collection modules or easily switch between metrics clients. This gives us
+  // as developers a stable API and our users the flexibility that they require.
+  //
+  this.metrics = options('metrics', {
+    increment: this.emits('metrics:increment'),
+    decrement: this.emits('metrics:decrement'),
+    timing: this.emits('metrics:timing'),
+    gauge: this.emits('metrics:gauge'),
+    set: this.emits('metrics:set')
+  });
 
   //
   // Apply the plugins before resolving and transforming the pagelets so the
