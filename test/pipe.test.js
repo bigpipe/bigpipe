@@ -82,6 +82,70 @@ describe('Pipe', function () {
     assume(app._cache).to.equal(false);
   });
 
+  describe('.metrics', function () {
+    it('has a metrics object', function () {
+      assume(app.metrics).is.a('object');
+    });
+
+    it('emits `metrics:*` events when calling the methods', function (next) {
+      var order = [];
+
+      function receive(name) {
+        order.push(name);
+
+        if (order.length !== 5) return;
+
+        assume(order[0]).equals('increment');
+        assume(order[1]).equals('decrement');
+        assume(order[2]).equals('timing');
+        assume(order[3]).equals('gauge');
+        assume(order[4]).equals('set');
+
+        next();
+      }
+
+      app.on('metrics:increment', receive.bind(0, 'increment'))
+             .on('metrics:decrement', receive.bind(0, 'decrement'))
+             .on('metrics:timing', receive.bind(0, 'timing'))
+             .on('metrics:gauge', receive.bind(0, 'gauge'))
+             .on('metrics:set', receive.bind(0, 'set'));
+
+      app.metrics.increment();
+      app.metrics.decrement();
+      app.metrics.timing();
+      app.metrics.gauge();
+      app.metrics.set();
+    });
+
+    it('receives the supplied arguments', function (next) {
+      app.once('metrics:gauge', function (name, value) {
+        assume(name).equals('http.concurrent');
+        assume(value).equals(100);
+
+        next();
+      });
+
+      app.metrics.gauge('http.concurrent', 100);
+    });
+
+    it('can be overriden using a statsd instance', function (next) {
+      //
+      // We're going to fake the client here as we implement the same API
+      // interface.
+      //
+      var metrics = { increment: function increment() {
+        next();
+      }};
+
+      var pipe = new Pipe(http.createServer(), {
+        metrics: metrics
+      });
+
+      assume(pipe.metrics).equals(metrics);
+      pipe.metrics.increment();
+    });
+  });
+
   describe('_options', function () {
     it('has queryable options with defaults', function () {
       assume(app._options).to.be.a('function');
