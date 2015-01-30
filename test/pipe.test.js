@@ -700,16 +700,15 @@ describe('Pipe', function () {
         done();
       });
 
-      app.status(null, null, 303);
+      app.status(null, 303);
     });
 
     it('bootstraps the request status pagelet', function () {
       app.discover(function () {
-        var pagelet = app.status(new Request, new Response, 500, new Error('test message'));
+        var pagelet = app.status({ _req: new Request, _res: new Response }, 500, new Error('test message'));
         assume(pagelet).to.be.instanceof(require('500-pagelet'));
-        assume(pagelet.error).to.be.instanceof(Error);
-        assume(pagelet.error.message).to.equal('test message');
-        assume(pagelet._bootstrap).to.be.instanceof(require('bootstrap-pagelet'));
+        assume(pagelet.data).to.be.instanceof(Error);
+        assume(pagelet.data.message).to.equal('test message');
       });
     });
   });
@@ -739,7 +738,7 @@ describe('Pipe', function () {
       assume(app.dispatch.length).to.equal(2);
     });
 
-    it('returns early if middleware handles the repsonse', function (done) {
+    it('returns early if middleware handles the response', function (done) {
       var pipe = new Pipe(http.createServer(), {
         dist: '/tmp/dist'
       });
@@ -768,6 +767,7 @@ describe('Pipe', function () {
 
       pipe.listen(common.port, function () {
         var response = new Response;
+
         response.write = function write(data, encoding, cb) {
           data = data.toString('utf-8');
           assume(data).to.include('<title>BigPipe</title>');
@@ -784,7 +784,7 @@ describe('Pipe', function () {
       var response = new Response;
       response.write = function write(data, encoding, cb) {
         data = data.toString('utf-8');
-        assume(data).to.include('<body data-pagelet="faq">faq\n  </body>\n</html>');
+        assume(data).to.include('<body data-pagelet="faq">\n  </body>\n</html>');
         done();
       };
 
@@ -959,20 +959,6 @@ describe('Pipe', function () {
 
       assume(Object.keys(pagelet.bootstrap).length).to.equal(0);
       assume(result).to.be.instanceof(Pipe);
-    });
-
-    it('proxies close listener on the response', function (done) {
-      var req = new Request
-        , res = new Response
-        , pagelet = new Pagelet({ req: req, res: res });
-
-      res.once = function (key, fn) {
-        assume(key).to.equal('close');
-        assume(fn.toString()).to.equal(app.emits('close').toString());
-        done();
-      };
-
-      app.bootstrap(pagelet, req, res);
     });
 
     it('forces sync mode if the JS is disabled or HTTP versions are missing', function () {

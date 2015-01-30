@@ -244,23 +244,39 @@ BigPipe.readable('discover', function discover(done) {
 /**
  * Render a pagelet from our `statusCodes` collection.
  *
- * @param {Request} req HTTP request.
- * @param {Response} res HTTP response.
+ * @param {Pagelet} pagelet Reference to pagelet that invoked status.
  * @param {Number} code The status we should handle.
  * @param {Mixed} data Nothing or something, usually an Error
- * @returns {BigPipe} fluent interface
+ * @returns {Pagelet} Generated status pagelet.
  * @api private
  */
-BigPipe.readable('status', function status(req, res, code, data) {
+BigPipe.readable('status', function status(pagelet, code, data, bootstrap) {
   if (!(code in this._statusCodes)) {
     return this.emit('error', new Error('Unsupported HTTP code: '+ code +'.'));
   }
 
-  var Pagelet = this._statusCodes[code]
-    , pagelet = new Pagelet({ pipe: this, req: req, res: res }, data);
+  //
+  // No need to do a complete bootstrap of the pagelet, only return
+  // the status code Pagelet, where the name is replaced with the Pagelet
+  // that received the error.
+  //
+  if (!bootstrap) return new this._statusCodes[code]({
+    bootstrap: pagelet.bootstrap,
+    parent: pagelet._parent,
+    req: pagelet._req,
+    res: pagelet._res,
+    pipe: this
+  }, data, pagelet.name);
 
-  this.bootstrap(pagelet, req, res);
-  return pagelet;
+  //
+  // Do a full initialization of the status code Pagelet.
+  //
+  this.bootstrap(new this._statusCodes[code]({
+    parent: 'bootstrap',
+    req: pagelet._req,
+    res: pagelet._res,
+    pipe: this
+  }, data));
 });
 
 /**
@@ -368,6 +384,8 @@ BigPipe.readable('router', function router(req, res, id) {
     var Pagelet = pagelets.shift()
       , pagelet = new Pagelet({
           params: Pagelet.router.exec(req.uri.pathname),
+          parent: 'bootstrap',
+          append: true,
           pipe: pipe,
           req: req,
           res: res
@@ -427,8 +445,8 @@ BigPipe.readable('pluggable', function pluggable(plugins) {
 BigPipe.readable('dispatch', function dispatch(req, res) {
   var pipe = this;
 
-  return this.middleware.each(req, res, function next(err, early) {
-    if (err) return pipe.status(req, res, 500, err);
+  return this.middleware.each(req, res, function next(error, early) {
+    if (error) return pipe.status({ _req: req, _res: res}, 500, error, true);
     if (early) return debug('request was handled by a middleware layer');
 
     pipe.router(req, res);
@@ -553,13 +571,16 @@ BigPipe.readable('redirect', function redirect(pagelet, location, status, option
  * its childs can use it as state keeper. The HTML of the bootstrap pagelet is
  * flushed asap to the client.
  *
- * @param {Pagelet} parent Main pagelet that was found by the Router.
+ * @param {Pagelet} child Pagelet that was found by the Router.
  * @param {ServerRequest} req HTTP server request.
  * @param {ServerResponse} res HTTP server response.
  * @returns {Bootstrap} Bootstrap Pagelet.
  * @api private
  */
-BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
+BigPipe.readable('bootstrap', function bootstrap(child, req, res) {
+  req = req || child._req;
+  res = res || child._res;
+
   //
   // It could be that the initialization handled the page rendering through
   // a `page.redirect()` or a `page.notFound()` call so we should terminate
@@ -571,12 +592,7 @@ BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
   // @TODO rel prefetch for resources that are used on the next page?
   // @TODO cache manifest.
   //
-  res.statusCode = parent.statusCode;
-
-  //
-  // Emit a pagelet configuration event so plugins can hook in to this.
-  //
-  res.once('close', this.emits('close'));
+  res.statusCode = child.statusCode;
 
   //
   // If we have a `no_pagelet_js` flag, we should force a different
@@ -594,38 +610,40 @@ BigPipe.readable('bootstrap', function bootstrap(parent, req, res) {
        'no_pagelet_js' in req.query && +req.query.no_pagelet_js === 1
     || !(req.httpVersionMajor >= 1 && req.httpVersionMinor >= 1)
   ) {
-    parent.debug('Forcing `sync` instead of %s due lack of HTTP 1.1 or JS', parent.mode);
-    parent.mode = 'sync';
+    child.debug('Forcing `sync` instead of %s due lack of HTTP 1.1 or JS', child.mode);
+    child.mode = 'sync';
   }
 
   //
   // Create a bootstrap Pagelet, this is a special Pagelet that is flushed
   // as soon as possible to instantiate the client side rendering.
   //
-  parent._bootstrap = new this._bootstrap({
-    dependencies: this._compiler.page(parent),
-    params: parent._params,
-    queue: parent.length,
-    parent: parent.name,
-    mode: parent.mode,
+  child.bootstrap = new this._bootstrap({
+    dependencies: this._compiler.page(child),
+    params: child._params,
+    queue: child.length,
+    child: child.name,
+    mode: child.mode,
     pipe: this,
     res: res,
     req: req
   });
 
-  this.emit('bootstrap', parent, req, res);
+  this.emit('bootstrap', child, req, res);
 
-  if (parent.initialize) {
-    if (parent.initialize.length) {
-      parent.debug('Waiting for `initialize` method before rendering');
-      parent.initialize(parent.init.bind(parent));
+  if (child.initialize) {
+    if (child.initialize.length) {
+      child.debug('Waiting for `initialize` method before rendering');
+      child.initialize(child.init.bind(child));
     } else {
-      parent.initialize();
-      parent.init();
+      child.initialize();
+      child.init();
     }
   } else {
-    parent.init();
+    child.init();
   }
+
+  return this;
 });
 
 /**
