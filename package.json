@@ -5,15 +5,12 @@
   "main": "index.js",
   "engine": "node >= 0.10.0",
   "scripts": {
-    "test": "mocha --reporter spec --ui bdd $(find test -name '*.test.js')",
-    "watch": "mocha --watch --reporter spec --ui $(find test -name '*.test.js')",
-    "coverage": "istanbul cover ./node_modules/.bin/_mocha -- --reporter spec --ui bdd $(find test -name '*.test.js')",
-    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- --reporter spec --ui bdd $(find test -name '*.test.js')"
+    "100%": "istanbul check-coverage --statements 100 --functions 100 --lines 100 --branches 100",
+    "test": "mocha $(find test -name '*.test.js')",
+    "watch": "mocha --watch $(find test -name '*.test.js')",
+    "coverage": "istanbul cover ./node_modules/.bin/_mocha -- $(find test -name '*.test.js')",
+    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- $(find test -name '*.test.js')"
   },
-  "pre-commit": [
-    "compile",
-    "test"
-  ],
   "dependencies": {
     "404-pagelet": "1.0.x",
     "500-pagelet": "1.0.x",
@@ -37,8 +34,8 @@
     "assume": "1.1.x",
     "istanbul": "0.3.x",
     "mocha": "2.1.x",
-    "pagelet": "0.8.x",
-    "pre-commit": "0.0.x"
+    "pagelet": "bigpipe/pagelet",
+    "pre-commit": "1.0.x"
   },
   "repository": {
     "type": "git",
