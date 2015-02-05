@@ -621,7 +621,7 @@ BigPipe.readable('bootstrap', function bootstrap(child, req, res) {
   child.bootstrap = new this._bootstrap({
     dependencies: this._compiler.page(child),
     params: child._params,
-    queue: child.length,
+    length: child.length,
     child: child.name,
     mode: child.mode,
     pipe: this,
