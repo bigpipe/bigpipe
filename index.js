@@ -157,10 +157,12 @@ BigPipe.readable('listen', function listen(port, done) {
   // Make sure we should only start listening on the server once
   // we're actually ready to respond to requests.
   //
-  this.define(pagelets, function defined(error) {
-    if (error) {
-      if (done) return done(error);
-      pipe.emit('error', error);
+  this.define(pagelets, function defined(err) {
+    if (err) {
+      debug('I failed to listen to the server due to', err.message);
+
+      if (done) return done(err);
+      pipe.emit('error', err);
     }
 
     pipe._server.on('listening', pipe.emits('listening'));
