@@ -195,16 +195,15 @@ BigPipe.readable('discover', function discover(done) {
   debug('Discovering build-in pagelets, filtering out defaults (404, 500, bootstrap)');
   pipe._pagelets = pipe._pagelets.filter(function filter(Pagelet) {
     var router = Pagelet.router
-      , parent = !Pagelet.prototype._parent
-      , pagelet;
+      , parent = !Pagelet.prototype._parent;
 
     //
     // Crawl all the children for potential routes.
     //
-    for (pagelet in Pagelet.prototype.pagelets) {
-      pagelet = filter(Pagelet.prototype.pagelets[pagelet]);
+    Pagelet.prototype._children.forEach(function eachChild(pagelet) {
+      pagelet = filter(pagelet[0]);
       if (pagelet) childs.push(pagelet);
-    }
+    });
 
     //
     // Extract 404, 500 and bootstrap pagelets.
