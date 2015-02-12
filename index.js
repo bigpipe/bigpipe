@@ -294,6 +294,8 @@ BigPipe.readable('define', function define(pagelets, done) {
   var pipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
+    if (!Pagelet.prototype.path && !Pagelet.prototype.view) return next();
+
     Pagelet.optimize({
       pipe: pipe,
       transform: {
@@ -304,7 +306,7 @@ BigPipe.readable('define', function define(pagelets, done) {
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
-    pipe._pagelets.push.apply(pipe._pagelets, pagelets);
+    pipe._pagelets.push.apply(pipe._pagelets, pagelets.filter(Boolean));
     pipe.discover(done);
   });
 
