@@ -162,7 +162,7 @@ BigPipe.readable('listen', function listen(port, done) {
       debug('I failed to listen to the server due to', err.message);
 
       if (done) return done(err);
-      pipe.emit('error', err);
+      return pipe.emit('error', err);
     }
 
     pipe._server.on('listening', pipe.emits('listening'));
