@@ -44,7 +44,7 @@ describe('Pipe', function () {
 
   it('correctly resolves `pagelets` as a string to an array', function () {
     assume(app._pagelets).to.be.a('array');
-    assume(app._pagelets).to.have.length(5);
+    assume(app._pagelets).to.have.length(12);
   });
 
   it('transforms pagelets', function () {
@@ -407,7 +407,7 @@ describe('Pipe', function () {
       pipe.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        assume(pipe._pagelets).to.have.length(5);
+        assume(pipe._pagelets).to.have.length(12);
         pipe._pagelets.forEach(function (pagelet) {
           assume(pagelet.prototype).to.have.property('id');
         });
@@ -569,7 +569,7 @@ describe('Pipe', function () {
       });
 
       pipe.once('listening', function () {
-        assume(pipe._pagelets.length).to.equal(5);
+        assume(pipe._pagelets.length).to.equal(12);
         pipe._server.close(done);
       });
 
