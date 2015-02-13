@@ -7,11 +7,11 @@
 [david]: https://img.shields.io/david/bigpipe/bigpipe.svg?style=flat-square
 [cover]: http://img.shields.io/coveralls/bigpipe/bigpipe/master.svg?style=flat-square
 
-BigPipe is a radical new web framework that is inspired by the concept behind
-Facebook's BigPipe. The general idea is to decompose web pages into small
-re-usable chunks of functionality called `Pagelets` and pipeline them through
-several execution stages inside web servers and browsers. This allows progressive
-rendering at the front-end and results in exceptional front-end performance.
+BigPipe is a radical new web framework for Node.JS. The general idea is to 
+decompose web pages into small re-usable chunks of functionality called 
+`Pagelets` and pipeline them through several execution stages inside web 
+servers and browsers. This allows progressive rendering at the front-end and 
+results in exceptional front-end performance.
 
 Most web frameworks are based on a request and response pattern, a request comes
 in, we process the data and output a template. But before we can output the
@@ -570,6 +570,12 @@ functioning as intended. For local development we automatically install a
 [pre-commit] hook that runs the `npm test` command every time you commit changes.
 This ensures that we don't push any broken code in to this project.
 
+## Inspiration
+
+Bigpipe is inspired by the concept behind Facebook's BigPipe. For more details 
+read their blog post: [Pipelining web pages for high performance][blog].
+
+
 ## License
 
 BigPipe is released under MIT.
@@ -578,3 +584,4 @@ BigPipe is released under MIT.
 [pre-commit]: http://github.com/observing/pre-commit
 [Primus]: https://github.com/primus/primus
 [temper]: https://github.com/bigpipe/temper
+[blog]: https://www.facebook.com/notes/facebook-engineering/bigpipe-pipelining-web-pages-for-high-performance/389414033919
