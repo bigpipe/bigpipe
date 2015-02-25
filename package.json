@@ -27,7 +27,7 @@
     "mkdirp": "0.5.x",
     "smithy": "0.5.x",
     "supply": "0.0.x",
-    "temper": "0.2.x",
+    "temper": "0.3.x",
     "zipline": "1.0.x"
   },
   "devDependencies": {
