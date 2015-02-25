@@ -2,12 +2,20 @@ language: node_js
 node_js:
   - "0.10"
   - "0.11"
+  - "0.12"
+  - "iojs"
 before_install:
-  - "npm install -g npm@2.1.18"
+  - 'if [ "${TRAVIS_NODE_VERSION}" == "0.8" ] || [ "${TRAVIS_NODE_VERSION}" == "0.9" ] ; then npm install -g npm@2.6.0; fi'
 script:
   - "npm run test-travis"
 after_script:
   - "npm install coveralls@2.11.x && cat coverage/lcov.info | coveralls"
+matrix:
+  fast_finish: true
+  allow_failures:
+    - node_js: "0.9"
+    - node_js: "0.11"
+    - node_js: "iojs"
 notifications:
   irc:
     channels: 
