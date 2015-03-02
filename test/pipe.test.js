@@ -6,6 +6,7 @@ describe('Pipe', function () {
     , Pagelet = require('pagelet')
     , assume = require('assume')
     , http = require('http')
+    , All = require('./fixtures/pagelets/all')
     , Response = common.Response
     , Request = common.Request
     , Pipe = common.Pipe
@@ -270,7 +271,7 @@ describe('Pipe', function () {
 
     it('doesnt find / for POST requests', function (done) {
       app.once('bootstrap', function (pagelet) {
-        assume(pagelet).to.be.instanceOf(Pagelet);
+        assume(pagelet).to.be.instanceOf(require('404-pagelet'));
         assume(pagelet.statusCode).to.equal(404);
         done();
       });
@@ -293,7 +294,7 @@ describe('Pipe', function () {
 
     it('always returns a 404 page for unknown urls', function (done) {
       app.once('bootstrap', function (pagelet) {
-        assume(pagelet).to.be.instanceOf(Pagelet);
+        assume(pagelet).to.be.instanceOf(require('404-pagelet'));
         assume(pagelet.statusCode).to.equal(404);
 
         done();
@@ -943,6 +944,11 @@ describe('Pipe', function () {
   });
 
   describe('.bootstrap', function () {
+    var pipe = new Pipe(http.createServer(), {
+      pagelets: __dirname +'/fixtures/pagelets',
+      dist: '/tmp/dist'
+    });
+
     it('is a function', function () {
       assume(app.bootstrap).is.a('function');
       assume(app.bootstrap.length).to.equal(3);
@@ -964,7 +970,7 @@ describe('Pipe', function () {
     it('forces sync mode if the JS is disabled or HTTP versions are missing', function () {
       var req = new Request
         , res = new Response
-        , pagelet = new Pagelet({ req: req, res: res });
+        , pagelet = new All({ req: req, res: res, pipe: pipe });
 
       req.query.no_pagelet_js = '1';
       pagelet.mode = 'async';
@@ -982,7 +988,7 @@ describe('Pipe', function () {
     it('bootstraps the parent in async mode by default', function () {
       var req = new Request
         , res = new Response
-        , pagelet = new Pagelet({ req: req, res: res });
+        , pagelet = new All({ req: req, res: res, pipe: pipe });
 
       req.httpVersionMajor = '2';
       req.httpVersionMinor = '2';
@@ -994,7 +1000,7 @@ describe('Pipe', function () {
     it('adds the bootstrap pagelet to the parent', function () {
       var req = new Request
         , res = new Response
-        , pagelet = new Pagelet({ req: req, res: res });
+        , pagelet = new All({ req: req, res: res, pipe: pipe });
 
       app.bootstrap(pagelet, req, res);
       assume(pagelet._bootstrap).to.be.an('object');
@@ -1004,12 +1010,12 @@ describe('Pipe', function () {
     it('calls .init on the parent pagelet', function (done) {
       var req = new Request
         , res = new Response
-        , pagelet = new (Pagelet.extend({
+        , pagelet = new (All.extend({
             init: function () {
               assume(arguments).to.have.length(0);
               done();
             }
-          }))({ req: req, res: res });
+          }))({ req: req, res: res, pipe: pipe });
 
       app.bootstrap(pagelet, req, res);
     });
@@ -1017,12 +1023,12 @@ describe('Pipe', function () {
     it('calls .initialize on the parent pagelet', function (done) {
       var req = new Request
         , res = new Response
-        , pagelet = new (Pagelet.extend({
+        , pagelet = new (All.extend({
             initialize: function () {
               assume(arguments).to.have.length(0);
               done();
             }
-          }))({ req: req, res: res });
+          }))({ req: req, res: res, pipe: pipe });
 
       app.bootstrap(pagelet, req, res);
     });
@@ -1030,7 +1036,7 @@ describe('Pipe', function () {
     it('calls .initialize (async) on the parent pagelet', function (done) {
       var req = new Request
         , res = new Response
-        , pagelet = new (Pagelet.extend({
+        , pagelet = new (All.extend({
             init: function () {
               done();
             },
@@ -1039,7 +1045,7 @@ describe('Pipe', function () {
               assume(next).to.be.a('function');
               next();
             }
-          }))({ req: req, res: res });
+          }))({ req: req, res: res, pipe: pipe });
 
       app.bootstrap(pagelet, req, res);
     });

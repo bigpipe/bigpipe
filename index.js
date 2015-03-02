@@ -624,7 +624,7 @@ BigPipe.readable('bootstrap', function bootstrap(child, req, res) {
   // as soon as possible to instantiate the client side rendering.
   //
   child.bootstrap = new this._bootstrap({
-    dependencies: this._compiler.page(child),
+    dependencies: child.dependencies,
     params: child._params,
     length: child.length,
     child: child.name,
