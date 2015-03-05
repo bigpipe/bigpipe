@@ -179,7 +179,7 @@ BigPipe.readable('listen', function listen(port, done) {
   //
   this.define(pagelets, function defined(err) {
     if (err) {
-      debug('I failed to listen to the server due to', err.message);
+      debug('I failed to listen to the server due to', err.stack);
 
       if (done) return done(err);
       return pipe.emit('error', err);
