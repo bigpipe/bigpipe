@@ -3,6 +3,7 @@
 var debug = require('diagnostics')('bigpipe:server')
   , Compiler = require('./lib/compiler')
   , fabricate = require('fabricator')
+  , Framework = require('bigpipe.js')
   , destroy = require('demolish')
   , Zipline = require('zipline')
   , Temper = require('temper')
@@ -52,7 +53,7 @@ function configure(obj) {
  * - dist: The pathname for the compiled assets.
  * - pagelets: String or array of pagelets we serve.
  * - parser: Which parser should be used to send data in real-time.
- * - transformer: The transport engine we should use for real-time.
+ * - framework: The framework / fitting we want to use.
  *
  * @constructor
  * @param {Server} server HTTP/S based server instance.
@@ -70,6 +71,7 @@ function BigPipe(server, options) {
   this._options = options;                       // Configure options.
   this._temper = new Temper;                     // Template parser.
   this._plugins = Object.create(null);           // Plugin storage.
+  this._framework = new Framework(this);         // Framework fittings.
   this._cache = options('cache', false);         // Enable URL lookup caching.
   this._statusCodes = Object.create(null);       // Stores error pagelets.
   this._zipline = new Zipline(options);          // Improved gzip compression.
@@ -127,6 +129,11 @@ BigPipe.readable('initialize', function initialize(options) {
   });
 
   //
+  // Process the options.
+  //
+  if (options.engine) this.engine(options.engine);
+
+  //
   // Apply the plugins before resolving and transforming the pagelets so the
   // plugins can hook in to our optimization and transformation process.
   //
@@ -140,6 +147,19 @@ BigPipe.readable('initialize', function initialize(options) {
  * @public
  */
 BigPipe.readable('version', require(__dirname +'/package.json').version);
+
+/**
+ * Use a custom framework in BigPipe.
+ *
+ * @param {Fittings} Framework Framework that we should use.
+ * @returns {BigPipe}
+ * @api public
+ */
+BigPipe.readable('framework', function framework(Framework) {
+  this._framework = new Framework(this);
+
+  return this;
+});
 
 /**
  * Start listening for incoming requests.
@@ -159,7 +179,7 @@ BigPipe.readable('listen', function listen(port, done) {
   //
   this.define(pagelets, function defined(err) {
     if (err) {
-      debug('I failed to listen to the server due to', err.message);
+      debug('I failed to listen to the server due to', err.stack);
 
       if (done) return done(err);
       return pipe.emit('error', err);
@@ -514,7 +534,7 @@ BigPipe.readable('use', function use(name, plugin) {
   // Plugin require a client, server or both to be specified in the object.
   //
   if (!('server' in plugin || 'client' in plugin)) {
-    throw new Error('The plugin in missing a client or server function.');
+    throw new Error('The plugin is missing a client or server function.');
   }
 
   if (name in this._plugins) {
@@ -624,7 +644,7 @@ BigPipe.readable('bootstrap', function bootstrap(child, req, res) {
   // as soon as possible to instantiate the client side rendering.
   //
   child.bootstrap = new this._bootstrap({
-    dependencies: child.dependencies,
+    dependencies: this._compiler.page(child),
     params: child._params,
     length: child.length,
     child: child.name,
