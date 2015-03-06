@@ -879,7 +879,7 @@ describe('Pipe', function () {
       }
 
       assume(throws).to.throw(Error);
-      assume(throws).to.throw('The plugin in missing a client or server function.');
+      assume(throws).to.throw('The plugin is missing a client or server function.');
     });
 
     it('reads plugins from file', function () {

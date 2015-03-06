@@ -534,7 +534,7 @@ BigPipe.readable('use', function use(name, plugin) {
   // Plugin require a client, server or both to be specified in the object.
   //
   if (!('server' in plugin || 'client' in plugin)) {
-    throw new Error('The plugin in missing a client or server function.');
+    throw new Error('The plugin is missing a client or server function.');
   }
 
   if (name in this._plugins) {
