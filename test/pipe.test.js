@@ -83,6 +83,21 @@ describe('Pipe', function () {
     assume(app._cache).to.equal(false);
   });
 
+  describe('.framework', function () {
+    var Fittings = require('fittings');
+
+    it('has a framework method', function () {
+      assume(app.framework).is.a('function');
+    });
+
+    it('assigns a new internal Framework', function () {
+      var Framework = Fittings.extend({ });
+
+      assume(app.framework(Framework)).equals(app);
+      assume(app._framework).is.instanceOf(Framework);
+    });
+  });
+
   describe('.metrics', function () {
     it('has a metrics object', function () {
       assume(app.metrics).is.a('object');
