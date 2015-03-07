@@ -71,7 +71,6 @@ function BigPipe(server, options) {
   this._options = options;                       // Configure options.
   this._temper = new Temper;                     // Template parser.
   this._plugins = Object.create(null);           // Plugin storage.
-  this._framework = new Framework(this);         // Framework fittings.
   this._cache = options('cache', false);         // Enable URL lookup caching.
   this._statusCodes = Object.create(null);       // Stores error pagelets.
   this._zipline = new Zipline(options);          // Improved gzip compression.
@@ -129,9 +128,9 @@ BigPipe.readable('initialize', function initialize(options) {
   });
 
   //
-  // Process the options.
+  // Process the Front-end framework abstractions.
   //
-  if (options.engine) this.engine(options.engine);
+  this.framework(options.engine || Framework);
 
   //
   // Apply the plugins before resolving and transforming the pagelets so the
@@ -157,6 +156,17 @@ BigPipe.readable('version', require(__dirname +'/package.json').version);
  */
 BigPipe.readable('framework', function framework(Framework) {
   this._framework = new Framework(this);
+
+  var middleware = this._framework.get('middleware')
+    , plugins = this._framework.get('use');
+
+  Object.keys(middleware).forEach(function each(name) {
+    this.middleware.use(name, middleware[name]);
+  }, this);
+
+  Object.keys(plugins).forEach(function each(name) {
+    this.use(name, plugins[name]);
+  }, this);
 
   return this;
 });
