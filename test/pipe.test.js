@@ -1018,8 +1018,8 @@ describe('Pipe', function () {
         , pagelet = new All({ req: req, res: res, pipe: pipe });
 
       app.bootstrap(pagelet, req, res);
-      assume(pagelet._bootstrap).to.be.an('object');
-      assume(pagelet._bootstrap).to.be.instanceof(require('bootstrap-pagelet'));
+      assume(pagelet.bootstrap).to.be.an('object');
+      assume(pagelet.bootstrap).to.be.instanceof(require('bootstrap-pagelet'));
     });
 
     it('calls .init on the parent pagelet', function (done) {
