@@ -121,10 +121,10 @@ describe('Pipe', function () {
       }
 
       app.on('metrics:increment', receive.bind(0, 'increment'))
-             .on('metrics:decrement', receive.bind(0, 'decrement'))
-             .on('metrics:timing', receive.bind(0, 'timing'))
-             .on('metrics:gauge', receive.bind(0, 'gauge'))
-             .on('metrics:set', receive.bind(0, 'set'));
+         .on('metrics:decrement', receive.bind(0, 'decrement'))
+         .on('metrics:timing', receive.bind(0, 'timing'))
+         .on('metrics:gauge', receive.bind(0, 'gauge'))
+         .on('metrics:set', receive.bind(0, 'set'));
 
       app.metrics.increment();
       app.metrics.decrement();
