@@ -180,8 +180,8 @@ BigPipe.readable('framework', function framework(Framework) {
  * @api public
  */
 BigPipe.readable('listen', function listen(port, done) {
-  var pipe = this
-    , pagelets = this._options('pagelets', path.join(process.cwd(), 'pagelets'));
+  var pagelets = this._options('pagelets', path.join(process.cwd(), 'pagelets'))
+    , bigpipe = this;
 
   //
   // Make sure we should only start listening on the server once
@@ -192,21 +192,21 @@ BigPipe.readable('listen', function listen(port, done) {
       debug('I failed to listen to the server due to', err.stack);
 
       if (done) return done(err);
-      return pipe.emit('error', err);
+      return bigpipe.emit('error', err);
     }
 
-    pipe._server.on('listening', pipe.emits('listening'));
-    pipe._server.on('request', pipe.bind(pipe.dispatch));
-    pipe._server.on('error', pipe.emits('error'));
+    bigpipe._server.on('listening', bigpipe.emits('listening'));
+    bigpipe._server.on('request', bigpipe.bind(bigpipe.dispatch));
+    bigpipe._server.on('error', bigpipe.emits('error'));
 
     //
     // Start listening on the provided port and return the BigPipe instance.
     //
     debug('Succesfully defined pagelets and assets, starting HTTP server on port %d', port);
-    pipe._server.listen(port, done);
+    bigpipe._server.listen(port, done);
   });
 
-  return pipe;
+  return bigpipe;
 });
 
 /**
@@ -218,12 +218,12 @@ BigPipe.readable('listen', function listen(port, done) {
  * @api private
  */
 BigPipe.readable('discover', function discover(done) {
-  var pipe = this
-    , local = ['404', '500', 'bootstrap']
+  var local = ['404', '500', 'bootstrap']
+    , bigpipe = this
     , childs = [];
 
   debug('Discovering build-in pagelets, filtering out defaults (404, 500, bootstrap)');
-  pipe._pagelets = pipe._pagelets.filter(function filter(Pagelet) {
+  bigpipe._pagelets = bigpipe._pagelets.filter(function filter(Pagelet) {
     var router = Pagelet.router
       , parent = !Pagelet.prototype._parent;
 
@@ -249,24 +249,24 @@ BigPipe.readable('discover', function discover(done) {
 
     debug('No %s pagelet detected, using default bigpipe %s pagelet', Pagelet, Pagelet);
     require(Pagelet + '-pagelet').optimize({
-      pipe: pipe,
+      bigpipe: bigpipe,
       transform: {
-        before: pipe.emits('transform:pagelet:before'),
-        after: pipe.emits('transform:pagelet:after')
+        before: bigpipe.emits('transform:pagelet:before'),
+        after: bigpipe.emits('transform:pagelet:after')
       }
     }, next);
   }, function found(error, status) {
     if (error) return done(error);
 
-    pipe._statusCodes[404] = status[0];
-    pipe._statusCodes[500] = status[1];
-    pipe._bootstrap = status[2];
+    bigpipe._statusCodes[404] = status[0];
+    bigpipe._statusCodes[500] = status[1];
+    bigpipe._bootstrap = status[2];
 
     //
     // Also catalog dependencies on status Pagelets and bootstrap.
     // As the developer could have provided custom Pagelets.
     //
-    pipe._compiler.catalog(pipe._pagelets.concat(status), done);
+    bigpipe._compiler.catalog(bigpipe._pagelets.concat(status), done);
   });
 
   return this;
@@ -296,7 +296,7 @@ BigPipe.readable('status', function status(pagelet, code, data, bootstrap) {
     parent: pagelet._parent,
     req: pagelet._req,
     res: pagelet._res,
-    pipe: this
+    bigpipe: this
   }, data, pagelet.name);
 
   //
@@ -306,7 +306,7 @@ BigPipe.readable('status', function status(pagelet, code, data, bootstrap) {
     parent: 'bootstrap',
     req: pagelet._req,
     res: pagelet._res,
-    pipe: this
+    bigpipe: this
   }, data));
 });
 
@@ -321,7 +321,7 @@ BigPipe.readable('status', function status(pagelet, code, data, bootstrap) {
  * @api public
  */
 BigPipe.readable('define', function define(pagelets, done) {
-  var pipe = this;
+  var bigpipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
     if (Pagelet.prototype.path === null && Pagelet.prototype.view === null) {
@@ -329,17 +329,17 @@ BigPipe.readable('define', function define(pagelets, done) {
     }
 
     Pagelet.optimize({
-      pipe: pipe,
+      bigpipe: bigpipe,
       transform: {
-        before: pipe.emits('transform:pagelet:before'),
-        after: pipe.emits('transform:pagelet:after')
+        before: bigpipe.emits('transform:pagelet:before'),
+        after: bigpipe.emits('transform:pagelet:after')
       }
     }, next);
   }, function fabricated(err, pagelets) {
     if (err) return done(err);
 
-    pipe._pagelets.push.apply(pipe._pagelets, pagelets.filter(Boolean));
-    pipe.discover(done);
+    bigpipe._pagelets.push.apply(bigpipe._pagelets, pagelets.filter(Boolean));
+    bigpipe.discover(done);
   });
 
   return this;
@@ -350,15 +350,15 @@ BigPipe.readable('define', function define(pagelets, done) {
  * be heavily optimized by the V8 engine. Only use this in cases where you would
  * normally use `.bind`.
  *
- * @param {Function} fn A method of pipe.
+ * @param {Function} fn A method of bigpipe.
  * @returns {Function}
  * @api private
  */
 BigPipe.readable('bind', function bind(fn) {
-  var pipe = this;
+  var bigpipe = this;
 
   return function bound(arg1, arg2, arg3) {
-    fn.call(pipe, arg1, arg2, arg3);
+    fn.call(bigpipe, arg1, arg2, arg3);
   };
 });
 
@@ -376,7 +376,7 @@ BigPipe.readable('router', function router(req, res, id) {
     , cache = this._cache ? this._cache.get(key) || [] : []
     , pagelets = this._pagelets
     , length = pagelets.length
-    , pipe = this
+    , bigpipe = this
     , i = 0
     , pagelet;
 
@@ -420,8 +420,8 @@ BigPipe.readable('router', function router(req, res, id) {
       , pagelet = new Pagelet({
           params: Pagelet.router.exec(req.uri.pathname),
           parent: 'bootstrap',
+          bigpipe: bigpipe,
           append: true,
-          pipe: pipe,
           req: req,
           res: res
         });
@@ -440,13 +440,13 @@ BigPipe.readable('router', function router(req, res, id) {
           pagelet.path
         );
 
-        if (allowed) return pipe.bootstrap(pagelet, req, res);
+        if (allowed) return bigpipe.bootstrap(pagelet, req, res);
         each(pagelets);
       });
     }
 
     debug('Using %s for %s', pagelet.path, req.url);
-    pipe.bootstrap(pagelet, req, res);
+    bigpipe.bootstrap(pagelet, req, res);
   }(cache.slice(0)));
 
   return this;
@@ -460,10 +460,10 @@ BigPipe.readable('router', function router(req, res, id) {
  * @api private
  */
 BigPipe.readable('pluggable', function pluggable(plugins) {
-  var pipe = this;
+  var bigpipe = this;
 
   plugins.forEach(function plug(plugin) {
-    pipe.use(plugin);
+    bigpipe.use(plugin);
   });
 
   return this;
@@ -478,13 +478,13 @@ BigPipe.readable('pluggable', function pluggable(plugins) {
  * @api private
  */
 BigPipe.readable('dispatch', function dispatch(req, res) {
-  var pipe = this;
+  var bigpipe = this;
 
   return this.middleware.each(req, res, function next(error, early) {
-    if (error) return pipe.status({ _req: req, _res: res}, 500, error, true);
+    if (error) return bigpipe.status({ _req: req, _res: res}, 500, error, true);
     if (early) return debug('request was handled by a middleware layer');
 
-    pipe.router(req, res);
+    bigpipe.router(req, res);
   });
 });
 
@@ -659,7 +659,7 @@ BigPipe.readable('bootstrap', function bootstrap(child, req, res) {
     length: child.length,
     child: child.name,
     mode: child.mode,
-    pipe: this,
+    bigpipe: this,
     res: res,
     req: req
   });
@@ -679,6 +679,116 @@ BigPipe.readable('bootstrap', function bootstrap(child, req, res) {
   }
 
   return this;
+});
+
+/**
+ * Mode: Synchronous
+ * Output the pagelets fully rendered in the HTML template.
+ *
+ * @TODO remove pagelet's that have `authorized` set to `false`
+ * @TODO Also write the CSS and JavaScript.
+ *
+ * @api private
+ */
+BigPipe.readable('sync', function synchronous(pagelet) {
+  var bigpipe = this
+    , pagelets;
+
+  //
+  // Because we're synchronously rendering the pagelets we need to discover
+  // which one's are enabled before we send the bootstrap code so it can include
+  // the CSS files of the enabled pagelets in the HEAD of the page so there is
+  // styling available.
+  //
+  pagelet.bootstrap.render();
+  pagelet.once('discover', function discovered() {
+    pagelet.debug('Processing the pagelets in `sync` mode');
+
+    pagelets = pagelet._enabled.concat(pagelet._disabled, pagelet);
+    async.each(pagelets, function render(child, next) {
+      pagelet.debug('Invoking pagelet %s/%s render', child.name, child.id);
+
+      child.render({ mode: 'sync' }, function rendered(error, content) {
+        if (error) return render(bigpipe.capture(error), next);
+
+        child.write(content);
+        next();
+      });
+    }, function done() {
+      pagelet.bootstrap.reduce().end();
+    });
+  }).discover();
+});
+
+/**
+ * Mode: Asynchronous
+ * Output the pagelets as fast as possible.
+ *
+ * @api private
+ */
+BigPipe.readable('async', function asynchronous(pagelet) {
+  var bigpipe = this
+    , pagelets;
+
+  //
+  // Flush the initial headers asap so the browser can start detect encoding
+  // start downloading assets and prepare for rendering additional pagelets.
+  //
+  pagelet.bootstrap.render().flush(function headers(error) {
+    if (error) return bigpipe.capture(error, pagelet, true);
+
+    pagelet.once('discover', function discovered() {
+      pagelet.debug('Processing the pagelets in `async` mode');
+
+      pagelets = pagelet._enabled.concat(pagelet._disabled, pagelet);
+      async.each(pagelets, function render(child, next) {
+        pagelet.debug('Invoking pagelet %s/%s render', child.name, child.id);
+
+        child.render({
+          data: bigpipe._compiler.pagelet(child)
+        }, function rendered(error, content) {
+          if (error) return render(bigpipe.capture(error), child, next);
+          child.write(content).flush(next);
+        });
+      }, function done(error) {
+        if (error) return bigpipe.capture(error);
+        pagelet.end();
+      });
+    }).discover();
+  });
+});
+
+/**
+ * Mode: pipeline
+ * Output the pagelets as fast as possible but in order.
+ *
+ * @returns {BigPipe} fluent interface.
+ * @api private
+ */
+BigPipe.readable('pipeline', function pipeline(pagelet) {
+  throw new Error('Not Implemented');
+});
+
+/**
+ * We've received an error. Close down pagelet and display a 500 error Pagelet.
+ *
+ * @TODO handle the case when we've already flushed the initial bootstrap code
+ * to the client and we're presented with an error.
+ *
+ * @param {Error} error Optional error argument to trigger the error pagelet.
+ * @param {Pagelet} pagelet Reference to the pagelet that triggered the error.
+ * @param {Boolean} bootstrap Do full bootstrap if true.
+ * @returns {BigPipe} fluent interface.
+ * @api private
+ */
+BigPipe.readable('capture', function capture(error, pagelet, bootstrap) {
+  this.debug(
+    'Captured an error from %s: %s, displaying error pagelet',
+    pagelet.name,
+    error
+  );
+
+  return this.status(pagelet, 500, error, bootstrap);
 });
 
 /**
@@ -711,7 +821,7 @@ BigPipe.createServer = function createServer(port, options) {
   if ('number' === typeof port) options.port = port;
 
   var listen = options.listen === false
-    , pipe;
+    , bigpipe;
 
   //
   // Listening is done by our own .listen method, so we need to tell the
@@ -720,14 +830,14 @@ BigPipe.createServer = function createServer(port, options) {
   //
   options.listen = false;
   options.port = options.port || 8080;
-  pipe = new BigPipe(require('create-server')(options), options);
+  bigpipe = new BigPipe(require('create-server')(options), options);
 
   //
   // By default the server will listen. Passing options.listen === false
   // is only required if listening needs to be done with a manual call.
   // BigPipe.createServer will pass as argument.
   //
-  return listen ? pipe : pipe.listen(options.port);
+  return listen ? bigpipe : bigpipe.listen(options.port);
 };
 
 //

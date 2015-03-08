@@ -29,10 +29,10 @@ describe('Pipe', function () {
   });
 
   it('has defaults for options', function () {
-    var pipe = new Pipe(http.createServer());
+    var bigpipe = new Pipe(http.createServer());
 
-    assume(pipe).to.have.property('_options');
-    assume(pipe._options).to.have.property('merge');
+    assume(bigpipe).to.have.property('_options');
+    assume(bigpipe._options).to.have.property('merge');
   });
 
   it('is an EvenEmitter3', function () {
@@ -153,12 +153,12 @@ describe('Pipe', function () {
         next();
       }};
 
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         metrics: metrics
       });
 
-      assume(pipe.metrics).equals(metrics);
-      pipe.metrics.increment();
+      assume(bigpipe.metrics).equals(metrics);
+      bigpipe.metrics.increment();
     });
   });
 
@@ -168,28 +168,28 @@ describe('Pipe', function () {
       assume(app._options('host')).to.equal(undefined);
       assume(app._options('host', 'localhost')).to.equal('localhost');
 
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         pagelets: __dirname +'/fixtures/pagelets',
         dist: '/tmp/dist',
         host: '127.0.0.1'
       });
 
-      assume(pipe._options('host')).to.equal('127.0.0.1');
+      assume(bigpipe._options('host')).to.equal('127.0.0.1');
     });
 
     it('additional options can be merged, per example from a plugin', function () {
       assume(app._options.merge).to.be.a('function');
       assume(app._options('test')).to.equal(undefined);
 
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         pagelets: __dirname +'/fixtures/pagelets',
         dist: '/tmp/dist',
         host: '127.0.0.1'
       });
 
-      assume(pipe._options('host')).to.equal('127.0.0.1');
-      pipe._options.merge({ test: 'additional' });
-      assume(pipe._options('test')).to.equal('additional');
+      assume(bigpipe._options('host')).to.equal('127.0.0.1');
+      bigpipe._options.merge({ test: 'additional' });
+      assume(bigpipe._options('test')).to.equal('additional');
     });
   });
 
@@ -221,7 +221,7 @@ describe('Pipe', function () {
   });
 
   describe('.router', function () {
-    var pipeById = new Pipe(http.createServer(), {
+    var bigpipeById = new Pipe(http.createServer(), {
       dist: '/tmp/dist',
       pagelets: {
         tester: Pagelet.extend({
@@ -248,39 +248,39 @@ describe('Pipe', function () {
     });
 
     it('can route to specific pagelets by id', function (done) {
-      pipeById.listen(common.port, function () {
-        var local = pipeById._pagelets[0].prototype
+      bigpipeById.listen(common.port, function () {
+        var local = bigpipeById._pagelets[0].prototype
           , id = local.id
           , name = local.name
           , view = local.view
           , path = local.path;
 
-        pipeById.once('bootstrap', function (pagelet) {
+        bigpipeById.once('bootstrap', function (pagelet) {
           assume(pagelet).to.be.instanceOf(Pagelet);
           assume(pagelet.view).to.equal(view);
           assume(pagelet.name).to.equal(name);
           assume(pagelet.path).to.equal(path);
 
-          pipeById._server.close(done);
+          bigpipeById._server.close(done);
         });
 
-        pipeById.router(new Request('/'), new Response(), id);
+        bigpipeById.router(new Request('/'), new Response(), id);
       });
     });
 
     it('will return 404 if the specified id cannot be found', function (done) {
-      pipeById.listen(common.port, function () {
-        var id = pipeById._pagelets[0].prototype.id;
+      bigpipeById.listen(common.port, function () {
+        var id = bigpipeById._pagelets[0].prototype.id;
 
-        pipeById.once('bootstrap', function (pagelet) {
+        bigpipeById.once('bootstrap', function (pagelet) {
           assume(pagelet).to.be.instanceOf(require('404-pagelet'));
           assume(pagelet.name).to.equal('404');
           assume(pagelet.path).to.equal('/404');
 
-          pipeById._server.close(done);
+          bigpipeById._server.close(done);
         });
 
-        pipeById.router(new Request('/'), new Response(), 'some random id');
+        bigpipeById.router(new Request('/'), new Response(), 'some random id');
       });
     });
 
@@ -320,7 +320,7 @@ describe('Pipe', function () {
 
     it('returns authorized conditional pagelet', function (done) {
       var notAllowedCalled = false
-        , pipeIf = new Pipe(http.createServer(), {
+        , bigpipeIf = new Pipe(http.createServer(), {
             dist: '/tmp/dist',
             pagelets: {
               notallowed: Pagelet.extend({
@@ -341,17 +341,17 @@ describe('Pipe', function () {
             }
           });
 
-      pipeIf.listen(common.port, function () {
-        pipeIf.once('bootstrap', function (pagelet) {
+      bigpipeIf.listen(common.port, function () {
+        bigpipeIf.once('bootstrap', function (pagelet) {
           assume(notAllowedCalled).to.equal(true);
           assume(pagelet).to.be.instanceOf(Pagelet);
           assume(pagelet.name).to.equal('allowed');
           assume(pagelet.name).to.not.equal('notallowed');
 
-          pipeIf._server.close(done);
+          bigpipeIf._server.close(done);
         });
 
-        pipeIf.router(new Request('/'), new Response());
+        bigpipeIf.router(new Request('/'), new Response());
       });
     });
 
@@ -401,30 +401,30 @@ describe('Pipe', function () {
   describe('.define', function () {
     it('adds Pagelet to the pagelets collection', function (next) {
       var faq = require(__dirname + '/fixtures/pagelets/faq')
-       ,  pipe = new Pipe(server, {
+       ,  bigpipe = new Pipe(server, {
             dist: '/tmp/dist'
           });
 
-      pipe.define(faq, function (err) {
+      bigpipe.define(faq, function (err) {
         if (err) return next(err);
 
-        assume(pipe._pagelets).to.have.length(1);
-        assume(pipe._pagelets[0]).to.be.an('function');
+        assume(bigpipe._pagelets).to.have.length(1);
+        assume(bigpipe._pagelets[0]).to.be.an('function');
 
         next();
       });
     });
 
     it('will resolve and add the pagelets if directory', function (next) {
-      var pipe = new Pipe(server, {
+      var bigpipe = new Pipe(server, {
         dist: '/tmp/dist'
       });
 
-      pipe.define(__dirname + '/fixtures/pagelets', function (err) {
+      bigpipe.define(__dirname + '/fixtures/pagelets', function (err) {
         if (err) return next(err);
 
-        assume(pipe._pagelets).to.have.length(12);
-        pipe._pagelets.forEach(function (pagelet) {
+        assume(bigpipe._pagelets).to.have.length(12);
+        bigpipe._pagelets.forEach(function (pagelet) {
           assume(pagelet.prototype).to.have.property('id');
         });
 
@@ -440,15 +440,15 @@ describe('Pipe', function () {
     });
 
     it('returns an error if the pagelets or middleware are invalid', function (done) {
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         dist: '/tmp/dist'
       });
 
-      pipe.once('transform:pagelet:after', function (Pagelet, next) {
+      bigpipe.once('transform:pagelet:after', function (Pagelet, next) {
         return next(new Error('middleware failed'));
       });
 
-      pipe.discover(function (error) {
+      bigpipe.discover(function (error) {
         assume(error).to.be.instanceof(Error);
         assume(error.message).to.include('middleware failed');
         done();
@@ -500,12 +500,12 @@ describe('Pipe', function () {
 
   describe('.resolve', function () {
     it('omits any directories from the pagelets directory without an index.js', function () {
-      var pipe = new Pipe(server, {
+      var bigpipe = new Pipe(server, {
         pagelets: __dirname + '/fixtures/discover',
         dist: '/tmp/dist'
       });
 
-      pipe._pagelets.forEach(function (pagelets) {
+      bigpipe._pagelets.forEach(function (pagelets) {
         assume(pagelets.id).to.not.match(/^dummy/);
       });
     });
@@ -518,7 +518,7 @@ describe('Pipe', function () {
     });
 
     it('returns an error if define fails', function (done) {
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         pagelets: {
           failure: require('pagelet').extend({
             view: undefined
@@ -526,7 +526,7 @@ describe('Pipe', function () {
         }
       });
 
-      pipe.listen(common.port, function (error) {
+      bigpipe.listen(common.port, function (error) {
         assume(error).to.be.instanceof(Error);
         assume(error.message).to.include('should have a .view property');
         done();
@@ -534,7 +534,7 @@ describe('Pipe', function () {
     });
 
     it('emits the error if no callback is provided', function (done) {
-        var pipe = new Pipe(http.createServer(), {
+        var bigpipe = new Pipe(http.createServer(), {
           pagelets: {
             failure: require('pagelet').extend({
               view: undefined
@@ -542,13 +542,13 @@ describe('Pipe', function () {
           }
         });
 
-        pipe.once('error', function (error) {
+        bigpipe.once('error', function (error) {
           assume(error).to.be.instanceof(Error);
           assume(error.message).to.include('should have a .view property');
           done();
         });
 
-        pipe.listen(common.port);
+        bigpipe.listen(common.port);
     });
 
     it('proxies event listeners', function (done) {
@@ -557,40 +557,40 @@ describe('Pipe', function () {
       //
       this.timeout(500E3);
 
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         dist: '/tmp/dist'
       });
 
-      pipe.once('listening', function () {
-        pipe._server.close(done);
+      bigpipe.once('listening', function () {
+        bigpipe._server.close(done);
       });
 
-      pipe.listen(common.port, function () {
-        assume(pipe._server._events).to.have.property('listening');
-        assume(pipe._server._events.listening[0]).to.be.a('function');
-        assume(pipe._server._events.listening[0].toString()).to.equal(pipe.emits('listening').toString());
-        assume(pipe._server._events).to.have.property('request');
-        assume(pipe._server._events.request).to.be.a('function');
-        assume(pipe._server._events.request.toString()).to.equal(pipe.bind(pipe.dispatch).toString());
-        assume(pipe._server._events).to.have.property('error');
-        assume(pipe._server._events.error).to.be.a('function');
-        assume(pipe._server._events.error.toString()).to.equal(pipe.emits('error').toString());
+      bigpipe.listen(common.port, function () {
+        assume(bigpipe._server._events).to.have.property('listening');
+        assume(bigpipe._server._events.listening[0]).to.be.a('function');
+        assume(bigpipe._server._events.listening[0].toString()).to.equal(bigpipe.emits('listening').toString());
+        assume(bigpipe._server._events).to.have.property('request');
+        assume(bigpipe._server._events.request).to.be.a('function');
+        assume(bigpipe._server._events.request.toString()).to.equal(bigpipe.bind(bigpipe.dispatch).toString());
+        assume(bigpipe._server._events).to.have.property('error');
+        assume(bigpipe._server._events.error).to.be.a('function');
+        assume(bigpipe._server._events.error.toString()).to.equal(bigpipe.emits('error').toString());
       });
     });
 
     it('will define and process the provided pagelets', function (done) {
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         pagelets: __dirname +'/fixtures/pagelets',
         dist: '/tmp/dist'
       });
 
-      pipe.once('listening', function () {
-        assume(pipe._pagelets.length).to.equal(12);
-        pipe._server.close(done);
+      bigpipe.once('listening', function () {
+        assume(bigpipe._pagelets.length).to.equal(12);
+        bigpipe._server.close(done);
       });
 
-      assume(pipe._pagelets.length).to.equal(0);
-      pipe.listen(common.port);
+      assume(bigpipe._pagelets.length).to.equal(0);
+      bigpipe.listen(common.port);
     });
   });
 
@@ -601,28 +601,28 @@ describe('Pipe', function () {
     });
 
     it('has optional port argument that defaults to 8080', function (done) {
-      var pipe = Pipe.createServer({
+      var bigpipe = Pipe.createServer({
         dist: '/tmp/dist'
       });
 
-      assume(pipe._options('port')).to.equal(8080);
-      pipe.once('listening', done);
+      assume(bigpipe._options('port')).to.equal(8080);
+      bigpipe.once('listening', done);
     });
 
     it('will call .listen as soon as the server is completely initialized', function (done) {
-      var pipe = Pipe.createServer(common.port, {
+      var bigpipe = Pipe.createServer(common.port, {
         dist: '/tmp/dist'
       });
 
-      pipe.once('listening', done);
+      bigpipe.once('listening', done);
     });
 
     it('defaults options to empty object', function (done) {
-      var pipe = Pipe.createServer(common.port);
-      pipe.once('listening', done);
+      var bigpipe = Pipe.createServer(common.port);
+      bigpipe.once('listening', done);
     });
 
-    it('returns pipe instance if listen is false', function () {
+    it('returns bigpipe instance if listen is false', function () {
       assume(Pipe.createServer(common.port, { listen: false })).to.be.instanceof(Pipe);
     });
   });
@@ -630,7 +630,7 @@ describe('Pipe', function () {
   describe('.redirect', function () {
     it('redirects to specified location', function (done) {
       var property = Object.getOwnPropertyDescriptor(Pipe.prototype, 'redirect')
-        , pagelet = new Pagelet({res: {}, pipe: app });
+        , pagelet = new Pagelet({res: {}, bigpipe: app });
 
       assume(Pipe.prototype).to.have.property('redirect');
       assume(Pipe.prototype.redirect).to.be.a('function');
@@ -652,7 +652,7 @@ describe('Pipe', function () {
     });
 
     it('allows to set custom statusCode', function (done) {
-      var pagelet = new Pagelet({res: {}, pipe: app });
+      var pagelet = new Pagelet({res: {}, bigpipe: app });
 
       pagelet._res.setHeader = function setHeader(header, value) {
         assume(header).to.equal('Location');
@@ -683,7 +683,7 @@ describe('Pipe', function () {
       };
 
       app.redirect(
-        new Pagelet({res: resp, pipe: app }),
+        new Pagelet({res: resp, bigpipe: app }),
         '/redirect',
         302,
         { cache: false }
@@ -691,7 +691,7 @@ describe('Pipe', function () {
     });
 
     it('emits end if the pagelet has a listener', function (done) {
-      var pagelet = new Pagelet({res: new Response, pipe: app });
+      var pagelet = new Pagelet({res: new Response, bigpipe: app });
 
       pagelet.once('end', function () {
         assume(arguments.length).to.equal(0);
@@ -755,33 +755,33 @@ describe('Pipe', function () {
     });
 
     it('returns early if middleware handles the response', function (done) {
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         dist: '/tmp/dist'
       });
 
-      pipe.middleware.use('test', function (req, res, next) {
+      bigpipe.middleware.use('test', function (req, res, next) {
         assume(req.url).to.equal('/');
         next(null, true);
 
-        pipe._server.close(done);
+        bigpipe._server.close(done);
       });
 
-      pipe.listen(common.port, function () {
-        pipe.dispatch(new Request('/'), new Response);
+      bigpipe.listen(common.port, function () {
+        bigpipe.dispatch(new Request('/'), new Response);
       });
     });
 
     it('returns 500 Pagelet if middleware errors', function (done) {
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         dist: '/tmp/dist'
       });
 
-      pipe.middleware.use('test', function (req, res, next) {
+      bigpipe.middleware.use('test', function (req, res, next) {
         assume(req.url).to.equal('/');
         next(new Error('Testing message, fail!'), false);
       });
 
-      pipe.listen(common.port, function () {
+      bigpipe.listen(common.port, function () {
         var response = new Response;
 
         response.write = function write(data, encoding, cb) {
@@ -789,10 +789,10 @@ describe('Pipe', function () {
           assume(data).to.include('<title>BigPipe</title>');
           assume(data).to.include('500, Internal server error');
           assume(data).to.include('Error: Testing message, fail!');
-          pipe._server.close(done);
+          bigpipe._server.close(done);
         };
 
-        pipe.dispatch(new Request('/'), response);
+        bigpipe.dispatch(new Request('/'), response);
       });
     });
 
@@ -911,8 +911,8 @@ describe('Pipe', function () {
           test: 'value'
         },
 
-        server: function (pipe, options) {
-          assume(pipe).to.be.instanceof(Pipe);
+        server: function (bigpipe, options) {
+          assume(bigpipe).to.be.instanceof(Pipe);
           assume(options).to.be.an('function');
           assume(options('test')).to.equal('value');
           done();
@@ -928,30 +928,30 @@ describe('Pipe', function () {
     });
 
     it('closes the server if required', function (done) {
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         dist: '/tmp/dist'
       });
 
-      pipe.listen(common.port, function () {
-        pipe._server.close = done;
-        pipe.destroy();
+      bigpipe.listen(common.port, function () {
+        bigpipe._server.close = done;
+        bigpipe.destroy();
       });
     });
 
     it('removes listeners and cleans references', function (done) {
-      var pipe = new Pipe(http.createServer(), {
+      var bigpipe = new Pipe(http.createServer(), {
         pagelets: __dirname +'/fixtures/pagelets',
         dist: '/tmp/dist'
       });
 
-      pipe.listen(common.port, function () {
-        pipe.destroy();
+      bigpipe.listen(common.port, function () {
+        bigpipe.destroy();
 
-        assume(pipe).to.not.have.property('_events');
-        assume(pipe).to.have.property('_pagelets', null);
-        assume(pipe).to.have.property('_temper', null);
-        assume(pipe).to.have.property('_plugins', null);
-        assume(pipe).to.have.property('middleware', null);
+        assume(bigpipe).to.not.have.property('_events');
+        assume(bigpipe).to.have.property('_pagelets', null);
+        assume(bigpipe).to.have.property('_temper', null);
+        assume(bigpipe).to.have.property('_plugins', null);
+        assume(bigpipe).to.have.property('middleware', null);
 
         done();
       });
@@ -959,7 +959,7 @@ describe('Pipe', function () {
   });
 
   describe('.bootstrap', function () {
-    var pipe = new Pipe(http.createServer(), {
+    var bigpipe = new Pipe(http.createServer(), {
       pagelets: __dirname +'/fixtures/pagelets',
       dist: '/tmp/dist'
     });
@@ -985,7 +985,7 @@ describe('Pipe', function () {
     it('forces sync mode if the JS is disabled or HTTP versions are missing', function () {
       var req = new Request
         , res = new Response
-        , pagelet = new All({ req: req, res: res, pipe: pipe });
+        , pagelet = new All({ req: req, res: res, bigpipe: bigpipe });
 
       req.query.no_pagelet_js = '1';
       pagelet.mode = 'async';
@@ -1003,7 +1003,7 @@ describe('Pipe', function () {
     it('bootstraps the parent in async mode by default', function () {
       var req = new Request
         , res = new Response
-        , pagelet = new All({ req: req, res: res, pipe: pipe });
+        , pagelet = new All({ req: req, res: res, bigpipe: bigpipe });
 
       req.httpVersionMajor = '2';
       req.httpVersionMinor = '2';
@@ -1015,7 +1015,7 @@ describe('Pipe', function () {
     it('adds the bootstrap pagelet to the parent', function () {
       var req = new Request
         , res = new Response
-        , pagelet = new All({ req: req, res: res, pipe: pipe });
+        , pagelet = new All({ req: req, res: res, bigpipe: bigpipe });
 
       app.bootstrap(pagelet, req, res);
 
@@ -1031,7 +1031,7 @@ describe('Pipe', function () {
               assume(arguments).to.have.length(0);
               done();
             }
-          }))({ req: req, res: res, pipe: pipe });
+          }))({ req: req, res: res, bigpipe: bigpipe });
 
       app.bootstrap(pagelet, req, res);
     });
@@ -1044,7 +1044,7 @@ describe('Pipe', function () {
               assume(arguments).to.have.length(0);
               done();
             }
-          }))({ req: req, res: res, pipe: pipe });
+          }))({ req: req, res: res, bigpipe: bigpipe });
 
       app.bootstrap(pagelet, req, res);
     });
@@ -1061,7 +1061,7 @@ describe('Pipe', function () {
               assume(next).to.be.a('function');
               next();
             }
-          }))({ req: req, res: res, pipe: pipe });
+          }))({ req: req, res: res, bigpipe: bigpipe });
 
       app.bootstrap(pagelet, req, res);
     });
