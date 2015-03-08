@@ -24,6 +24,10 @@ describe('Pipe', function () {
     }).listen(common.port, done);
   });
 
+  after(function (done) {
+    server.close(done);
+  });
+
   it('has fallback if called as function without new', function () {
     assume(Pipe()).to.be.instanceof(Pipe);
   });
@@ -805,6 +809,56 @@ describe('Pipe', function () {
       };
 
       app.dispatch(new Request('/faq'), response);
+    });
+  });
+
+  describe('.capture', function () {
+    it('is a function', function () {
+      assume(app.capture).is.a('function');
+      assume(app.capture.length).to.equal(3);
+    });
+
+    it('calls the status method with a 500', function (done) {
+      var Mock = Pipe.extend({
+        status: function status(pagelet, status, error, bootstrap) {
+          assume(pagelet).to.be.instanceof(Pagelet);
+          assume(status).to.equal(500);
+          assume(error.message).to.equal('trigger status');
+          assume(bootstrap).to.equal(false);
+          done();
+        }
+      });
+
+      var mock = new Mock(http.createServer(), {
+        dist: '/tmp/dist'
+      });
+
+      mock.capture(
+        new Error('trigger status'),
+        new (Pagelet.extend({ name: 'mock' }))
+      );
+    });
+
+    it('passes value of bootstrap flag', function (done) {
+      var Mock = Pipe.extend({
+        status: function status(pagelet, status, error, bootstrap) {
+          assume(pagelet).to.be.instanceof(Pagelet);
+          assume(status).to.equal(500);
+          assume(error.message).to.equal('trigger status');
+          assume(bootstrap).to.equal(true);
+          done();
+        }
+      });
+
+      var mock = new Mock(http.createServer(), {
+        dist: '/tmp/dist'
+      });
+
+      mock.capture(
+        new Error('trigger status'),
+        new (Pagelet.extend({ name: 'mock' })),
+        true
+      );
     });
   });
 

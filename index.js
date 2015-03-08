@@ -782,13 +782,13 @@ BigPipe.readable('pipeline', function pipeline(pagelet) {
  * @api private
  */
 BigPipe.readable('capture', function capture(error, pagelet, bootstrap) {
-  this.debug(
+  debug(
     'Captured an error from %s: %s, displaying error pagelet',
     pagelet.name,
     error
   );
 
-  return this.status(pagelet, 500, error, bootstrap);
+  return this.status(pagelet, 500, error, bootstrap || false);
 });
 
 /**
