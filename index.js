@@ -766,7 +766,61 @@ BigPipe.readable('async', function asynchronous(pagelet) {
  * @api private
  */
 BigPipe.readable('pipeline', function pipeline(pagelet) {
-  throw new Error('Not Implemented');
+  var bigpipe = this
+    , pagelets;
+
+  //
+  // Flush the initial headers asap so the browser can start detect encoding
+  // start downloading assets and prepare for rendering additional pagelets.
+  //
+  pagelet.bootstrap.render().flush(function headers(error) {
+    if (error) return bigpipe.capture(error, pagelet, true);
+
+    pagelet.once('discover', function discovered() {
+      pagelet.debug('Processing the pagelets in `async` mode');
+
+      //
+      // Concat pagelets and provide order through the pagelet id.
+      //
+      pagelets = pagelet._enabled
+        .concat(pagelet._disabled, pagelet)
+        .sort(function sortByPageletId(a, b) {
+          if (a.id < b.id) return -1
+          if (a.id > b.id) return 1;
+          return 0;
+        });
+
+      //
+      // Keep track of the order of pagelets through their id. Asynchronous
+      // render all the different pagelets, but only write and flush in the
+      // order that was set by sort.
+      //
+      var order = pagelets.map(function returnId(pagelet) { return pagelet.id })
+        , output = []
+        , i = 0;
+
+      async.each(pagelets, function render(child, next) {
+        pagelet.debug('Invoking pagelet %s/%s render', child.name, child.id);
+
+        child.render({
+          data: bigpipe._compiler.pagelet(child)
+        }, function rendered(error, content) {
+          if (error) return render(bigpipe.capture(error), child, next);
+          output[order.indexOf(child.id)] = content;
+
+          for (; i < output.length; i++) {
+            if (!output[i]) return next();
+            child.write(output[i]).flush();
+          }
+
+          next();
+        });
+      }, function done(error) {
+        if (error) return bigpipe.capture(error);
+        pagelet.end();
+      });
+    }).discover();
+  });
 });
 
 /**

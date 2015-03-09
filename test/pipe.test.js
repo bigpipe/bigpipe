@@ -820,9 +820,9 @@ describe('Pipe', function () {
 
     it('calls the status method with a 500', function (done) {
       var Mock = Pipe.extend({
-        status: function status(pagelet, status, error, bootstrap) {
+        status: function status(pagelet, code, error, bootstrap) {
           assume(pagelet).to.be.instanceof(Pagelet);
-          assume(status).to.equal(500);
+          assume(code).to.equal(500);
           assume(error.message).to.equal('trigger status');
           assume(bootstrap).to.equal(false);
           done();
@@ -841,9 +841,9 @@ describe('Pipe', function () {
 
     it('passes value of bootstrap flag', function (done) {
       var Mock = Pipe.extend({
-        status: function status(pagelet, status, error, bootstrap) {
+        status: function status(pagelet, code, error, bootstrap) {
           assume(pagelet).to.be.instanceof(Pagelet);
-          assume(status).to.equal(500);
+          assume(code).to.equal(500);
           assume(error.message).to.equal('trigger status');
           assume(bootstrap).to.equal(true);
           done();
@@ -859,6 +859,27 @@ describe('Pipe', function () {
         new (Pagelet.extend({ name: 'mock' })),
         true
       );
+    });
+  });
+
+  describe('.sync', function () {
+    it('is a function', function () {
+      assume(app.sync).is.a('function');
+      assume(app.sync.length).to.equal(1);
+    });
+  });
+
+  describe('.async', function () {
+    it('is a function', function () {
+      assume(app.async).is.a('function');
+      assume(app.async.length).to.equal(1);
+    });
+  });
+
+  describe('.pipeline', function () {
+    it('is a function', function () {
+      assume(app.pipeline).is.a('function');
+      assume(app.pipeline.length).to.equal(1);
     });
   });
 
