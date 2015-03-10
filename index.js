@@ -155,18 +155,8 @@ BigPipe.readable('version', require(__dirname +'/package.json').version);
  * @api public
  */
 BigPipe.readable('framework', function framework(Framework) {
+  if (this._framework) this._framework.destroy();
   this._framework = new Framework(this);
-
-  var middleware = this._framework.get('middleware')
-    , plugins = this._framework.get('use');
-
-  Object.keys(middleware).forEach(function each(name) {
-    this.middleware.use(name, middleware[name]);
-  }, this);
-
-  Object.keys(plugins).forEach(function each(name) {
-    this.use(name, plugins[name]);
-  }, this);
 
   return this;
 });
