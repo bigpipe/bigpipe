@@ -3,6 +3,10 @@ node_js:
   - "0.10"
   - "0.12"
   - "iojs"
+git:
+  depth: 10
+before_install:
+  - "npm config set loglevel error"
 before_script:
   - "[ $MASTER == false ] || npm install bigpipe/pagelet bigpipe/temper bigpipe/bigpipe.js bigpipe/bootstrap-pagelet"
 script:
