@@ -3,6 +3,8 @@ node_js:
   - "0.10"
   - "0.12"
   - "iojs"
+before_script:
+  - "[ $MASTER == false ] || npm install bigpipe/pagelet bigpipe/temper bigpipe/bigpipe.js bigpipe/bootstrap-pagelet"
 script:
   - "npm run test-travis"
 after_script:
@@ -11,6 +13,9 @@ matrix:
   fast_finish: true
   allow_failures:
     - node_js: "iojs"
+  include:
+    - node_js: "0.10"
+    - env: MASTER=true
 notifications:
   irc:
     channels:
