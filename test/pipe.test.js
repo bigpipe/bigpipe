@@ -643,7 +643,21 @@ describe('Pipe', function () {
       });
 
       assume(bigpipe._options('port')).to.equal(8080);
-      bigpipe.once('listening', done);
+      bigpipe.once('listening', function () {
+        bigpipe._server.close(done);
+      });
+    });
+
+    it('accepts string as port number', function (done) {
+      var port = common.port
+        , bigpipe = Pipe.createServer(port.toString(), {
+          dist: '/tmp/dist'
+        });
+
+      assume(bigpipe._options('port')).to.equal(port);
+      bigpipe.once('listening', function () {
+        bigpipe._server.close(done);
+      });
     });
 
     it('will call .listen as soon as the server is completely initialized', function (done) {
@@ -651,12 +665,16 @@ describe('Pipe', function () {
         dist: '/tmp/dist'
       });
 
-      bigpipe.once('listening', done);
+      bigpipe.once('listening', function () {
+        bigpipe._server.close(done);
+      });
     });
 
     it('defaults options to empty object', function (done) {
       var bigpipe = Pipe.createServer(common.port);
-      bigpipe.once('listening', done);
+      bigpipe.once('listening', function () {
+        bigpipe._server.close(done);
+      });
     });
 
     it('returns bigpipe instance if listen is false', function () {

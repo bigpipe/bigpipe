@@ -872,7 +872,7 @@ BigPipe.readable('destroy', destroy([
  */
 BigPipe.createServer = function createServer(port, options) {
   options = 'object' === typeof port ? port : options || {};
-  if ('number' === typeof port) options.port = port;
+  if ('number' === typeof port || 'string' === typeof port) options.port = +port;
 
   var listen = options.listen === false
     , bigpipe;
