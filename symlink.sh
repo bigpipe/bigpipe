@@ -8,7 +8,7 @@ ROOT="$( cd "$( dirname "$0" )" && pwd )"
 #
 # Tell npm to install our core dependencies through the github master branches.
 #
-npm install bigpipe/pagelet bigpipe/bigpipe.js bigpipe/bootstrap-pagelet bigpipe/500-pagelet bigpipe/404-pagelet bigpipe/diagnostics-pagelet
+npm install --prefix $ROOT bigpipe/pagelet bigpipe/bigpipe.js bigpipe/bootstrap-pagelet bigpipe/500-pagelet bigpipe/404-pagelet bigpipe/diagnostics-pagelet
 
 #
 # As a lot of dependencies referrer to pagelet's we need to correct their
