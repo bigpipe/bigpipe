@@ -3,12 +3,15 @@ node_js:
   - "0.10"
   - "0.12"
   - "iojs"
+env:
+  global:
+    - "MASTER=false"
 git:
   depth: 10
 before_install:
   - "npm config set loglevel error"
 before_script:
-  - "[ $MASTER == false ] || npm install bigpipe/pagelet bigpipe/temper bigpipe/bigpipe.js bigpipe/bootstrap-pagelet"
+  - "[ $MASTER == false ] || sh ./symlink.sh"
 script:
   - "npm run test-travis"
 after_script:
