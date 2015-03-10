@@ -13,7 +13,9 @@ describe('Pipe', function () {
     , server
     , app;
 
-  before(function (done) {
+  this.timeout(30000);
+
+  beforeEach(function (done) {
     server = http.createServer(function () {
       throw new Error('Unhandled request');
     });
@@ -24,7 +26,7 @@ describe('Pipe', function () {
     }).listen(common.port, done);
   });
 
-  after(function (done) {
+  afterEach(function (done) {
     server.close(done);
   });
 
