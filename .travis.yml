@@ -20,6 +20,7 @@ matrix:
   fast_finish: true
   allow_failures:
     - node_js: "iojs"
+    - env: "MASTER=true"
   include:
     - node_js: "0.10"
     - env: MASTER=true
