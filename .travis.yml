@@ -4,8 +4,9 @@ node_js:
   - "0.12"
   - "iojs"
 env:
-  global:
+  matrix:
     - "MASTER=false"
+    - "MASTER=true"
 git:
   depth: 10
 before_install:
@@ -21,8 +22,6 @@ matrix:
   allow_failures:
     - node_js: "iojs"
     - env: "MASTER=true"
-  include:
-    - env: MASTER=true
 notifications:
   irc:
     channels:
