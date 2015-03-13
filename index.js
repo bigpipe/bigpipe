@@ -498,9 +498,13 @@ BigPipe.readable('dispatch', function dispatch(req, res) {
  *   },
  *
  *   //
- *   // Optional library that needs to be bundled on the client (should be a string)
+ *   // Optional library that needs to be bundled on the client. The library
+ *   // should be an object having a `path` and `name` property.
  *   //
- *   library: '',
+ *   library: {
+ *     path: '/path/to/library',
+ *     name: 'name'
+ *   },
  *
  *   //
  *   // Optional plugin specific options, will be merged with Bigpipe.options
