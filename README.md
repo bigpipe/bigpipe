@@ -21,6 +21,8 @@ where everything is done asynchronously. When receiving your first batch
 of data, why not send it directly to the browser so it can start downloading the
 required CSS, JavaScript and render it.
 
+BigPipe is made up over 20 modules whose current status is available at: [HEALTH.md](HEALTH.md)
+
 ## Installation
 
 BigPipe is distributed through the node package manager (npm) and is written
@@ -81,7 +83,7 @@ This creates an HTTP or HTTPS server based on the options provided.
 
 ```js
 var bigpipe = BigPipe.createServer(8080, {
-  pages: __dirname +'/pages',
+  pagelets: __dirname +'/pagelets',
   dist:  __dirname +'/dist'
 });
 ```
@@ -95,8 +97,8 @@ BigPipe server. The following options are supported:
 - **dist** The location of our folder where we can store our compiled CSS and
   JavaScript to disk. If the path or folder does not exist it will be
   automatically created. Defaults to `working dir/dist`.
-- **pages** A directory that contains your Page definitions or an array of Page
-  constructors. Defaults to `working dir/dist`. If you don't provide Pages it
+- **pagelets** A directory that contains your Pagelet definitions or an array of Pagelet
+  constructors. Defaults to `working dir/pagelets`. If you don't provide Pages it
   will serve a 404 page for every request.
 - **parser** The message parser we should use for our real-time communication.
   See [Primus] for the available parsers. Defaults to `JSON`.
@@ -183,21 +185,21 @@ The current version of the BigPipe framework that is running.
 **public**, _returns BigPipe_.
 
 ```js
-bigpipe.define(pages, callback);
+bigpipe.define(pagelets, callback);
 ```
 
-Merge page or pages in the collection of existing pages. If given a string it
-will search that directly for the available Page files. After all dependencies
+Merge pagelet(s) in the collection of existing pagelets. If given a string it
+will search that directory for the available Pagelet files. After all dependencies
 have been compiled the supplied callback is called.
 
 ```js
-bigpipe.define('../pages', function done(err) {
+bigpipe.define('../pagelets', function done(err) {
 
 });
 
-bigpipe.define([Page, Page, Page], function done(err) {
+bigpipe.define([Pagelet, Pagelet, Pagelet], function done(err) {
 
-}).define('../more/pages', function done(err) {
+}).define('../more/pagelets', function done(err) {
 
 });
 ```
@@ -348,184 +350,9 @@ bigpipe.use('ack', {
 });
 ```
 
-### Page.path
+## Pagelets
 
-_required:_ **writable, string**
-
-The HTTP pathname or URL we that we should respond to. The routing make use of
-the [routable](https://github.com/bigpipe/routable) module for all of it's path
-matching. This allows you to use:
-
-- **plain strings:** `'/foo/bar'`
-- **capturing strings:** `'/foo/:bar'`
-- **regexp**: `/^\/foo\/bar$/`
-- **capturing regexp**: `/^\/(foo|bar)\/bar$/`
-- **xRegExp**: `'/^\\/(?<named>[\\d\\.]+)\\/foo/'`
-
-```js
-Page.extend({
-  path: '/'
-}).on(module);
-```
-
-### Page.view
-
-_required:_ **writable, string**
-
-The location of the base template which will be flushed to the browser as the
-first chunk of content. In your template we will introduce a `bootstrap`
-variable that needs to be placed in the `<head>` of HTML. Make sure when you're
-outputting this `bootstrap` variable is that it's **not** escaping the HTML tags.
-
-```html
-<!doctype html>
-<html class="no-js">
-<head>
-  <%- bootstrap %>
-</head>
-```
-
-The template engine that you use should be supported by the [temper] project. The
-path the template is relative to the location of the Page. So you don't need to
-the nasty `path.join(__dirname, 'folder')` "hack" to set the correct template.
-
-```js
-Page.extend({
-  view: '../views/index.ejs'
-}).on(module);
-```
-
-### Page.charset
-
-_optional:_ **writable, string**
-
-The meta character set for the Page. We add a `<meta charset="">` to the bootstrap
-code by default so the browser doesn't have to do any HTML buffering in order to
-figure out what charset it should render the HTML in.
-
-When you set this to `null` it will not include the meta charset, but this it not
-advised.
-
-**Default value**: `utf-8`
-
-```js
-Page.extend({
-  charset: 'UTF-8'
-}).on(module);
-```
-
-### Page.contentType
-
-_optional:_ **writable, string**
-
-The Content-Type of the response. This defaults to text/html with a charset
-preset. The charset does not inherit it's value from the `charset` option.
-
-**Default value**: `text/html; charset=UTF-8`
-
-```js
-Page.extend({
-  contentType: 'text/html; charset=UTF-7'
-}).on(module);
-```
-
-### Page.method
-
-_optional:_ **writable, string or array**
-
-Which HTTP methods should this page accept. It can be string with comma separated
-values or an Array with all the individual methods.
-
-**Default value**: `GET`
-
-```js
-Page.extend({
-  method: ['GET', 'POST', 'HEAD']`
-}).on(module);
-```
-
-Or using a string:
-
-```js
-Page.extend({
-  method: 'GET, POST, HEAD'
-}).on(module);
-```
-
-### Page.statusCode
-
-_optional:_ **writable, number**
-
-The default status code that we should send back to the response.
-
-**Default value**: `200`
-
-```js
-Page.extend({
-  statusCode: 416
-}).on(module);
-```
-
-### Page.data
-
-_optional:_ **writable, object**
-
-Optional data that is passed through to the template renderer when rendering
-the view associated with this page.
-
-```js
-Page.extend({
-  data: {
-    timestamp: Date.now()
-  }
-}).on(module);
-```
-
-### Page.authorize
-
-_optional:_ **writable, function**
-
-An authorization handler to see if the request is authorized to interact with
-this page. This is set to `null` by default as there isn't any
-authorization in place. The authorization function will receive 2 arguments:
-
-- **req**: the http request that initialized the pagelet
-- **done**: a callback function that needs to be called with only a boolean.
-
-```js
-Page.extend({
-  authorize: function authorize(req, done) {
-    done(true); // True indicates that the request is authorized for access.
-  }
-}).on(module);
-```
-
-### Page.mode
-
-_optional:_ **writable, string**
-
-What kind of generation mode should we render the pagelets. There are 3 different
-render modes available:
-
-- **sync**: Render all the pagelets in a single flush so we don't rely on
-  JavaScript to be active in the browser to put the rendered pagelets in their
-  correct positions again. This is set by default if your browser is not
-  supporting JavaScript or doesn't support HTTP 1.1 chunking.
-- **async**: Render all pagelets as fast as possible and flush them to the
-  response once they are done with rendering. The client side would then place
-  the pagelets in their correct place holders. There is no pre-defined order
-  when we are rendering.
-- **pipeline**: Almost the same as **async** rendering but the main difference
-  is that the pagelets are flushed in the order that we're defined on the
-  `pagelet` object.
-
-**Default value**: `async`
-
-```js
-Page.extend({
-  mode: 'async'
-}).on(module);
-```
+Pagelets are part of the bigpipe/pagelet module and more information is available at: https://github.com/bigpipe/pagelet
 
 ## Events
 
@@ -536,11 +363,9 @@ Event                 | Usage       | Location      | Description
 ----------------------|-------------|---------------|-------------------------------
 `log`                 | public      | server        | A new log message
 `transform::pagelet`  | public      | server        | Transform a Pagelet
-`transform::page`     | public      | server        | Transform a Page
 `listening`           | public      | server        | The server is listening
 `error`               | public      | server        | The HTTP server received an error
 `pagelet::configure`  | public      | server        | A new pagelet has been configured
-`page::configure`     | public      | server        | A new page has been configured
 
 ## Debugging
 
@@ -557,7 +382,7 @@ The following `DEBUG` namespaces are available:
 
 - `bigpipe:server` The part that handles the request dispatching, page / pagelet
   transformation and more.
-- `bigpipe:page` Page generation.
+- `bigpipe:pagelet` Pagelet generation.
 - `bigpipe:compiler` Asset compilation.
 - `bigpipe:primus` BigPipe Primus setup.
 - `pagelet:primus` Pagelet and Primus interactions
