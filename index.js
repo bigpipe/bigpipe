@@ -130,7 +130,7 @@ BigPipe.readable('initialize', function initialize(options) {
   //
   // Process the Front-end framework abstractions.
   //
-  this.framework(options.engine || Framework);
+  this.framework(options.framework || Framework);
 
   //
   // Apply the plugins before resolving and transforming the pagelets so the
