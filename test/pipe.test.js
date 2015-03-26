@@ -1,12 +1,13 @@
 describe('Pipe', function () {
   'use strict';
 
-  var Compiler = require('../lib/compiler')
+  var All = require('./fixtures/pagelets/all')
+    , Compiler = require('../lib/compiler')
+    , Fittings = require('fittings')
     , common = require('./common')
     , Pagelet = require('pagelet')
     , assume = require('assume')
     , http = require('http')
-    , All = require('./fixtures/pagelets/all')
     , Response = common.Response
     , Request = common.Request
     , Pipe = common.Pipe
@@ -89,9 +90,21 @@ describe('Pipe', function () {
     assume(app._cache).to.equal(false);
   });
 
-  describe('.framework', function () {
-    var Fittings = require('fittings');
+  it('can be initialized with a custom Framework', function () {
+    var Framework = Fittings.extend({
+      name: 'moo'
+    });
 
+    app = new Pipe(server, {
+      pagelets: __dirname +'/fixtures/pagelets',
+      framework: Framework,
+      dist: '/tmp/dist'
+    });
+
+    assume(app._framework.name).equals('moo');
+  });
+
+  describe('.framework', function () {
     it('has a framework method', function () {
       assume(app.framework).is.a('function');
     });
@@ -212,7 +225,9 @@ describe('Pipe', function () {
     });
 
     it('plugs in the provided plugins', function () {
-      app.initialize(function optionStub() {
+      app.initialize(function optionStub(what, defaults) {
+        if (what === 'framework') return defaults;
+
         return [{
           name: 'test',
           server: function noop() { }
