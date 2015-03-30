@@ -226,7 +226,9 @@ describe('Pipe', function () {
 
     it('plugs in the provided plugins', function () {
       app.initialize(function optionStub(what, defaults) {
-        if (what === 'framework') return defaults;
+        if (what === 'framework') return Fittings.extend({
+          name: 'lol, stubbed'
+        });
 
         return [{
           name: 'test',

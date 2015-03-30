@@ -118,11 +118,7 @@ describe('File', function () {
     });
 
     it('returns content with selector attached', function () {
-      assume(file.append(code)).to.equal(code + '#pagelet_' + sha + ' { height: 42px }');
-    });
-
-    it('can be provided with alternative hash', function () {
-      assume(file.append(code, 'test')).to.equal(code + '#pagelet_test { height: 42px }');
+      assume(file.append(code)).to.equal(code + '#_' + sha + ' { height: 42px }');
     });
   });
 
