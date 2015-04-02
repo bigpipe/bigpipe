@@ -1,6 +1,6 @@
 {
   "name": "bigpipe",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Bigpipe a radical new web framework for Node.js that's inspired by Facebook's bigpipe concept.",
   "main": "index.js",
   "engine": "node >= 0.10.0",
@@ -23,7 +23,7 @@
     "demolish": "1.0.x",
     "diagnostics": "0.0.x",
     "eventemitter3": "0.1.x",
-    "fabricator": "0.4.x",
+    "fabricator": "0.5.x",
     "fusing": "1.0.x",
     "mkdirp": "0.5.x",
     "smithy": "0.5.x",
