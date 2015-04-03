@@ -1060,10 +1060,10 @@ describe('Pipe', function () {
         bigpipe.destroy();
 
         assume(bigpipe).to.not.have.property('_events');
-        // assume(bigpipe).to.have.property('_pagelets', null);
-        assume(bigpipe).to.have.property('_temper', null);
-        assume(bigpipe).to.have.property('_plugins', null);
-        assume(bigpipe).to.have.property('middleware', null);
+        assume(bigpipe._pagelets).to.equal(null);
+        assume(bigpipe._temper).to.equal(null);
+        assume(bigpipe._plugins).to.equal(null);
+        assume(bigpipe.middleware).to.equal(null);
 
         done();
       });
