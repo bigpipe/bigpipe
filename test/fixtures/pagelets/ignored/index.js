@@ -1,8 +1,9 @@
 'use strict';
 
-var Pagelet = require('pagelet');
+var Pagelet = require('pagelet')
+  , pagelet;
 
-module.exports = Pagelet.extend({
+pagelet = Pagelet.extend({
   name: 'ignored',
 
   /**
@@ -28,3 +29,9 @@ module.exports = Pagelet.extend({
     next();
   },
 });
+
+//
+// Nuke Pagelet.optimize so it will be ignored by BigPipe.
+//
+pagelet.optimize = null;
+module.exports = pagelet;

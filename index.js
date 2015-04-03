@@ -314,9 +314,7 @@ BigPipe.readable('define', function define(pagelets, done) {
   var bigpipe = this;
 
   async.map(fabricate(pagelets), function map(Pagelet, next) {
-    if (Pagelet.prototype.path === null && Pagelet.prototype.view === null) {
-      return next();
-    }
+    if ('function' !== typeof Pagelet.optimize) return next();
 
     Pagelet.optimize({
       bigpipe: bigpipe,
