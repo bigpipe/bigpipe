@@ -17,20 +17,25 @@ bigpipe/diagnostics-pagelet bigpipe/fittings
 # dependencies so they all use the pagelet's master branch
 #
 rm -rf $ROOT/node_modules/bigpipe.js/node_modules/fittings
-ln -s $ROOT/node_modules/fittings $ROOT/node_modules/bigpipe.js/node_modules
+mkdir -p $ROOT/node_modules/bigpipe.js/node_modules/fittings
+ln -s $ROOT/node_modules/fittings $ROOT/node_modules/bigpipe.js/node_modules/fittings
 
 rm -rf $ROOT/node_modules/bootstrap-pagelet/node_modules/pagelet
-ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/bootstrap-pagelet/node_modules
+mkdir -p $ROOT/node_modules/bootstrap-pagelet/node_modules
+ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/bootstrap-pagelet/node_modules/pagelet
 
 rm -rf $ROOT/node_modules/diagnostics-pagelet/node_modules/pagelet
-ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/diagnostics-pagelet/node_modules
+mkdir -p $ROOT/node_modules/diagnostics-pagelet/node_modules
+ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/diagnostics-pagelet/node_modules/pagelet
 
 rm -rf $ROOT/node_modules/404-pagelet/node_modules/pagelet
 rm -rf $ROOT/node_modules/404-pagelet/node_modules/diagnostics-pagelet
-ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/404-pagelet/node_modules
-ln -s $ROOT/node_modules/diagnostics-pagelet $ROOT/node_modules/404-pagelet/node_modules
+mkdir -p $ROOT/node_modules/404-pagelet/node_modules
+ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/404-pagelet/node_modules/pagelet
+ln -s $ROOT/node_modules/diagnostics-pagelet $ROOT/node_modules/404-pagelet/node_modules/diagnostics-pagelet
 
 rm -rf $ROOT/node_modules/500-pagelet/node_modules/pagelet
 rm -rf $ROOT/node_modules/500-pagelet/node_modules/diagnostics-pagelet
-ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/500-pagelet/node_modules
-ln -s $ROOT/node_modules/diagnostics-pagelet $ROOT/node_modules/500-pagelet/node_modules
+mkdir -p $ROOT/node_modules/500-pagelet/node_modules
+ln -s $ROOT/node_modules/pagelet $ROOT/node_modules/500-pagelet/node_modules/pagelet
+ln -s $ROOT/node_modules/diagnostics-pagelet $ROOT/node_modules/500-pagelet/node_modules/diagnostics-pagelet
