@@ -110,7 +110,7 @@ describe('Pipe', function () {
     });
 
     it('assigns a new internal Framework', function () {
-      var Framework = Fittings.extend({ });
+      var Framework = Fittings.extend({ name: 'test' });
 
       assume(app.framework(Framework)).equals(app);
       assume(app._framework).is.instanceOf(Framework);
@@ -1060,7 +1060,7 @@ describe('Pipe', function () {
         bigpipe.destroy();
 
         assume(bigpipe).to.not.have.property('_events');
-        assume(bigpipe).to.have.property('_pagelets', null);
+        // assume(bigpipe).to.have.property('_pagelets', null);
         assume(bigpipe).to.have.property('_temper', null);
         assume(bigpipe).to.have.property('_plugins', null);
         assume(bigpipe).to.have.property('middleware', null);

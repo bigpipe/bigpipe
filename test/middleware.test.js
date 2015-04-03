@@ -24,8 +24,8 @@ describe('Middleware', function () {
       var req = new Request('/testpath');
 
       defaults(req);
-      assume(req).to.have.property('uri', url.parse('/testpath', true));
-      assume(req).to.have.property('query', url.parse('/testpath', true).query);
+      assume(req).to.have.deep.property('uri', url.parse('/testpath', true));
+      assume(req).to.have.deep.property('query', url.parse('/testpath', true).query);
       assume(req).to.have.property('originalUrl', '/testpath');
     });
   });

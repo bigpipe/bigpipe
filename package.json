@@ -36,7 +36,7 @@
     "fittings": "1.2.x",
     "istanbul": "0.3.x",
     "mocha": "2.2.x",
-    "pagelet": "bigpipe/pagelet",
+    "pagelet": "0.9.x",
     "pre-commit": "1.0.x"
   },
   "repository": {
