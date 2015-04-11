@@ -37,6 +37,7 @@ function Response() {
 //
 exports.Request = Request;
 exports.Response = Response;
-exports.Pipe = require('../');
+exports.BigPipe = require('../');
 exports.Pagelet = require('pagelet');
 exports.File = require('../lib/file');
+exports.Compiler = require('../lib/compiler');

@@ -39,6 +39,22 @@ describe('File', function () {
     assume(file.aliases).to.include(location);
   });
 
+  it('allows code to be null or undefined', function () {
+    file = new File(location, ext, false, void 0);
+
+    assume(file.code).to.equal('');
+    assume(file.buffer.length).to.equal(0);
+    assume(file.hash).to.equal('da39a3ee5e6b4b0d3255bfef95601890afd80709');
+    assume(file.length).to.equal(0);
+
+    file = new File(location, ext, false, null);
+
+    assume(file.code).to.equal('');
+    assume(file.buffer.length).to.equal(0);
+    assume(file.hash).to.equal('da39a3ee5e6b4b0d3255bfef95601890afd80709');
+    assume(file.length).to.equal(0);
+  });
+
   describe('#set', function () {
     it('is a function that returns File instance', function () {
       var result = file.set('anything');
