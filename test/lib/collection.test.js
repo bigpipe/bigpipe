@@ -108,17 +108,29 @@ describe('Collection', function () {
 
     it('adds files to the stack', function () {
       var file = new File;
+      file.hash = '1234567890abcdef';
 
       collection.push(false);
       assume(collection.stack).to.have.length(0);
 
-      collection.push(new File);
+      collection.push(file);
       assume(collection.stack).to.have.length(1);
       assume(collection.stack[0].length).to.equal(file.length);
       assume(collection.stack[0].hash).to.equal(file.hash);
+
+      collection.push(new File);
+      assume(collection.stack).to.have.length(2);
     });
 
-    it('ignores non-unique files');
+    it('ignores non-unique files', function () {
+      var file = new File;
+
+      collection.push(file);
+      assume(collection.stack).to.have.length(1);
+
+      collection.push(file);
+      assume(collection.stack).to.have.length(1);
+    });
   });
 
   describe('#toJSON', function () {
