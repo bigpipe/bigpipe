@@ -121,6 +121,27 @@ describe('Collection', function () {
     it('ignores non-unique files');
   });
 
+  describe('#toJSON', function () {
+    it('is a function', function () {
+      assume(collection.toJSON).to.be.a('function');
+      assume(collection.toJSON).to.have.length(0);
+    });
+
+    it('returns array of location of files in the collection', function () {
+      collection.push(new File('empty1', '.css'));
+      collection.push(new File('empty2', '.js'));
+
+      var json = JSON.stringify(collection);
+      assume(json).to.be.a('string');
+      assume(json).to.equal(
+        '["/da39a3ee5e6b4b0d3255bfef95601890afd80709.css","/da39a3ee5e6b4b0d3255bfef95601890afd80709.js"]'
+      );
+
+      assume(JSON.parse(json)).to.be.an('array');
+      assume(JSON.parse(json)).to.include('/da39a3ee5e6b4b0d3255bfef95601890afd80709.css');
+    });
+  });
+
   describe('#concat', function () {
     it('is a function', function () {
       assume(collection.isFile).to.be.a('function');
