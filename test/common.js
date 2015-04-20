@@ -41,3 +41,4 @@ exports.BigPipe = require('../');
 exports.Pagelet = require('pagelet');
 exports.File = require('../lib/file');
 exports.Compiler = require('../lib/compiler');
+exports.Collection = require('../lib/collection');
