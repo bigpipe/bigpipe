@@ -250,7 +250,7 @@ If you're building async middleware layers, you simply need to make sure that
 your function accepts 3 arguments:
 
 - **req** The incoming HTTP request.
-- **req** The outgoing HTTP response.
+- **res** The outgoing HTTP response.
 - **next** The continuation callback function. This function follows the error
   first callback pattern.
 
