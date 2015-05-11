@@ -680,6 +680,7 @@ BigPipe.readable('bootstrap', function bootstrap(child, req, res) {
  * @TODO remove pagelet's that have `authorized` set to `false`
  * @TODO Also write the CSS and JavaScript.
  *
+ * @param {Pagelet} pagelet Parent pagelet
  * @api private
  */
 BigPipe.readable('sync', function synchronous(pagelet) {
@@ -716,6 +717,7 @@ BigPipe.readable('sync', function synchronous(pagelet) {
  * Mode: Asynchronous
  * Output the pagelets as fast as possible.
  *
+ * @param {Pagelet} pagelet Parent pagelet
  * @api private
  */
 BigPipe.readable('async', function asynchronous(pagelet) {
@@ -754,7 +756,7 @@ BigPipe.readable('async', function asynchronous(pagelet) {
  * Mode: pipeline
  * Output the pagelets as fast as possible but in order.
  *
- * @returns {BigPipe} fluent interface.
+ * @param {Pagelet} pagelet Parent pagelet
  * @api private
  */
 BigPipe.readable('pipeline', function pipeline(pagelet) {
@@ -777,7 +779,7 @@ BigPipe.readable('pipeline', function pipeline(pagelet) {
       pagelets = pagelet._enabled
         .concat(pagelet._disabled, pagelet)
         .sort(function sortByPageletId(a, b) {
-          if (a.id < b.id) return -1
+          if (a.id < b.id) return -1;
           if (a.id > b.id) return 1;
           return 0;
         });
@@ -787,7 +789,7 @@ BigPipe.readable('pipeline', function pipeline(pagelet) {
       // render all the different pagelets, but only write and flush in the
       // order that was set by sort.
       //
-      var order = pagelets.map(function returnId(pagelet) { return pagelet.id })
+      var order = pagelets.map(function returnId(pagelet) { return pagelet.id; })
         , output = []
         , i = 0;
 
