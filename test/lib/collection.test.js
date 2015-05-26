@@ -140,8 +140,8 @@ describe('Collection', function () {
     });
 
     it('returns array of location of files in the collection', function () {
-      collection.push(new File('empty1', '.css'));
-      collection.push(new File('empty2', '.js'));
+      collection.push(new File('empty1', { extname: '.css' }));
+      collection.push(new File('empty2', { extname:'.js' }));
 
       var json = JSON.stringify(collection);
       assume(json).to.be.a('string');

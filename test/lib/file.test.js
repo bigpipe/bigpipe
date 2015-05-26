@@ -11,7 +11,10 @@ describe('File', function () {
     , file;
 
   beforeEach(function () {
-    file = new File(location, ext, false, code);
+    file = new File(location, {
+      extname: ext,
+      code: code
+    });
   });
 
   afterEach(function () {
@@ -40,14 +43,20 @@ describe('File', function () {
   });
 
   it('allows code to be null or undefined', function () {
-    file = new File(location, ext, false, void 0);
+    file = new File(location, {
+      extname: ext,
+      code: void 0
+    });
 
     assume(file.code).to.equal('');
     assume(file.buffer.length).to.equal(0);
     assume(file.hash).to.equal('da39a3ee5e6b4b0d3255bfef95601890afd80709');
     assume(file.length).to.equal(0);
 
-    file = new File(location, ext, false, null);
+    file = new File(location, {
+      extname: ext,
+      code: null
+    });
 
     assume(file.code).to.equal('');
     assume(file.buffer.length).to.equal(0);
@@ -64,7 +73,10 @@ describe('File', function () {
     });
 
     it('will be called on construction if content is provided', function () {
-      var result = new File(location, ext, false, 'custom');
+      var result = new File(location, {
+        extname: ext,
+        code: 'custom'
+      });
 
       assume(result.code).to.equal('custom');
       assume(result.buffer).to.be.instanceof(Buffer);

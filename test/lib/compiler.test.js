@@ -9,9 +9,13 @@ describe('Compiler', function () {
     , compiler, bigpipe, file;
 
   beforeEach(function () {
-    file = new File('./path/to/file.js', '.js', [], 'tiny piece of code');
     compiler = new Compiler('/tmp');
     bigpipe = new BigPipe;
+    file = new File('./path/to/file.js', {
+      extname: '.js',
+      aliases: [],
+      code: 'tiny piece of code'
+    });
   });
 
   afterEach(function () {
