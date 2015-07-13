@@ -88,7 +88,7 @@ var bigpipe = BigPipe.createServer(8080, {
 });
 ```
 
-The first argument in the function call is port number you want the server the
+The first argument in the function call is port number you want the server to
 listen on. The second argument is an object with the configuration/options of the
 BigPipe server. The following options are supported:
 
@@ -105,18 +105,18 @@ BigPipe server. The following options are supported:
 - **pathname** The root path of an URL that we can use our real-time
   communication. This path should not be used by your Pages. Defaults to
   `/pagelet`
-- **transformer** The transformer or real-time framework we should for the
+- **transformer** The transformer or real-time framework we want to use for the
   real-time communication. We're bundling and using `ws` by default. See [Primus]
   for the supported transformers. Please note that you do need to add the
-  transformer dependency to your `package.json` when you choose something else
+  transformer dependency to your `package.json` when you choose something other
   than `ws`.
-- **redirect** When creating a HTTPS server you could automatically start a HTTP
+- **redirect** When creating a HTTPS server you could automatically start an HTTP
   server which redirects all traffic to the HTTPS equiv. The value is the port
   number on which this server should be started. Defaults to `false`.
 
-In addition to the options above, all options of a HTTPS server are also
-supported.  When you provide the server with cert and key files or set the
-port number to `443` it assumes you want to setup up a HTTPS server instead.
+In addition to the options above, all HTTPS server options are also
+supported.  When you provide a server with cert and key files or set the
+port number to `443`, it assumes you want to setup up a HTTPS server instead.
 
 ```js
 var bigpipe = BigPipe.createServer(443, {
@@ -157,12 +157,12 @@ var bigpipe = new BigPipe(server, { options });
 ```
 
 If you are using this pattern to create a BigPipe server instance you need to
-use the `bigpipe.listen` method to listen to the server. When this is called we
-will start our compiling all assets, attach the correct listeners to the
+use the `bigpipe.listen` method to listen to the server. When this is called,
+BigPipe starts compiling all assets, attach the correct listeners to the
 supplied server, attach event listeners and finally listen on the server. The
 first argument of this method is the port number you want to listen on, the
 second argument is an optional callback function that should be called when
-server is listening for requests.
+server starts listening for requests.
 
 ```js
 bigpipe.listen(8080, function listening() {
@@ -190,7 +190,7 @@ bigpipe.define(pagelets, callback);
 
 Merge pagelet(s) in the collection of existing pagelets. If given a string it
 will search that directory for the available Pagelet files. After all dependencies
-have been compiled the supplied callback is called.
+have been compiled the supplied, the callback is called.
 
 ```js
 bigpipe.define('../pagelets', function done(err) {
@@ -214,8 +214,8 @@ bigpipe.before(name, fn, options);
 
 BigPipe has two ways of extending it's build-in functionality, we have plugins
 but also middleware layers. The important difference between these is that
-middleware layers allow you modify the incoming requests **before** they are
-used by BigPipe.
+middleware layers allow you to modify the incoming requests **before** they 
+reach BigPipe.
 
 There are 2 different kinds of middleware layers, **async** and **sync**. The
 main difference is that the **sync** middleware doesn't require a callback. It's
@@ -233,8 +233,8 @@ bigpipe.before('foo', function (req, res) {
 ```
 
 Or an unconfigured function. We assume that a function is unconfigured if the
-supplied function has less than **2** arguments. When we detect these function
-we automatically call the function with the context that is set to `BigPipe` and
+supplied function has less than **2** arguments. When we detect such a function
+we automatically call it with the context that is set to `BigPipe` and
 the supplied options object and assume that it returns a configured middleware
 layer.
 
@@ -286,9 +286,9 @@ bigpipe.remove('layer');
 bigpipe.disable(name);
 ```
 
-Temporarily disable a middleware layer, it's not removed from the stack but it's
-just skipped when we iterate over the middleware layers. When a middleware layer
-has been disabled you can re-enable it.
+Temporarily disables a middleware layer. It's not removed from the stack but it's
+just skipped when we iterate over the middleware layers. A disabled middleware layer
+can be re-enabled.
 
 ```js
 bigpipe.before('layer', function () {});
@@ -303,7 +303,7 @@ bigpipe.disable('layer');
 bigpipe.enable(name);
 ```
 
-Re-Enable a previously disabled module.
+Re-enable a previously disabled module.
 
 ```js
 bigpipe.disable('layer');
@@ -318,14 +318,14 @@ bigpipe.enable('layer');
 bigpipe.use(name, plugin);
 ```
 
-Plugins can be used to extend the functionality of BigPipe it self. You can
+Plugins can be used to extend the functionality of BigPipe itself. You can
 control the client code as well as the server side code of BigPipe using the
 plugin interface.
 
 ```js
 bigpipe.use('ack', {
   //
-  // Only ran on the server.
+  // Only run on the server.
   //
   server: function (bigpipe, options) {
      // do stuff
@@ -369,7 +369,7 @@ Event                 | Usage       | Location      | Description
 
 ## Debugging
 
-The library makes use the `debug` module and has all it's internals namespaced
+The library makes use of the `debug` module and has all it's internals namespaced
 to `bigpipe:`. These debug messages can be trigged by starting your application
 with the `DEBUG=` env variable. In order to filter out all messages except
 BigPipe's message run your server with the following command:
@@ -393,7 +393,7 @@ The following `DEBUG` namespaces are available:
 Tests are automatically run on [Travis CI] to ensure that everything is
 functioning as intended. For local development we automatically install a
 [pre-commit] hook that runs the `npm test` command every time you commit changes.
-This ensures that we don't push any broken code in to this project.
+This ensures that we don't push any broken code into this project.
 
 ## Inspiration
 
