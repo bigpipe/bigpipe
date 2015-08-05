@@ -7,10 +7,10 @@
 [david]: https://img.shields.io/david/bigpipe/bigpipe.svg?style=flat-square
 [cover]: http://img.shields.io/coveralls/bigpipe/bigpipe/master.svg?style=flat-square
 
-BigPipe is a radical new web framework for Node.JS. The general idea is to 
-decompose web pages into small re-usable chunks of functionality called 
-`Pagelets` and pipeline them through several execution stages inside web 
-servers and browsers. This allows progressive rendering at the front-end and 
+BigPipe is a radical new web framework for Node.JS. The general idea is to
+decompose web pages into small re-usable chunks of functionality called
+`Pagelets` and pipeline them through several execution stages inside web
+servers and browsers. This allows progressive rendering at the front-end and
 results in exceptional front-end performance.
 
 Most web frameworks are based on a request and response pattern, a request comes
@@ -214,7 +214,7 @@ bigpipe.before(name, fn, options);
 
 BigPipe has two ways of extending it's build-in functionality, we have plugins
 but also middleware layers. The important difference between these is that
-middleware layers allow you to modify the incoming requests **before** they 
+middleware layers allow you to modify the incoming requests **before** they
 reach BigPipe.
 
 There are 2 different kinds of middleware layers, **async** and **sync**. The
@@ -369,7 +369,7 @@ Event                 | Usage       | Location      | Description
 
 ## Debugging
 
-The library makes use of the `debug` module and has all it's internals namespaced
+The library makes use of the `diagnostics` module and has all it's internals namespaced
 to `bigpipe:`. These debug messages can be trigged by starting your application
 with the `DEBUG=` env variable. In order to filter out all messages except
 BigPipe's message run your server with the following command:
@@ -397,7 +397,7 @@ This ensures that we don't push any broken code into this project.
 
 ## Inspiration
 
-Bigpipe is inspired by the concept behind Facebook's BigPipe. For more details 
+Bigpipe is inspired by the concept behind Facebook's BigPipe. For more details
 read their blog post: [Pipelining web pages for high performance][blog].
 
 
