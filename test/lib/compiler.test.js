@@ -40,6 +40,32 @@ describe('Compiler', function () {
     });
   });
 
+  describe('#page', function () {
+    it('is a function', function () {
+      assume(compiler.page).to.be.a('function');
+      assume(compiler.page).to.have.length(1);
+    });
+
+    it('resolves the extension of an external dependency', function () {
+      var css = 'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css'
+        , js = 'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js'
+        , Hero = require('../fixtures/pagelets/hero').extend({
+            _dependencies: {
+              '.css': [ css ],
+              '.js': [ js ]
+            }
+          })
+        , stack;
+
+     stack = compiler.page(new Hero).stack;
+
+     assume(stack[0]).to.have.property('extname', '.css');
+     assume(stack[0]).to.have.property('filepath', css);
+     assume(stack[1]).to.have.property('extname', '.js');
+     assume(stack[1]).to.have.property('filepath', js);
+    });
+  });
+
   describe('#pagelet', function () {
     it('is a function', function () {
       assume(compiler.pagelet).to.be.a('function');
