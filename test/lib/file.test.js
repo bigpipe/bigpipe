@@ -39,7 +39,7 @@ describe('File', function () {
     assume(file).to.have.property('code', code);
     assume(file).to.have.property('buffer');
     assume(file).to.have.property('aliases');
-    assume(file.aliases).to.include(location);
+    assume(file.aliases).to.include('./path/to/file');
   });
 
   it('allows code to be null or undefined', function () {
