@@ -3,6 +3,7 @@ describe('Compiler', function () {
 
   var common = require('../common')
     , assume = require('assume')
+    , path = require('path')
     , Compiler = common.Compiler
     , BigPipe = common.BigPipe
     , File = common.File
@@ -60,9 +61,9 @@ describe('Compiler', function () {
      stack = compiler.page(new Hero).stack;
 
      assume(stack[0]).to.have.property('extname', '.css');
-     assume(stack[0]).to.have.property('filepath', css);
+     assume(stack[0]).to.have.property('filepath', css.replace(path.extname(css), ''));
      assume(stack[1]).to.have.property('extname', '.js');
-     assume(stack[1]).to.have.property('filepath', js);
+     assume(stack[1]).to.have.property('filepath', js.replace(path.extname(js), ''));
     });
   });
 
