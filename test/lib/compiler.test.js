@@ -10,8 +10,8 @@ describe('Compiler', function () {
     , compiler, bigpipe, file;
 
   beforeEach(function () {
-    compiler = new Compiler('/tmp');
     bigpipe = new BigPipe;
+    compiler = new Compiler('/tmp', bigpipe);
     file = new File('./path/to/file.js', {
       extname: '.js',
       aliases: [],
@@ -27,6 +27,28 @@ describe('Compiler', function () {
 
   it('exposes the Compiler constructor', function () {
     assume(compiler).to.be.instanceof(Compiler);
+  });
+
+  describe.only('#catalog', function () {
+    it('will catalog a page (assemble all of the assets) for bootstrap', function (done) {
+      compiler = bigpipe._compiler;
+      file = new File(bigpipe._framework.get('name'), {
+        dependency: true,
+        extname: '.js',
+        code: 'function() {}'
+      });
+
+      // look at the bootstrap, bootstrap is setup unlike a hero or a fixture
+      bigpipe.discover(function discover(err, data) {
+        // md5 is diff
+        var result = compiler.buffer[file.origin];
+        file.hash = result.hash;
+
+        assume(compiler.buffer[file.origin]).to.be.a('object');
+        assume(compiler.buffer[file.location]).to.be.a('object');
+        done();
+      });
+    });
   });
 
   describe('#register', function () {
