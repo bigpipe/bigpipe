@@ -31,6 +31,7 @@ describe('Compiler', function () {
 
   describe('#catalog', function () {
     it('will catalog a pagelet (assemble all of the assets) for bootstrap', function (done) {
+      this.timeout(10000);
       compiler = bigpipe._compiler;
       file = new File(bigpipe._framework.get('name'), {
         dependency: true,
