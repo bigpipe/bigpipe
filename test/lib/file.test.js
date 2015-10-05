@@ -155,7 +155,18 @@ describe('File', function () {
       assume(file.location).to.be.a('string');
     });
 
-    it('returns the location', function () {
+    it('returns an external location', function () {
+      var location = 'http://github.com/file.js';
+      file = new File(location, {
+        extname: ext,
+        code: 'custom',
+        external: true
+      });
+
+      assume(file.location).to.equal(location);
+    });
+
+    it('returns a non external location', function () {
       assume(file.location).to.equal('/' + sha + ext);
     });
   });
