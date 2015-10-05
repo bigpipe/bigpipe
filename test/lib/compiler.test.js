@@ -29,8 +29,8 @@ describe('Compiler', function () {
     assume(compiler).to.be.instanceof(Compiler);
   });
 
-  describe.only('#catalog', function () {
-    it('will catalog a page (assemble all of the assets) for bootstrap', function (done) {
+  describe('#catalog', function () {
+    it('will catalog a pagelet (assemble all of the assets) for bootstrap', function (done) {
       compiler = bigpipe._compiler;
       file = new File(bigpipe._framework.get('name'), {
         dependency: true,

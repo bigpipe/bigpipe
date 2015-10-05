@@ -154,6 +154,7 @@ describe('File', function () {
     it('is a getter that returns a string', function () {
       assume(file.location).to.be.a('string');
     });
+
     it('returns an external location', function () {
       var location = 'http://github.com/file.js';
       file = new File(location, {
@@ -164,6 +165,7 @@ describe('File', function () {
 
       assume(file.location).to.equal(location);
     });
+
     it('returns a non external location', function () {
       assume(file.location).to.equal('/' + sha + ext);
     });
