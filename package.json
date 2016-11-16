@@ -14,15 +14,15 @@
   "dependencies": {
     "404-pagelet": "1.0.x",
     "500-pagelet": "1.0.x",
-    "async": "0.9.x",
-    "asyncemit": "1.0.x",
+    "async": "~2.1.2",
+    "asyncemit": "~3.0.1",
     "bigpipe.js": "0.9.x",
     "bootstrap-pagelet": "1.0.x",
-    "browserify": "9.0.x",
-    "create-server": "0.0.x",
+    "browserify": "~13.1.1",
+    "create-server": "~1.0.1",
     "demolish": "1.0.x",
-    "diagnostics": "0.0.x",
-    "eventemitter3": "0.1.x",
+    "diagnostics": "~1.0.1",
+    "eventemitter3": "~2.0.2",
     "fabricator": "0.5.x",
     "fusing": "1.0.x",
     "mkdirp": "0.5.x",
@@ -32,12 +32,12 @@
     "zipline": "1.0.x"
   },
   "devDependencies": {
-    "assume": "1.2.x",
+    "assume": "~1.4.1",
     "fittings": "1.2.x",
-    "istanbul": "0.3.x",
-    "mocha": "2.2.x",
+    "istanbul": "~0.4.5",
+    "mocha": "~3.1.2",
     "pagelet": "0.9.x",
-    "pre-commit": "1.0.x"
+    "pre-commit": "~1.1.3"
   },
   "repository": {
     "type": "git",
